@@ -71,8 +71,7 @@ export function injectFeedbackComponents_(): void {
     mount(FeedbackRating, {
       target: container,
       props: {
-        rating: randomRating,
-        targetElement: element
+        rating: randomRating
       }
     });
     
@@ -87,38 +86,40 @@ export function injectFeedbackComponents(): void {
   
   feedbackElements.forEach((element, index) => {
     // Check if we've already injected a component for this element
-    const existingComponent = element.querySelector('.feedback-rating-container');
+    const existingComponent = element.parentNode?.querySelector('.feedback-rating-container');
     if (existingComponent) {
       return; // Skip if already injected
     }
     
-    // Make sure the target element can contain positioned children
-    element.style.position = 'relative';
+    // Make sure the parent element can contain positioned children
+    if (element.parentNode) {
+      (element.parentNode as HTMLElement).style.position = 'relative';
+    }
     
     // Create a container for our component
     const container = document.createElement('div');
     container.className = 'feedback-rating-container';
     container.style.position = 'absolute';
-    container.style.top = '1em';
-    container.style.right = '-10em';
+    container.style.top = '0';
+    container.style.left = `${element.offsetWidth}px`;
     container.style.zIndex = '10';
+    container.style.width = '10em';
     
     // Generate a random rating for demonstration (1-4)
     const randomRating = Math.floor(Math.random() * 4) + 1;
     
-    // Insert the container as the first child of the target element
-    element.insertBefore(container, element.firstChild);
+    // Insert the container as a sibling after the target element
+    element.parentNode?.insertBefore(container, element.nextSibling);
     
     // Mount the FeedbackRating component
     mount(FeedbackRating, {
       target: container,
       props: {
-        rating: randomRating,
-        targetElement: element
+        rating: randomRating
       }
     });
     
-    console.log(`Injected feedback component with rating ${randomRating} at top right of element ${index + 1}`);
+    console.log(`Injected feedback component with rating ${randomRating} to the right of element ${index + 1}`);
   });
 }
 

@@ -19,7 +19,7 @@
   }
 </script>
 
-<div class="rating-popover">
+<div class="rating-popover">  
   <div class="popover-header">
     <h4 id="popover-title">Detailed Ratings</h4>
   </div>

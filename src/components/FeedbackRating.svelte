@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createEventDispatcher, onMount } from 'svelte';
+  import { createEventDispatcher, onMount, tick } from 'svelte';
   import RatingPopover from './RatingPopover.svelte';
   
   export let rating: number = 3; // Default rating
@@ -9,10 +9,14 @@
   let popoverContainer: HTMLDivElement;
   const dispatch = createEventDispatcher();
   
-  // Ensure the popover is attached to body to avoid container constraints
+  // Ensure the popover is attached to the main document body to avoid container constraints
   onMount(() => {
-    if (popoverContainer && document.body && popoverContainer.parentNode !== document.body) {
-      document.body.appendChild(popoverContainer);
+    // Get the main document (could be parent or top document)
+    const mainDocument = window.parent?.document || window.top?.document || document;
+    const mainBody = mainDocument.body || document.body;
+    
+    if (popoverContainer && mainBody && popoverContainer.parentNode !== mainBody) {
+      mainBody.appendChild(popoverContainer);
     }
   });
   
@@ -34,7 +38,7 @@
   }
   
   // Handle click to toggle popover
-  function handleClick(event: MouseEvent) {
+  async function handleClick(event: MouseEvent) {
     event.stopPropagation();
     
     // Calculate position for popover
@@ -42,14 +46,26 @@
     const rect = element.getBoundingClientRect();
     
     // Position the popover to float freely above content
-    // Center it horizontally with the button, but position it higher up
+    // Center it horizontally with the button, but position it below
     popoverPosition = {
       x: rect.left + rect.width / 2,
-      y: rect.top - 10  // Position above the button instead of below
+      y: rect.bottom + 10  // Position below the button instead of above
     };
-    
     showPopover = !showPopover;
     dispatch('toggle', { show: showPopover });
+    
+    // Wait for the DOM to update and then recalculate position if needed
+    if (showPopover) {
+      await tick();
+      // Recalculate position after the popover is mounted to the body
+      if (popoverContainer && popoverContainer.parentNode === document.body) {
+        const updatedRect = element.getBoundingClientRect();
+        popoverPosition = {
+          x: updatedRect.left + updatedRect.width / 2,
+          y: updatedRect.bottom + 10
+        };
+      }
+    }
   }
   
   // Handle keyboard events for accessibility
@@ -98,6 +114,7 @@
 </button>
 
 {#if showPopover}
+  
   <div
     bind:this={popoverContainer}
     class="popover-container"
@@ -137,28 +154,27 @@
   .popover-container {
     position: fixed;
     z-index: 1;
-    transform: translateX(-50%) translateY(-100%);
+    transform: translateX(-50%) translateY(0);
     animation: fadeIn 0.2s ease-out;
     pointer-events: auto;
   }
   
   .popover-arrow {
     position: absolute;
-    bottom: -8px;
+    top: -8px;
     left: 50%;
     transform: translateX(-50%);
     width: 0;
     height: 0;
     border-left: 8px solid transparent;
     border-right: 8px solid transparent;
-    border-top: 8px solid white;
+    border-bottom: 8px solid white;
     filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.1));
   }
-  
   @keyframes fadeIn {
     from {
       opacity: 0;
-      transform: translateX(-50%) translateY(-5px);
+      transform: translateX(-50%) translateY(5px);
     }
     to {
       opacity: 1;

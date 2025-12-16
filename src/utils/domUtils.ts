@@ -42,7 +42,7 @@ export function findFeedbackElements(): HTMLElement[] {
 /**
  * Inject a feedback rating component next to each target element
  */
-export function injectFeedbackComponents(): void {
+export function injectFeedbackComponents_(): void {
   const feedbackElements = findFeedbackElements();
   
   console.log(`Found ${feedbackElements.length} feedback elements to inject components into.`);
@@ -77,6 +77,48 @@ export function injectFeedbackComponents(): void {
     });
     
     console.log(`Injected feedback component with rating ${randomRating} next to element ${index + 1}`);
+  });
+}
+
+export function injectFeedbackComponents(): void {
+  const feedbackElements = findFeedbackElements();
+  
+  console.log(`Found ${feedbackElements.length} feedback elements to inject components into.`);
+  
+  feedbackElements.forEach((element, index) => {
+    // Check if we've already injected a component for this element
+    const existingComponent = element.querySelector('.feedback-rating-container');
+    if (existingComponent) {
+      return; // Skip if already injected
+    }
+    
+    // Make sure the target element can contain positioned children
+    element.style.position = 'relative';
+    
+    // Create a container for our component
+    const container = document.createElement('div');
+    container.className = 'feedback-rating-container';
+    container.style.position = 'absolute';
+    container.style.top = '1em';
+    container.style.right = '-10em';
+    container.style.zIndex = '10';
+    
+    // Generate a random rating for demonstration (1-4)
+    const randomRating = Math.floor(Math.random() * 4) + 1;
+    
+    // Insert the container as the first child of the target element
+    element.insertBefore(container, element.firstChild);
+    
+    // Mount the FeedbackRating component
+    mount(FeedbackRating, {
+      target: container,
+      props: {
+        rating: randomRating,
+        targetElement: element
+      }
+    });
+    
+    console.log(`Injected feedback component with rating ${randomRating} at top right of element ${index + 1}`);
   });
 }
 

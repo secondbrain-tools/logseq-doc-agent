@@ -1,9 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   
-  export let message: string = 'Hello World!'
+  let { message = 'Hello World!' } = $props()
   
-  let greeting = 'Loading...'
+  let greeting = $state('Loading...')
   
   onMount(async () => {
     // Get current graph info when component mounts
@@ -40,10 +40,10 @@
   <p>This is a hello world Logseq plugin built with Svelte!</p>
   
   <div class="button-group">
-    <button on:click={sayHello}>
+    <button onclick={sayHello}>
       Say Hello
     </button>
-    <button on:click={createHelloBlock}>
+    <button onclick={createHelloBlock}>
       Create Hello Block
     </button>
   </div>

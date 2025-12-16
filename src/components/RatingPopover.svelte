@@ -1,5 +1,5 @@
 <script lang="ts">
-  export let detailedRatings: Array<{category: string, rating: number}> = [];
+  let { detailedRatings = [] }: { detailedRatings?: Array<{category: string, rating: number}> } = $props();
   
   // Get star color based on rating value
   function getStarColor(ratingValue: number): string {

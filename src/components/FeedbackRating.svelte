@@ -1,12 +1,15 @@
 <script lang="ts">
-  import { createEventDispatcher, onMount, tick } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import RatingPopover from './RatingPopover.svelte';
+  import { createEventDispatcher } from 'svelte';
   
-  export let rating: number = 3; // Default rating
+  let { rating = 3 }: { rating?: number } = $props(); // Default rating
   
-  let showPopover = false;
-  let popoverPosition = { x: 0, y: 0 };
+  let showPopover = $state(false);
+  let popoverPosition = $state({ x: 0, y: 0 });
   let popoverContainer: HTMLDivElement;
+  
+  // In Svelte 5, we still use createEventDispatcher for custom events
   const dispatch = createEventDispatcher();
   
   // Ensure the popover is attached to the main document body to avoid container constraints
@@ -68,6 +71,10 @@
     }
   }
   
+  $effect(() => {
+    console.log(popoverPosition);
+  });
+
   // Handle keyboard events for accessibility
   function handleKeydown(event: KeyboardEvent) {
     if (event.key === 'Enter' || event.key === ' ') {
@@ -99,13 +106,13 @@
   ];
 </script>
 
-<svelte:window on:click={handleGlobalClick} />
+<svelte:window onclick={handleGlobalClick} />
 
 <button
   type="button"
   class="feedback-rating"
-  on:click={handleClick}
-  on:keydown={handleKeydown}
+  onclick={handleClick}
+  onkeydown={handleKeydown}
   style="color: {getStarColor(rating)}"
   title="Rating: {rating}/4 - Click for details"
   aria-label="Rating {rating} out of 4 stars, click for details"
@@ -119,8 +126,8 @@
     bind:this={popoverContainer}
     class="popover-container"
     style="left: {popoverPosition.x}px; top: {popoverPosition.y}px;"
-    on:click|stopPropagation
-    on:keydown={handlePopoverKeydown}
+    onclick={(e) => e.stopPropagation()}
+    onkeydown={handlePopoverKeydown}
     role="dialog"
     aria-labelledby="popover-title"
     tabindex="0"

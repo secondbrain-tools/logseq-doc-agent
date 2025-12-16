@@ -49,12 +49,14 @@
   .rating-popover {
     background: white;
     border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    border-radius: 12px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15), 0 10px 20px rgba(0, 0, 0, 0.1);
     min-width: 250px;
     max-width: 350px;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     overflow: hidden;
+    backdrop-filter: blur(10px);
+    transform: translateZ(0);
   }
   
   .popover-header {

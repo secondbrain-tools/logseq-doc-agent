@@ -20,12 +20,17 @@
   }
   
   async function createHelloBlock() {
-    const block = await logseq.Editor.insertBlock('Hello World from Logseq Plugin! 🎉', {
-      sibling: false,
-      focused: true
-    })
-    if (block) {
-      await logseq.UI.showMsg('Hello World block created!', 'success')
+    const currentPage = await logseq.Editor.getCurrentPage()
+    if (currentPage && currentPage.uuid) {
+      const block = await logseq.Editor.appendBlockInPage(
+        currentPage.uuid,
+        'Hello World from Logseq Plugin! 🎉'
+      )
+      if (block) {
+        await logseq.UI.showMsg('Hello World block created!', 'success')
+      }
+    } else {
+      await logseq.UI.showMsg('No current page found', 'error')
     }
   }
 </script>

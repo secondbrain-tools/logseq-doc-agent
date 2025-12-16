@@ -1,12 +1,20 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onMount } from 'svelte';
   import RatingPopover from './RatingPopover.svelte';
   
   export let rating: number = 3; // Default rating
   
   let showPopover = false;
   let popoverPosition = { x: 0, y: 0 };
+  let popoverContainer: HTMLDivElement;
   const dispatch = createEventDispatcher();
+  
+  // Ensure the popover is attached to body to avoid container constraints
+  onMount(() => {
+    if (popoverContainer && document.body && popoverContainer.parentNode !== document.body) {
+      document.body.appendChild(popoverContainer);
+    }
+  });
   
   // Get star color based on rating value
   function getStarColor(ratingValue: number): string {
@@ -32,9 +40,12 @@
     // Calculate position for popover
     const element = event.currentTarget as HTMLElement;
     const rect = element.getBoundingClientRect();
+    
+    // Position the popover to float freely above content
+    // Center it horizontally with the button, but position it higher up
     popoverPosition = {
       x: rect.left + rect.width / 2,
-      y: rect.bottom + 5
+      y: rect.top - 10  // Position above the button instead of below
     };
     
     showPopover = !showPopover;
@@ -46,6 +57,14 @@
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
       handleClick(event as any);
+    }
+  }
+  
+  // Handle keyboard events for the popover
+  function handlePopoverKeydown(event: KeyboardEvent) {
+    if (event.key === 'Escape') {
+      showPopover = false;
+      dispatch('toggle', { show: false });
     }
   }
   
@@ -80,12 +99,16 @@
 
 {#if showPopover}
   <div
+    bind:this={popoverContainer}
     class="popover-container"
     style="left: {popoverPosition.x}px; top: {popoverPosition.y}px;"
     on:click|stopPropagation
+    on:keydown={handlePopoverKeydown}
     role="dialog"
     aria-labelledby="popover-title"
+    tabindex="0"
   >
+    <div class="popover-arrow"></div>
     <RatingPopover {detailedRatings} />
   </div>
 {/if}
@@ -113,7 +136,33 @@
   
   .popover-container {
     position: fixed;
-    z-index: 1000;
+    z-index: 1;
+    transform: translateX(-50%) translateY(-100%);
+    animation: fadeIn 0.2s ease-out;
+    pointer-events: auto;
+  }
+  
+  .popover-arrow {
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
     transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    border-top: 8px solid white;
+    filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.1));
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateX(-50%) translateY(-5px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
   }
 </style>

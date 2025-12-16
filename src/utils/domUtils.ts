@@ -5,15 +5,28 @@ import FeedbackRating from '../components/FeedbackRating.svelte';
  * Find all div elements that have "feedback" in their data-refs array
  */
 export function findFeedbackElements(): HTMLElement[] {
-  const allElements = document.querySelectorAll('div[data-refs]');
+
+ const mainDocument = window.parent?.document || window.top?.document;
+  
+  if (!mainDocument) {
+    console.error('Cannot access main Logseq document');
+    return [];
+  }
+
+  
+  const allElements = mainDocument.querySelectorAll('div[data-refs-self]');
+  console.log(`Found ${allElements.length} elements with data-refs attribute.`);
   const feedbackElements: HTMLElement[] = [];
   
   allElements.forEach((element) => {
-    const dataRefs = element.getAttribute('data-refs');
+    console.log(`Checking element:`, element);
+    const dataRefs = element.getAttribute('data-refs-self');
+    console.log(`data-refs attribute:`, dataRefs);
     if (dataRefs) {
       try {
         // Parse the JSON array from data-refs attribute
         const refsArray = JSON.parse(dataRefs);
+        console.log(`Found data-refs for element: ${element}`, refsArray);
         if (Array.isArray(refsArray) && refsArray.includes('feedback')) {
           feedbackElements.push(element as HTMLElement);
         }
@@ -32,6 +45,9 @@ export function findFeedbackElements(): HTMLElement[] {
 export function injectFeedbackComponents(): void {
   const feedbackElements = findFeedbackElements();
   
+  console.log(`Found ${feedbackElements.length} feedback elements to inject components into.`);
+  
+
   feedbackElements.forEach((element, index) => {
     // Check if we've already injected a component for this element
     const existingComponent = element.querySelector('.feedback-rating-container');

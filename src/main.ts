@@ -32,7 +32,13 @@ const main = async () => {
   // Register a toolbar button
   logseq.App.registerUIItem('toolbar', {
     key: 'hello-world',
-    template: '<a title="logseq-doc-agent" style="font-size:15px;color:#1f9ee1;opacity:unset" data-on-click="showHello" class="button icon">🤖</a>'
+    template: '<a title="logseq-doc-agent" style="font-size:15px;color:#1f9ee1;opacity:unset" data-on-click="showHello" class="button icon">.🤖</a>'
+    //template: '<button data-on-click="showHello">🤖</button>',
+  })
+
+    logseq.App.registerUIItem('pagebar', {
+    key: 'hello-world',
+    template: '<a title="logseq-doc-agent" style="font-size:15px;color:#1f9ee1;opacity:unset" data-on-click="showHello" class="button icon">.🤖</a>'
     //template: '<button data-on-click="showHello">🤖</button>',
   })
 

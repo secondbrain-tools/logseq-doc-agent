@@ -1,0 +1,75 @@
+import { mount } from 'svelte';
+import FeedbackRating from '../components/FeedbackRating.svelte';
+
+/**
+ * Find all div elements that have "feedback" in their data-refs array
+ */
+export function findFeedbackElements(): HTMLElement[] {
+  const allElements = document.querySelectorAll('div[data-refs]');
+  const feedbackElements: HTMLElement[] = [];
+  
+  allElements.forEach((element) => {
+    const dataRefs = element.getAttribute('data-refs');
+    if (dataRefs) {
+      try {
+        // Parse the JSON array from data-refs attribute
+        const refsArray = JSON.parse(dataRefs);
+        if (Array.isArray(refsArray) && refsArray.includes('feedback')) {
+          feedbackElements.push(element as HTMLElement);
+        }
+      } catch (error) {
+        console.warn('Failed to parse data-refs:', dataRefs, error);
+      }
+    }
+  });
+  
+  return feedbackElements;
+}
+
+/**
+ * Inject a feedback rating component next to each target element
+ */
+export function injectFeedbackComponents(): void {
+  const feedbackElements = findFeedbackElements();
+  
+  feedbackElements.forEach((element, index) => {
+    // Check if we've already injected a component for this element
+    const existingComponent = element.querySelector('.feedback-rating-container');
+    if (existingComponent) {
+      return; // Skip if already injected
+    }
+    
+    // Create a container for our component
+    const container = document.createElement('div');
+    container.className = 'feedback-rating-container';
+    container.style.display = 'inline-block';
+    container.style.marginLeft = '8px';
+    
+    // Generate a random rating for demonstration (1-4)
+    const randomRating = Math.floor(Math.random() * 4) + 1;
+    
+    // Insert the container after the target element
+    element.parentNode?.insertBefore(container, element.nextSibling);
+    
+    // Mount the FeedbackRating component
+    mount(FeedbackRating, {
+      target: container,
+      props: {
+        rating: randomRating,
+        targetElement: element
+      }
+    });
+    
+    console.log(`Injected feedback component with rating ${randomRating} next to element ${index + 1}`);
+  });
+}
+
+/**
+ * Remove all injected feedback components
+ */
+export function removeFeedbackComponents(): void {
+  const containers = document.querySelectorAll('.feedback-rating-container');
+  containers.forEach(container => {
+    container.remove();
+  });
+}

@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite build --watch",
     "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json"
@@ -22,7 +22,7 @@
     "id": "logseq-hello-world",
     "description": "A simple hello world plugin for Logseq",
     "title": "Hello World Plugin",
-    "icon": "./icon.png",
+    "icon": "icon.png",
     "author": "Logseq Developer",
     "repo": "https://github.com/yourusername/logseq-hello-world",
     "main": "dist/main.js"

@@ -2,6 +2,7 @@ import '@logseq/libs'
 import { mount } from 'svelte'
 import './app.css'
 import App from './App.svelte'
+import { injectFeedbackComponents, removeFeedbackComponents } from './utils/domUtils'
 
 // This is the main entry point for the Logseq plugin
 const main = async () => {
@@ -31,13 +32,28 @@ const main = async () => {
   // Register a toolbar button
   logseq.App.registerUIItem('toolbar', {
     key: 'hello-world',
-    template: '<a class="button" data-on-click="showHello">Hello</a>',
+    template: '<a title="logseq-doc-agent" style="font-size:15px;color:#1f9ee1;opacity:unset" data-on-click="showHello" class="button icon">🤖</a>'
+    //template: '<button data-on-click="showHello">🤖</button>',
   })
 
   // Handle the toolbar button click
   logseq.provideModel({
     async showHello() {
-      await logseq.UI.showMsg('Hello from toolbar button!', 'success')
+      await logseq.UI.showMsg('Injecting feedback components!', 'info')
+      
+      // Remove any existing feedback components first
+      removeFeedbackComponents()
+      
+      // Wait a bit for DOM to be ready, then inject components
+      setTimeout(() => {
+        try {
+          injectFeedbackComponents()
+          logseq.UI.showMsg(`Injected feedback components!`, 'success')
+        } catch (error) {
+          console.error('Error injecting feedback components:', error)
+          logseq.UI.showMsg('Error injecting feedback components', 'error')
+        }
+      }, 500)
     }
   })
 }

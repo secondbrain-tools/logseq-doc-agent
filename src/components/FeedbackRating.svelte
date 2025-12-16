@@ -1,0 +1,119 @@
+<script lang="ts">
+  import { createEventDispatcher } from 'svelte';
+  import RatingPopover from './RatingPopover.svelte';
+  
+  export let rating: number = 3; // Default rating
+  
+  let showPopover = false;
+  let popoverPosition = { x: 0, y: 0 };
+  const dispatch = createEventDispatcher();
+  
+  // Get star color based on rating value
+  function getStarColor(ratingValue: number): string {
+    switch(ratingValue) {
+      case 1: return '#ef4444'; // red
+      case 2: return '#eab308'; // yellow
+      case 3: return '#86efac'; // light green
+      case 4: return '#16a34a'; // dark green
+      default: return '#6b7280'; // gray
+    }
+  }
+  
+  // Generate star display based on rating
+  function getStarDisplay(ratingValue: number): string {
+    const starSymbol = '★';
+    return starSymbol.repeat(ratingValue);
+  }
+  
+  // Handle click to toggle popover
+  function handleClick(event: MouseEvent) {
+    event.stopPropagation();
+    
+    // Calculate position for popover
+    const element = event.currentTarget as HTMLElement;
+    const rect = element.getBoundingClientRect();
+    popoverPosition = {
+      x: rect.left + rect.width / 2,
+      y: rect.bottom + 5
+    };
+    
+    showPopover = !showPopover;
+    dispatch('toggle', { show: showPopover });
+  }
+  
+  // Handle keyboard events for accessibility
+  function handleKeydown(event: KeyboardEvent) {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      handleClick(event as any);
+    }
+  }
+  
+  // Close popover when clicking outside
+  function handleGlobalClick() {
+    showPopover = false;
+  }
+  
+  // Mock data for detailed ratings
+  const detailedRatings = [
+    { category: 'Content Quality', rating: 4 },
+    { category: 'Clarity', rating: 3 },
+    { category: 'Usefulness', rating: 4 },
+    { category: 'Accuracy', rating: 2 },
+    { category: 'Completeness', rating: 3 }
+  ];
+</script>
+
+<svelte:window on:click={handleGlobalClick} />
+
+<button
+  type="button"
+  class="feedback-rating"
+  on:click={handleClick}
+  on:keydown={handleKeydown}
+  style="color: {getStarColor(rating)}"
+  title="Rating: {rating}/4 - Click for details"
+  aria-label="Rating {rating} out of 4 stars, click for details"
+>
+  {getStarDisplay(rating)}
+</button>
+
+{#if showPopover}
+  <div
+    class="popover-container"
+    style="left: {popoverPosition.x}px; top: {popoverPosition.y}px;"
+    on:click|stopPropagation
+    role="dialog"
+    aria-labelledby="popover-title"
+  >
+    <RatingPopover {detailedRatings} />
+  </div>
+{/if}
+
+<style>
+  .feedback-rating {
+    display: inline-block;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    user-select: none;
+    margin-left: 8px;
+    vertical-align: middle;
+    background: transparent;
+    border: none;
+  }
+  
+  .feedback-rating:hover {
+    transform: scale(1.1);
+    filter: brightness(1.2);
+  }
+  
+  .popover-container {
+    position: fixed;
+    z-index: 1000;
+    transform: translateX(-50%);
+  }
+</style>

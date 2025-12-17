@@ -5,9 +5,8 @@ import './ui/styles/feedback-components.css'
 import App from './App.svelte'
 import { injectFeedbackComponents, removeFeedbackComponents } from './infra/domUtils'
 import { InjectRatingsUseCase } from './application/usecases/inject-ratings.usecase';
-import { FrontendComponentInjector } from './infra/frontend'
-import cssContent from './ui/styles/feedback-components.css?raw';
-import { LogseqStyleInjector } from './infra/logseq'
+import { FrontendComponentInjector, FrontendStyleInjector } from './infra/frontend'
+
 
 // This is the main entry point for the Logseq plugin
 const main = async () => {
@@ -57,11 +56,8 @@ const main = async () => {
       // Wait a bit for DOM to be ready, then inject components
       setTimeout(() => {
         try {
-          
-          
-          
-          
-          new InjectRatingsUseCase(new FrontendComponentInjector(),  new LogseqStyleInjector()).execute();
+                                    
+          new InjectRatingsUseCase(new FrontendComponentInjector(),  new FrontendStyleInjector()).execute();
           //logseq.UI.showMsg(`Injected feedback components!`, 'success')
         } catch (error) {
           console.error('Error injecting feedback components:', error)

@@ -1,4 +1,4 @@
-import type { ComponentInjector, StyleInjector } from '../ports';
+import type { ComponentInjector, LogseqApi, StyleInjector } from '../ports';
 import { InjectionPosition } from '../../domain/value-objects';
 import FeedbackRating from '../../ui/components/FeedbackRating.svelte';
 import cssContent from '../../ui/styles/feedback-components.css?raw';
@@ -8,7 +8,7 @@ import cssContent from '../../ui/styles/feedback-components.css?raw';
  * This use case is an orchestrator that specifically handles feedback rating injection
  */
 export class InjectRatingsUseCase {
-  constructor(private componentInjector: ComponentInjector, private styleInjector: StyleInjector) {}
+  constructor(private componentInjector: ComponentInjector, private styleInjector: StyleInjector, private logseqApi: LogseqApi) {}
 
   /**
    * Injects FeedbackRating components into all elements with 'feedback' property in their data-refs-self attribute
@@ -43,7 +43,7 @@ export class InjectRatingsUseCase {
       }> = [];
 
       // Inject FeedbackRating component into each found element
-      feedbackElements.forEach((element) => {
+      feedbackElements.forEach(async (element) => {
         try {
           // Create a unique ID for the target element
           const targetId = this.generateTargetId(element);
@@ -51,6 +51,16 @@ export class InjectRatingsUseCase {
           // Extract block ID from 'blockid' attribute
           const blockId = this.componentInjector.getBlockIdFromElement(element);
           
+          console.log(`Injecting FeedbackRating component for element: ${targetId}, blockId: ${blockId || 'N/A'}`);
+
+          
+          
+          if(blockId) {          
+            const feedbackContent = await this.logseqApi.Editor.getBlockPropertyContent(blockId, 'feedback');            
+            console.log(`Feedback property content for blockId ${blockId}:`, feedbackContent);
+          }
+      
+
           // Inject the FeedbackRating component at the specified position
           const container = this.componentInjector.injectComponentWithPosition(
             element,

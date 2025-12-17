@@ -2,6 +2,8 @@
  * Ports for Logseq-specific operations
  */
 
+import type { BlockEntity } from "@logseq/libs/dist/LSPlugin.user";
+
 export interface LogseqApi {
   getCurrentGraph(): Promise<any>;
   getCurrentPage(): Promise<any>;
@@ -14,6 +16,7 @@ export interface LogseqApi {
     showMsg(message: string, type?: string): Promise<any>;
   };
   Editor: {
-    getBlock(uuid: string): Promise<any>;
+    getBlock(uuid: string): Promise<BlockEntity>;
+    getBlockPropertyContent(uuid: string, propertyName: string): Promise<string | null>;
   };
 }

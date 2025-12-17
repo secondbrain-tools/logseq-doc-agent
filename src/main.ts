@@ -5,11 +5,12 @@ import './ui/styles/feedback-components.css'
 import App from './App.svelte'
 import { InjectRatingsUseCase } from './application/usecases/inject-ratings.usecase';
 import { FrontendComponentInjector, FrontendStyleInjector } from './infra/frontend'
+import { LogseqApiImpl } from './infra/logseq'
 
 
 // This is the main entry point for the Logseq plugin
 const main = async () => {
-  
+    
   // Create the Svelte app
   const app = mount(App, {
     target: document.body,
@@ -18,21 +19,32 @@ const main = async () => {
     }
   })
 
-  // Register a slash command
-/*  logseq.Editor.registerSlashCommand('Hello World', async () => {
-    await logseq.UI.showMsg('Hello World from Logseq Plugin!', 'success')
-  })*/
+  // Register a slash command to get block content
+  logseq.Editor.registerSlashCommand('Get Block Content', async () => {
+    try {
+      // Get the current page
+      const currentPage = await logseq.Editor.getCurrentPage();
+      if (currentPage && currentPage.uuid) {                
+      } else {
+        await logseq.UI.showMsg('No current page found', 'error');
+      }
+    } catch (error) {
+      console.error('Error getting block content:', error);
+      await logseq.UI.showMsg('Error getting block content', 'error');
+    }
+  })
 
   // Register a block context menu item
-  /*logseq.Editor.registerBlockContextMenuItem('Say Hello', async ({ uuid }) => {
-    const block = await logseq.Editor.getBlock(uuid)
-    if (block) {
-      await logseq.UI.showMsg(`Hello from block: ${block.content}`, 'info')
+  logseq.Editor.registerBlockContextMenuItem('Get Block Content', async ({ uuid }) => {
+    try {
+          } catch (error) {
+      console.error('Error getting block content:', error);
+      await logseq.UI.showMsg('Error getting block content', 'error');
     }
   })
 
   // Register a toolbar button
-  logseq.App.registerUIItem('toolbar', {
+  /*logseq.App.registerUIItem('toolbar', {
     key: 'hello-world',
     template: '<a title="logseq-doc-agent" style="font-size:15px;color:#1f9ee1;opacity:unset" data-on-click="showHello" class="button icon">.🤖</a>'
     //template: '<button data-on-click="showHello">🤖</button>',
@@ -52,15 +64,17 @@ const main = async () => {
       // Wait a bit for DOM to be ready, then inject components
       setTimeout(() => {
         try {
-                                    
-          new InjectRatingsUseCase(new FrontendComponentInjector(),  new FrontendStyleInjector()).execute();
+                                     
+          new InjectRatingsUseCase(new FrontendComponentInjector(),  new FrontendStyleInjector(), new LogseqApiImpl).execute();
           //logseq.UI.showMsg(`Injected feedback components!`, 'success')
         } catch (error) {
           console.error('Error injecting feedback components:', error)
           logseq.UI.showMsg('Error injecting feedback components', 'error')
         }
       }, 500)
-    }
+    },
+    
+  
   })
 }
 

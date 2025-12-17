@@ -1,5 +1,6 @@
 import { mount } from 'svelte';
 import FeedbackRating from '../components/FeedbackRating.svelte';
+import cssContent from '../styles/feedback-components.css?raw';
 
 /**
  * Inject CSS styles into the main document
@@ -18,126 +19,10 @@ function injectStyles(): void {
     return; // Styles already injected
   }
 
-  // Create style element with all required CSS
+  // Create style element with the imported CSS content
   const styleElement = mainDocument.createElement('style');
   styleElement.id = existingStyleId;
-  styleElement.textContent = `
-    .feedback-rating {
-      display: inline-block;
-      font-size: 16px;
-      font-weight: bold;
-      cursor: pointer;
-      padding: 4px 8px;
-      border-radius: 4px;
-      transition: all 0.2s ease;
-      user-select: none;
-      margin-left: 8px;
-      vertical-align: middle;
-      background: transparent;
-      border: none;
-    }
-    
-    .feedback-rating:hover {
-      transform: scale(1.1);
-      filter: brightness(1.2);
-    }
-    
-    .popover-container {
-      position: fixed;
-      z-index: 9999;
-      transform: translateX(-50%) translateY(-100%);
-      animation: fadeIn 0.2s ease-out;
-      pointer-events: auto;
-    }
-    
-    .popover-arrow {
-      position: absolute;
-      bottom: -8px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 0;
-      height: 0;
-      border-left: 8px solid transparent;
-      border-right: 8px solid transparent;
-      border-top: 8px solid white;
-      filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.1));
-    }
-    
-    .rating-popover {
-      background: white;
-      border: 1px solid #e5e7eb;
-      border-radius: 12px;
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15), 0 10px 20px rgba(0, 0, 0, 0.1);
-      min-width: 250px;
-      max-width: 350px;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      overflow: hidden;
-      backdrop-filter: blur(10px);
-      transform: translateZ(0);
-    }
-    
-    .popover-header {
-      background: #f9fafb;
-      padding: 12px 16px;
-      border-bottom: 1px solid #e5e7eb;
-    }
-    
-    .popover-header h4 {
-      margin: 0;
-      font-size: 14px;
-      font-weight: 600;
-      color: #374151;
-    }
-    
-    .popover-content {
-      padding: 12px 16px;
-    }
-    
-    .ratings-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 13px;
-    }
-    
-    .ratings-table th {
-      text-align: left;
-      padding: 8px 4px;
-      font-weight: 600;
-      color: #6b7280;
-      border-bottom: 1px solid #e5e7eb;
-    }
-    
-    .ratings-table td {
-      padding: 8px 4px;
-      border-bottom: 1px solid #f3f4f6;
-    }
-    
-    .ratings-table tr:last-child td {
-      border-bottom: none;
-    }
-    
-    .category-name {
-      color: #374151;
-      font-weight: 500;
-    }
-    
-    .rating-stars {
-      font-weight: bold;
-      font-size: 14px;
-      text-align: center;
-    }
-    
-    @keyframes fadeIn {
-      from {
-        opacity: 0;
-        transform: translateX(-50%) translateY(-5px);
-      }
-      to {
-        opacity: 1;
-        transform: translateX(-50%) translateY(0);
-      }
-    }
-  `;
+  styleElement.textContent = cssContent;
 
   // Inject styles into the main document's head
   mainDocument.head.appendChild(styleElement);

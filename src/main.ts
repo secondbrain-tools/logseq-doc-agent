@@ -1,6 +1,7 @@
 import '@logseq/libs'
 import { mount } from 'svelte'
 import './app.css'
+import './styles/feedback-components.css'
 import App from './App.svelte'
 import { injectFeedbackComponents, removeFeedbackComponents } from './utils/domUtils'
 

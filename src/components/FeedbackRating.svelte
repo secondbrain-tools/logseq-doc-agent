@@ -93,39 +93,4 @@
   {/if}
 </div>
 
-<style>
-  .lda-dropdown-container {
-    position: relative;
-    display: inline-block;
-  }
-  
-  .lda-feedback-rating {
-    display: inline-block;
-    font-size: 16px;
-    font-weight: bold;
-    cursor: pointer;
-    padding: 4px 8px;
-    border-radius: 4px;
-    transition: all 0.2s ease;
-    user-select: none;
-    margin-left: 8px;
-    vertical-align: middle;
-    background: transparent;
-    border: none;
-  }
-  
-  .lda-feedback-rating:hover {
-    transform: scale(1.1);
-    filter: brightness(1.2);
-  }
-  
-  .lda-popover-container {
-    
-    position: absolute;
-    top: 100%;
-    left: 0;
-    display: block;
-    z-index: 1000;
-    margin-top: 5px;
-  }
-</style>
+<!-- Styles are now in src/styles/feedback-components.css -->

@@ -3,7 +3,6 @@ import { mount } from 'svelte'
 import './app.css'
 import './ui/styles/feedback-components.css'
 import App from './App.svelte'
-import { injectFeedbackComponents, removeFeedbackComponents } from './infra/domUtils'
 import { InjectRatingsUseCase } from './application/usecases/inject-ratings.usecase';
 import { FrontendComponentInjector, FrontendStyleInjector } from './infra/frontend'
 
@@ -49,10 +48,7 @@ const main = async () => {
   logseq.provideModel({
     async injectIntoPage() {
       //await logseq.UI.showMsg('Injecting feedback components!', 'info')
-      
-      // Remove any existing feedback components first
-      removeFeedbackComponents()
-      
+            
       // Wait a bit for DOM to be ready, then inject components
       setTimeout(() => {
         try {

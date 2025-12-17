@@ -2,7 +2,6 @@
  * Logseq-specific infrastructure implementations
  */
 
-export { LogseqStyleInjector } from './style-injector';
 export { LogseqRatingCalculator } from './rating-calculator';
 
 // Re-export the consolidated frontend component injector for use in Logseq

@@ -20,6 +20,7 @@ export class InjectRatingsUseCase {
       const props = { rating: 3 };
       const containerClass = 'feedback-rating-container';
       
+      this.styleInjector.removeStyles('feedback-rating-styles');
       this.styleInjector.injectStyles(cssContent, 'feedback-rating-styles');
 
       // Find all elements with 'feedback' property in data-refs-self attribute

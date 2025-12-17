@@ -7,3 +7,6 @@
 export * from './rating-types';
 export * from './reasoning-types';
 export * from './feedback-target-types';
+
+// Re-export use case implementations
+export { InjectRatingsUseCase } from './inject-ratings.usecase';

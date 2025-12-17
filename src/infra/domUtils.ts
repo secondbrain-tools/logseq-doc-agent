@@ -1,11 +1,12 @@
 import { mount } from 'svelte';
 import FeedbackRating from '../ui/components/FeedbackRating.svelte';
 import cssContent from '../ui/styles/feedback-components.css?raw';
-import { LogseqStyleInjector, LogseqComponentInjector } from './logseq';
+import { LogseqStyleInjector } from './logseq';
+import { FrontendComponentInjector } from './frontend';
 
 // Create instances of our infrastructure services
 const styleInjector = new LogseqStyleInjector();
-const componentInjector = new LogseqComponentInjector();
+const componentInjector = new FrontendComponentInjector();
 
 /**
  * Inject CSS styles into the main document

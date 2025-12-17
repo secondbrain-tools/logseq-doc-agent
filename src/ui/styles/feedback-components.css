@@ -104,7 +104,7 @@
 }
 
 /* Container for injected feedback components */
-.feedback-rating-container {
+.lda-feedback-rating-container {
   position: absolute;
   z-index: 1;
 }

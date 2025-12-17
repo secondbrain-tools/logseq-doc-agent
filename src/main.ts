@@ -4,11 +4,14 @@ import './app.css'
 import './ui/styles/feedback-components.css'
 import App from './App.svelte'
 import { injectFeedbackComponents, removeFeedbackComponents } from './infra/domUtils'
+import { InjectRatingsUseCase } from './application/usecases/inject-ratings.usecase';
+import { FrontendComponentInjector } from './infra/frontend'
+import cssContent from './ui/styles/feedback-components.css?raw';
+import { LogseqStyleInjector } from './infra/logseq'
 
 // This is the main entry point for the Logseq plugin
 const main = async () => {
-  console.log('Hello World Logseq Plugin loaded!')
-
+  
   // Create the Svelte app
   const app = mount(App, {
     target: document.body,
@@ -18,12 +21,12 @@ const main = async () => {
   })
 
   // Register a slash command
-  logseq.Editor.registerSlashCommand('Hello World', async () => {
+/*  logseq.Editor.registerSlashCommand('Hello World', async () => {
     await logseq.UI.showMsg('Hello World from Logseq Plugin!', 'success')
-  })
+  })*/
 
   // Register a block context menu item
-  logseq.Editor.registerBlockContextMenuItem('Say Hello', async ({ uuid }) => {
+  /*logseq.Editor.registerBlockContextMenuItem('Say Hello', async ({ uuid }) => {
     const block = await logseq.Editor.getBlock(uuid)
     if (block) {
       await logseq.UI.showMsg(`Hello from block: ${block.content}`, 'info')
@@ -35,17 +38,17 @@ const main = async () => {
     key: 'hello-world',
     template: '<a title="logseq-doc-agent" style="font-size:15px;color:#1f9ee1;opacity:unset" data-on-click="showHello" class="button icon">.🤖</a>'
     //template: '<button data-on-click="showHello">🤖</button>',
-  })
+  })*/
 
     logseq.App.registerUIItem('pagebar', {
     key: 'hello-world',
-    template: '<a title="logseq-doc-agent" style="font-size:15px;color:#1f9ee1;opacity:unset" data-on-click="showHello" class="button icon">.🤖</a>'
+    template: '<a title="logseq-doc-agent" style="font-size:15px;color:#1f9ee1;opacity:unset" data-on-click="injectIntoPage" class="button icon">.🤖</a>'
     //template: '<button data-on-click="showHello">🤖</button>',
   })
 
   // Handle the toolbar button click
   logseq.provideModel({
-    async showHello() {
+    async injectIntoPage() {
       //await logseq.UI.showMsg('Injecting feedback components!', 'info')
       
       // Remove any existing feedback components first
@@ -54,7 +57,11 @@ const main = async () => {
       // Wait a bit for DOM to be ready, then inject components
       setTimeout(() => {
         try {
-          injectFeedbackComponents()
+          
+          
+          
+          
+          new InjectRatingsUseCase(new FrontendComponentInjector(),  new LogseqStyleInjector()).execute();
           //logseq.UI.showMsg(`Injected feedback components!`, 'success')
         } catch (error) {
           console.error('Error injecting feedback components:', error)

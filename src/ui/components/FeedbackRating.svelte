@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import RatingPopover from './RatingPopover.svelte';
+  import { RatingValue } from '../../domain/value-objects';
   
   
   let { rating = 3 }: { rating?: number } = $props(); // Default rating
@@ -11,19 +12,14 @@
   
   // Get star color based on rating value
   function getStarColor(ratingValue: number): string {
-    switch(ratingValue) {
-      case 1: return '#ef4444'; // red
-      case 2: return '#eab308'; // yellow
-      case 3: return '#86efac'; // light green
-      case 4: return '#16a34a'; // dark green
-      default: return '#6b7280'; // gray
-    }
+    const rating = RatingValue.fromNumber(ratingValue);
+    return rating.getColor();
   }
   
   // Generate star display based on rating
   function getStarDisplay(ratingValue: number): string {
-    const starSymbol = '★';
-    return starSymbol.repeat(ratingValue);
+    const rating = RatingValue.fromNumber(ratingValue);
+    return rating.toStars();
   }
   
   // Handle click to toggle popover
@@ -93,4 +89,4 @@
   {/if}
 </div>
 
-<!-- Styles are now in src/styles/feedback-components.css -->
+<!-- Styles are now in src/ui/styles/feedback-components.css -->

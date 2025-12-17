@@ -1,9 +1,9 @@
 import '@logseq/libs'
 import { mount } from 'svelte'
 import './app.css'
-import './styles/feedback-components.css'
+import './ui/styles/feedback-components.css'
 import App from './App.svelte'
-import { injectFeedbackComponents, removeFeedbackComponents } from './utils/domUtils'
+import { injectFeedbackComponents, removeFeedbackComponents } from './infra/domUtils'
 
 // This is the main entry point for the Logseq plugin
 const main = async () => {

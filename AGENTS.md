@@ -1,4 +1,4 @@
-## Structure
+# Structure
 
 ```
 Project Structure
@@ -12,10 +12,10 @@ Project Structure
 │ ├ application/                   # Use cases + ports (no I/O)
 │ │ ├ usecases/
 │ │ │ └ types.ts                   # Internal usecase types (e.g. RatingResponse, ReasoningResponse)
-│ │ └ ports/                       # Boundary contracts (includes LLM protocol types)
+│ │ └ ports/                       # Boundary contracts (try to separte into different files according to library / or even use case)
 │ ├ domain/                        # DDD core (framework-agnostic)
-│ │ ├ entities.ts                  # Pure domain entities (e.g. Requirement, Spec, RatedRequirement)
-│ │ └ value-objects.ts             # Domain value objects (e.g. ImprovementKey, Improvement)
+│ │ ├ group_entities.ts                  # Pure domain entities (try to separate by groups e.g. feedback, or chat)
+│ │ └ group_value-objects.ts             # Domain value objects (e.g. try to separate by groups e.g. feedback, or chat)
 │ ├ infra/                         # Concrete communication interfaces (e.g. for rest clients)
 ├ public/                            # Public assets
 ├ svelte.config.js                   # experimental.remoteFunctions + compiler experimental.async
@@ -24,7 +24,7 @@ Project Structure
 └ vite.config.ts
 ```
 
-## Styling
+# Styling
 
 use a lda- prefix for all styles, to prevent conflicts
 
@@ -47,3 +47,7 @@ For Logseq plugins that inject components into the main document:
    }
    ```
 4. **Components**: Remove local `<style>` blocks, use global classes only
+
+# Building / Checking
+
+use `ǹpm run build` for building and `npm run check` for checking

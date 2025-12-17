@@ -19,12 +19,12 @@
   }
 </script>
 
-<div class="rating-popover">  
-  <div class="popover-header">
-    <h4 id="popover-title">Detailed Ratings</h4>
+<div class="lda-rating-popover">  
+  <div class="lda-popover-header">
+    <h4 id="lda-popover-title">Detailed Ratings</h4>
   </div>
-  <div class="popover-content">
-    <table class="ratings-table">
+  <div class="lda-popover-content">
+    <table class="lda-ratings-table">
       <thead>
         <tr>
           <th>Category</th>
@@ -34,8 +34,8 @@
       <tbody>
         {#each detailedRatings as item}
           <tr>
-            <td class="category-name">{item.category}</td>
-            <td class="rating-stars" style="color: {getStarColor(item.rating)}">
+            <td class="lda-category-name">{item.category}</td>
+            <td class="lda-rating-stars" style="color: {getStarColor(item.rating)}">
               {getStarDisplay(item.rating)}
             </td>
           </tr>
@@ -46,43 +46,41 @@
 </div>
 
 <style>
-  .rating-popover {
+  .lda-rating-popover {
     background: white;
     border: 1px solid #e5e7eb;
-    border-radius: 12px;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15), 0 10px 20px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     min-width: 250px;
     max-width: 350px;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     overflow: hidden;
-    backdrop-filter: blur(10px);
-    transform: translateZ(0);
   }
   
-  .popover-header {
+  .lda-popover-header {
     background: #f9fafb;
     padding: 12px 16px;
     border-bottom: 1px solid #e5e7eb;
   }
   
-  .popover-header h4 {
+  .lda-popover-header h4 {
     margin: 0;
     font-size: 14px;
     font-weight: 600;
     color: #374151;
   }
   
-  .popover-content {
+  .lda-popover-content {
     padding: 12px 16px;
   }
   
-  .ratings-table {
+  .lda-ratings-table {
     width: 100%;
     border-collapse: collapse;
     font-size: 13px;
   }
   
-  .ratings-table th {
+  .lda-ratings-table th {
     text-align: left;
     padding: 8px 4px;
     font-weight: 600;
@@ -90,7 +88,7 @@
     border-bottom: 1px solid #e5e7eb;
   }
   
-  .ratings-table td {
+  .lda-ratings-table td {
     padding: 8px 4px;
     border-bottom: 1px solid #f3f4f6;
   }
@@ -99,12 +97,12 @@
     border-bottom: none;
   }
   
-  .category-name {
+  .lda-category-name {
     color: #374151;
     font-weight: 500;
   }
   
-  .rating-stars {
+  .lda-rating-stars {
     font-weight: bold;
     font-size: 14px;
     text-align: center;

@@ -45,7 +45,7 @@ const main = async () => {
   // Handle the toolbar button click
   logseq.provideModel({
     async showHello() {
-      await logseq.UI.showMsg('Injecting feedback components!', 'info')
+      //await logseq.UI.showMsg('Injecting feedback components!', 'info')
       
       // Remove any existing feedback components first
       removeFeedbackComponents()
@@ -54,7 +54,7 @@ const main = async () => {
       setTimeout(() => {
         try {
           injectFeedbackComponents()
-          logseq.UI.showMsg(`Injected feedback components!`, 'success')
+          //logseq.UI.showMsg(`Injected feedback components!`, 'success')
         } catch (error) {
           console.error('Error injecting feedback components:', error)
           logseq.UI.showMsg('Error injecting feedback components', 'error')

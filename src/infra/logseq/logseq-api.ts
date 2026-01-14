@@ -13,7 +13,7 @@ export class LogseqApiImpl implements LogseqApi {
   private api: any;
 
   constructor() {
-        
+
     // @ts-ignore - logseq is a global object provided by Logseq
     this.api = logseq;
   }
@@ -56,21 +56,60 @@ export class LogseqApiImpl implements LogseqApi {
     getBlock: async (uuid: string): Promise<BlockEntity> => {
       return this.api.Editor.getBlock(uuid);
     },
-    
+
     getBlockPropertyContent: async (uuid: string, propertyName: string): Promise<string | null> => {
-      const block = await this.api.Editor.getBlock(uuid);
+      const block = await this.api.Editor.getBlock(uuid, {
+        includeChildren: false
+      });
+      
+
+      if(uuid == "6941d548-fcd6-4057-a64e-c404e2031a99" || uuid == "6941d548-3a24-43c0-9e7e-1d833615618d") {
+        console.log(`Getting property '${propertyName}' for block ${uuid}:`, block);
+        console.log('Block content:', block ? block.content : 'Block not found');
+      }
+
       if (!block || !block.content) {
         return null;
       }
-      
-      const propertyPattern = new RegExp(`${propertyName}:: \\s*(.+)`);      
+
+      const propertyPattern = new RegExp(`${propertyName}:: \\s*(.+)`);
       const match = block.content.match(propertyPattern);
-      
+
       if (match && match[1]) {
         return match[1].trim();
       }
-      
+
       return null;
+    },
+
+    getBlockText: async (uuid: string): Promise<string> => {
+      const block = await this.api.Editor.getBlock(uuid, {
+        includeChildren: false
+      });
+      
+      if (!block || !block.content) {
+        return '';
+      }
+
+      // Split content into lines
+      const lines = block.content.split('\n');
+      
+      // Filter out empty lines and property lines (key:: value)
+      const filteredLines = lines.filter((line: string) => {
+        const trimmedLine = line.trim();
+        // Skip empty lines
+        if (trimmedLine === '') {
+          return false;
+        }
+        // Skip property lines (key:: value pattern)
+        if (/^[^:]+::\s*.+$/.test(trimmedLine)) {
+          return false;
+        }
+        return true;
+      });
+
+      // Join the filtered lines back together
+      return filteredLines.join('\n');
     }
   };
 }

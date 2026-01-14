@@ -1,4 +1,5 @@
 import type { RatingCalculator } from '../../application/ports';
+import type { FeedbackRating, CategoryRating, DetailedRating } from '../../domain/entities';
 
 /**
  * Concrete implementation of RatingCalculator for Logseq plugins
@@ -34,5 +35,60 @@ export class LogseqRatingCalculator implements RatingCalculator {
     }
 
     return Math.round(weightedSum / totalWeight);
+  }
+
+  /**
+   * Calculate overall rating from new FeedbackRating structure
+   */
+  calculateOverallRatingFromFeedback(feedbackRating: FeedbackRating): number {
+    if (!feedbackRating.categoryRatings || feedbackRating.categoryRatings.length === 0) {
+      return 0;
+    }
+
+    // Use the pre-calculated overall rating from the domain entity
+    return feedbackRating.overallRating;
+  }
+
+  /**
+   * Calculate category rating from CategoryRating structure
+   */
+  calculateCategoryRating(categoryRating: CategoryRating): number {
+    if (!categoryRating.criteriaRatings || categoryRating.criteriaRatings.length === 0) {
+      return 0;
+    }
+
+    // Use the pre-calculated overall rating from the domain entity
+    return categoryRating.overallRating;
+  }
+
+  /**
+   * Calculate overall rating by averaging all criteria across all categories
+   */
+  calculateOverallRatingFromCategories(categoryRatings: CategoryRating[]): number {
+    if (!categoryRatings || categoryRatings.length === 0) {
+      return 0;
+    }
+
+    const allCriteriaRatings: number[] = [];
+    
+    for (const category of categoryRatings) {
+      for (const criterion of category.criteriaRatings) {
+        allCriteriaRatings.push(criterion.rating);
+      }
+    }
+
+    if (allCriteriaRatings.length === 0) {
+      return 0;
+    }
+
+    const sum = allCriteriaRatings.reduce((acc, rating) => acc + rating, 0);
+    return Math.round((sum / allCriteriaRatings.length) * 100) / 100; // Round to 2 decimal places
+  }
+
+  /**
+   * Legacy method for backward compatibility
+   */
+  calculateOverallRatingFromLegacy(detailedRatings: DetailedRating[]): number {
+    return this.calculateOverallRating(detailedRatings);
   }
 }

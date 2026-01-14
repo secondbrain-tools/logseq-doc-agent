@@ -1,6 +1,8 @@
 import type { ComponentInjector, LogseqApi, StyleInjector } from '../ports';
 import { InjectionPosition } from '../../domain/value-objects';
-import FeedbackRating from '../../ui/components/FeedbackRating.svelte';
+import { FeedbackParser } from '../../domain/feedback-parser';
+import type { FeedbackRating } from '../../domain/entities';
+import FeedbackRatingComponent from '../../ui/components/FeedbackRating.svelte';
 import cssContent from '../../ui/styles/feedback-components.css?raw';
 
 /**
@@ -8,24 +10,23 @@ import cssContent from '../../ui/styles/feedback-components.css?raw';
  * This use case is an orchestrator that specifically handles feedback rating injection
  */
 export class InjectRatingsUseCase {
-  constructor(private componentInjector: ComponentInjector, private styleInjector: StyleInjector, private logseqApi: LogseqApi) {}
+  constructor(private componentInjector: ComponentInjector, private styleInjector: StyleInjector, private logseqApi: LogseqApi) { }
 
   /**
    * Injects FeedbackRating components into all elements with 'feedback' property in their data-refs-self attribute
    */
-  async execute(){ 
+  async execute() {
     try {
-      
+
       const position = InjectionPosition.NextSibling;
-      const props = { rating: 3 };
       const containerClass = 'feedback-rating-container';
-      
+
       this.styleInjector.removeStyles('feedback-rating-styles');
       this.styleInjector.injectStyles(cssContent, 'feedback-rating-styles');
 
       // Find all elements with 'feedback' property in data-refs-self attribute
       const feedbackElements = this.componentInjector.findBlockElementsWithProperty('feedback');
-      
+
       if (feedbackElements.length === 0) {
         console.log('No elements with feedback property found');
         return {
@@ -40,54 +41,90 @@ export class InjectRatingsUseCase {
         targetId: string;
         container: HTMLElement;
         blockId?: string;
+        feedbackData?: FeedbackRating;
       }> = [];
 
-      // Inject FeedbackRating component into each found element
-      feedbackElements.forEach(async (element) => {
+      // Process each element sequentially to avoid race conditions
+      for (const element of feedbackElements) {
         try {
           // Create a unique ID for the target element
           const targetId = this.generateTargetId(element);
-          
+
           // Extract block ID from 'blockid' attribute
           const blockId = this.componentInjector.getBlockIdFromElement(element);
-          
-          console.log(`Injecting FeedbackRating component for element: ${targetId}, blockId: ${blockId || 'N/A'}`);
 
-          
-          
-          if(blockId) {          
-            const feedbackContent = await this.logseqApi.Editor.getBlockPropertyContent(blockId, 'feedback');            
+          console.log(`Processing element: ${targetId}, blockId: ${blockId || 'N/A'}`);
+
+          let feedbackData: FeedbackRating | undefined;
+          let props: any = null;// Default rating
+
+          if (blockId) {
+            const feedbackContent = await this.logseqApi.Editor.getBlockPropertyContent(blockId, 'feedback');
             console.log(`Feedback property content for blockId ${blockId}:`, feedbackContent);
-          }
-      
 
-          // Inject the FeedbackRating component at the specified position
-          const container = this.componentInjector.injectComponentWithPosition(
-            element,
-            FeedbackRating,
-            position,
-            props
-          );
-          
-          // Apply custom container class if provided
-          if (containerClass) {
-            container.className = containerClass;
+            if (feedbackContent) {
+              try {
+                // Parse the feedback content using our parser
+                feedbackData = FeedbackParser.parseFromJsonString(targetId, feedbackContent, targetId);
+                console.log(`Parsed feedback data for blockId ${blockId}:`, feedbackData);
+                props = {
+                  rating: feedbackData.overallRating,
+                  feedbackData: feedbackData,
+                  categoryRatings: feedbackData.categoryRatings
+                };
+
+                console.log(`Successfully parsed feedback data for blockId ${blockId}, overall rating: ${feedbackData.overallRating}`);
+              } catch (parseError) {
+                console.warn(`Failed to parse feedback content for blockId ${blockId}:`, parseError);
+                // Fall back to default rating if parsing fails
+
+              }
+            } else {
+              console.log(`No feedback content found for blockId ${blockId}`);
+
+            }
           }
-          
-          injectedRatings.push({
-            targetId,
-            container,
-            blockId: blockId || undefined
-          });
-          
-          console.log(`Successfully injected FeedbackRating component for element: ${targetId}`);
+
+          if (props) {
+            // Inject the FeedbackRating component at the specified position
+            const container = this.componentInjector.injectComponentWithPosition(
+              element,
+              FeedbackRatingComponent,
+              position,
+              props
+            );
+
+
+            // Apply custom container class if provided
+            if (containerClass) {
+              container.className = containerClass;
+            }
+
+            injectedRatings.push({
+              targetId,
+              container,
+              blockId: blockId || undefined,
+              feedbackData
+            });
+          }
+          console.log(`Successfully injected FeedbackRating component for element: ${targetId}, rating: ${props.rating}`);
         } catch (error) {
           console.error('Failed to inject FeedbackRating component for element:', error);
         }
-      });
+      }
+
+      return {
+        success: true,
+        injectedRatings
+      };
 
     } catch (error) {
-      console.error('Error in injectRatings use case:', error);    
+      console.error('Error in injectRatings use case:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        injectedRatings: []
+      };
     }
   }
 
@@ -100,12 +137,12 @@ export class InjectRatingsUseCase {
     if (blockId) {
       return `block-${blockId}`;
     }
-    
+
     // Fall back to element ID if available
     if (element.id) {
       return `element-${element.id}`;
     }
-    
+
     // Generate a unique ID based on element position
     const parent = element.parentElement;
     if (parent) {
@@ -113,7 +150,7 @@ export class InjectRatingsUseCase {
       const index = siblings.indexOf(element);
       return `element-${parent.tagName.toLowerCase()}-${index}`;
     }
-    
+
     // Last resort: use a random ID
     return `element-${Math.random().toString(36).substr(2, 9)}`;
   }

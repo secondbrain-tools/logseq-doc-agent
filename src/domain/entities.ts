@@ -6,11 +6,24 @@
 export interface FeedbackRating {
   id: string;
   overallRating: number;
-  detailedRatings: DetailedRating[];
+  categoryRatings: CategoryRating[];
   timestamp: Date;
   targetElementId?: string;
 }
 
+export interface CategoryRating {
+  category: string;
+  overallRating: number;
+  criteriaRatings: CriterionRating[];
+}
+
+export interface CriterionRating {
+  criterion: string;
+  rating: number;
+  feedback: string;
+}
+
+// Legacy interface for backward compatibility
 export interface DetailedRating {
   category: string;
   rating: number;

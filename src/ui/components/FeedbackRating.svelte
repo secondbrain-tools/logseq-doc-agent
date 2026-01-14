@@ -2,9 +2,17 @@
   import { createEventDispatcher } from 'svelte';
   import RatingPopover from './RatingPopover.svelte';
   import { RatingValue } from '../../domain/value-objects';
+  import type { FeedbackRating, CategoryRating } from '../../domain/entities';
   
-  
-  let { rating = 3 }: { rating?: number } = $props(); // Default rating
+  let {
+    rating = 0,
+    feedbackData,
+    categoryRatings = []
+  }: {
+    rating?: number;
+    feedbackData?: FeedbackRating;
+    categoryRatings?: CategoryRating[];
+  } = $props(); // Default rating
   
   let showPopover = $state(false);
 
@@ -18,6 +26,7 @@
   
   // Generate star display based on rating
   function getStarDisplay(ratingValue: number): string {
+    ratingValue = 3;
     const rating = RatingValue.fromNumber(ratingValue);
     return rating.toStars();
   }
@@ -39,25 +48,25 @@
   }
 
     // Handle keyboard events for the popover
-  function handlePopoverKeydown(event: KeyboardEvent) {
-    if (event.key === 'Escape') {
-      showPopover = false;
-      dispatch('toggle', { show: false });
+    function handlePopoverKeydown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        showPopover = false;
+        dispatch('toggle', { show: false });
+      }
     }
-  }
-  
+    
     function handleGlobalClick() {
     showPopover = false;
   }
 
-  // Mock data for detailed ratings
-  const detailedRatings = [
-    { category: 'Content Quality', rating: 4 },
-    { category: 'Clarity', rating: 3 },
-    { category: 'Usefulness', rating: 4 },
-    { category: 'Accuracy', rating: 2 },
-    { category: 'Completeness', rating: 3 }
-  ];
+  // Use provided category ratings or fall back to empty array
+  const detailedRatings = $derived(categoryRatings?.map(cat => ({
+    category: cat.category,
+    rating: cat.overallRating
+  })) || []);
+
+  // Determine if we have valid feedback data
+  const hasValidData = $derived(feedbackData && categoryRatings && categoryRatings.length > 0);
 </script>
 
 <svelte:window onclick={handleGlobalClick} />
@@ -84,7 +93,7 @@
       aria-labelledby="popover-title"
       tabindex="0"
     >
-      <RatingPopover {detailedRatings} />
+      <RatingPopover {feedbackData} {categoryRatings} {showPopover} />
     </div>
   {/if}
 </div>

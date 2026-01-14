@@ -8,8 +8,8 @@ export class RatingValue {
   readonly max: number;
 
   constructor(value: number, max: number = 4) {
-    if (value < 1 || value > max) {
-      throw new Error(`Rating value must be between 1 and ${max}`);
+    if (value < 0 || value > max) {
+      throw new Error(`Rating value must be between 0 and ${max}`);
     }
     this.value = value;
     this.max = max;
@@ -28,10 +28,16 @@ export class RatingValue {
   }
 
   toStars(): string {
+    if (this.value === 0) {
+      return '○'; // Circle for "not applicable"
+    }
     return '★'.repeat(this.value);
   }
 
   getColor(): string {
+    if (this.value === 0) {
+      return '#9ca3af'; // gray for "not applicable"
+    }
     switch(this.value) {
       case 1: return '#ef4444'; // red
       case 2: return '#eab308'; // yellow
@@ -39,6 +45,17 @@ export class RatingValue {
       case 4: return '#16a34a'; // dark green
       default: return '#6b7280'; // gray
     }
+  }
+
+  isNotApplicable(): boolean {
+    return this.value === 0;
+  }
+
+  getPercentage(): number {
+    if (this.value === 0) {
+      return 0;
+    }
+    return Math.round((this.value / this.max) * 100);
   }
 }
 
@@ -80,6 +97,57 @@ export class FeedbackElementId {
   }
 
   equals(other: FeedbackElementId): boolean {
+    return this.value === other.value;
+  }
+
+  toString(): string {
+    return this.value;
+  }
+}
+
+export class FeedbackText {
+  readonly value: string;
+
+  constructor(text: string) {
+    if (text === null || text === undefined) {
+      this.value = '';
+    } else {
+      this.value = text.trim();
+    }
+  }
+
+  static fromString(text: string): FeedbackText {
+    return new FeedbackText(text);
+  }
+
+  equals(other: FeedbackText): boolean {
+    return this.value === other.value;
+  }
+
+  isEmpty(): boolean {
+    return this.value.length === 0;
+  }
+
+  toString(): string {
+    return this.value;
+  }
+}
+
+export class CriterionName {
+  readonly value: string;
+
+  constructor(name: string) {
+    if (!name || name.trim().length === 0) {
+      throw new Error('Criterion name cannot be empty');
+    }
+    this.value = name.trim();
+  }
+
+  static fromString(name: string): CriterionName {
+    return new CriterionName(name);
+  }
+
+  equals(other: CriterionName): boolean {
     return this.value === other.value;
   }
 

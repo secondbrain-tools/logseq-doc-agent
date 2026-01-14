@@ -18,5 +18,6 @@ export interface LogseqApi {
   Editor: {
     getBlock(uuid: string): Promise<BlockEntity>;
     getBlockPropertyContent(uuid: string, propertyName: string): Promise<string | null>;
+    getBlockText(uuid: string): Promise<string>;
   };
 }

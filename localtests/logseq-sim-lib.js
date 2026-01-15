@@ -1,5 +1,5 @@
 import { h, render } from 'https://esm.sh/preact@10.19.3';
-import { useState } from 'https://esm.sh/preact@10.19.3/hooks';
+import { useState, useEffect } from 'https://esm.sh/preact@10.19.3/hooks';
 import { signal, computed, effect } from 'https://esm.sh/@preact/signals@1.2.2';
 import { html } from 'https://esm.sh/htm@3.1.1/preact';
 
@@ -250,22 +250,50 @@ const Block = ({ node }) => {
 `;
 };
 
-const ThemeSwitcher = () => html`
-<button class="theme-switcher" onClick=${toggleTheme}>
-    ${theme.value === 'dark' ? '☀️ Light' : '🌙 Dark'}
-</button>
-`;
+const ThemeSwitcher = () => {
+    // We can just read the value, App re-renders when theme changes because App subscribes to it.
+    // Or we can subscribe locally too if we want independent re-renders.
+    // For simplicity, let's just use the global signal value, relying on App's re-render or click handler.
+    // Actually, to be safe, let's subscribe.
+    const [currentTheme, setCurrentTheme] = useState(theme.value);
+    useEffect(() => effect(() => setCurrentTheme(theme.value)), []);
+
+    return html`
+    <button class="theme-switcher" onClick=${toggleTheme}>
+        ${currentTheme === 'dark' ? '☀️ Light' : '🌙 Dark'}
+    </button>
+    `;
+};
 
 const App = () => {
+    // Local state for UI toggles (more robust than global signals here)
+    const [isEditorVisible, setEditorVisible] = useState(false);
+
+    // Subscribe to the global 'blocks' computed signal
+    const [currentBlocks, setCurrentBlocks] = useState(blocks.value);
+
+    // Subscribe to theme to re-render button text
+    const [currentTheme, setCurrentTheme] = useState(theme.value);
+
+    // Effect to track signals manually (avoids Preact instance mismatch issues with automatic signal tracking)
+    useEffect(() => {
+        const disposeBlocks = effect(() => setCurrentBlocks(blocks.value));
+        const disposeTheme = effect(() => setCurrentTheme(theme.value));
+        return () => {
+            disposeBlocks();
+            disposeTheme();
+        };
+    }, []);
+
     return html`
     <${ThemeSwitcher} />
     <div class="page">
         <h1 style="margin-bottom: 2rem;">Logseq Simulation</h1>
         
-        <div id="editor-toggle" onClick=${() => showEditor.value = !showEditor.value}>
-            ${showEditor.value ? 'Hide Source' : 'Edit Source'}
+        <div id="editor-toggle" onClick=${() => setEditorVisible(!isEditorVisible)}>
+            ${isEditorVisible ? 'Hide Source' : 'Edit Source'}
         </div>
-        ${showEditor.value && html`
+        ${isEditorVisible && html`
             <textarea id="source-input" 
                       style="display:block" 
                       value=${sourceText} 
@@ -273,15 +301,21 @@ const App = () => {
         `}
         
         <div style="margin-top: 20px;">
-            ${blocks.value.map(root => html`<${Block} node=${root} />`)}
+            ${currentBlocks.map(root => html`<${Block} node=${root} />`)}
         </div>
     </div>
 `;
 };
 
 export function mountApp(elementId, initialContent) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+
+    // Clear existing content (e.g., "Loading...")
+    el.innerHTML = '';
+
     if (initialContent) {
         sourceText.value = initialContent;
     }
-    render(html`<${App} />`, document.getElementById(elementId));
+    render(html`<${App} />`, el);
 }

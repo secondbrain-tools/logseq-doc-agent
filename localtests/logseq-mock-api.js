@@ -63,8 +63,67 @@ export const logseq = {
     },
     provideModel: (model) => {
         console.log(`[MockLogseq] provideModel`, model);
+    },
+    ready: (callback) => {
+        console.log(`[MockLogseq] ready() called`);
+        if (callback) {
+            // Execute callback immediately for simulation
+            setTimeout(() => {
+                console.log(`[MockLogseq] Executing plugin main...`);
+                callback({});
+            }, 100);
+        }
+        return Promise.resolve();
+    },
+    settings: {}, // Mock settings object
+    baseInfo: {
+        id: 'logseq-doc-agent',
+        name: 'Logseq Doc Agent',
+        description: 'Mocked description',
+        version: '0.0.1'
     }
 };
 
 // Make it available globally as expected by plugins
-window.logseq = logseq;
+// Make it available globally and PREVENT OVERWRITE by bundled SDK
+// This is crucial because dist/main.js bundles the SDK which tries to set window.logseq
+Object.defineProperty(window, 'logseq', {
+    get: () => logseq,
+    set: (val) => {
+        console.warn('[MockLogseq] Blocked attempt to overwrite window.logseq by bundled SDK', val);
+    },
+    configurable: false
+});
+
+// Update registerUIItem to render visually
+logseq.App.registerUIItem = (location, config) => {
+    console.log(`[MockLogseq] registerUIItem: ${location}`, config);
+    if (location === 'pagebar') {
+        const pagebar = document.getElementById('sim-pagebar');
+        if (pagebar) {
+            const btnContainer = document.createElement('div');
+            btnContainer.innerHTML = config.template;
+            // Attach click handler if data-on-click is present (Logseq style)
+            const btn = btnContainer.firstElementChild;
+            if (btn && btn.getAttribute('data-on-click')) {
+                const handlerName = btn.getAttribute('data-on-click');
+                btn.onclick = () => {
+                    console.log(`[MockLogseq] Clicked UI item invoking: ${handlerName}`);
+                    // Trigger the model function if it exists
+                    if (logseq._model && logseq._model[handlerName]) {
+                        logseq._model[handlerName]();
+                    } else {
+                        console.warn(`[MockLogseq] Model function ${handlerName} not found`);
+                    }
+                };
+            }
+            pagebar.appendChild(btnContainer);
+        }
+    }
+};
+
+// Store model for event handlers
+logseq.provideModel = (model) => {
+    console.log(`[MockLogseq] provideModel received`, model);
+    logseq._model = model;
+};

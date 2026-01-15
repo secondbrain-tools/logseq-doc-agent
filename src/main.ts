@@ -8,9 +8,16 @@ import { FrontendComponentInjector, FrontendStyleInjector } from './infra/fronte
 import { LogseqApiImpl } from './infra/logseq'
 
 
+// Force usage of global logseq (Mock in sim, Real in App)
+// This prevents the bundled SDK from trying to initialize its own connection which fails in sim
+console.log('[src/main.ts] Initializing...');
+const logseq = (window as any).logseq;
+console.log('[src/main.ts] logseq object:', logseq);
+
 // This is the main entry point for the Logseq plugin
 const main = async () => {
-    
+  console.log('[src/main.ts] main() called');
+
   // Create the Svelte app
   const app = mount(App, {
     target: document.body,
@@ -24,7 +31,7 @@ const main = async () => {
     try {
       // Get the current page
       const currentPage = await logseq.Editor.getCurrentPage();
-      if (currentPage && currentPage.uuid) {                
+      if (currentPage && currentPage.uuid) {
       } else {
         await logseq.UI.showMsg('No current page found', 'error');
       }
@@ -35,9 +42,9 @@ const main = async () => {
   })
 
   // Register a block context menu item
-  logseq.Editor.registerBlockContextMenuItem('Get Block Content', async ({ uuid }) => {
+  logseq.Editor.registerBlockContextMenuItem('Get Block Content', async ({ uuid }: { uuid: string }) => {
     try {
-          } catch (error) {
+    } catch (error) {
       console.error('Error getting block content:', error);
       await logseq.UI.showMsg('Error getting block content', 'error');
     }
@@ -50,7 +57,7 @@ const main = async () => {
     //template: '<button data-on-click="showHello">🤖</button>',
   })*/
 
-    logseq.App.registerUIItem('pagebar', {
+  logseq.App.registerUIItem('pagebar', {
     key: 'hello-world',
     template: '<a title="logseq-doc-agent" style="font-size:15px;color:#1f9ee1;opacity:unset" data-on-click="injectIntoPage" class="button icon">.🤖</a>'
     //template: '<button data-on-click="showHello">🤖</button>',
@@ -60,12 +67,12 @@ const main = async () => {
   logseq.provideModel({
     async injectIntoPage() {
       //await logseq.UI.showMsg('Injecting feedback components!', 'info')
-            
+
       // Wait a bit for DOM to be ready, then inject components
       setTimeout(() => {
         try {
-                                     
-          new InjectRatingsUseCase(new FrontendComponentInjector(),  new FrontendStyleInjector(), new LogseqApiImpl).execute();
+
+          new InjectRatingsUseCase(new FrontendComponentInjector(), new FrontendStyleInjector(), new LogseqApiImpl).execute();
           //logseq.UI.showMsg(`Injected feedback components!`, 'success')
         } catch (error) {
           console.error('Error injecting feedback components:', error)
@@ -73,8 +80,8 @@ const main = async () => {
         }
       }, 500)
     },
-    
-  
+
+
   })
 }
 

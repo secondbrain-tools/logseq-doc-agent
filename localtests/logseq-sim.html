@@ -46,6 +46,11 @@
         // Initialize the app with the default content
         const defaultContent = document.getElementById('default-content').textContent.trim();
         mountApp('app', defaultContent);
+
+        // Load the plugin code dynamically to catch errors and ensure ordering
+        import('../dist/main.js')
+            .then(() => console.log('[Sim] Plugin script loaded successfully'))
+            .catch(e => console.error('[Sim] Failed to load plugin script:', e));
     </script>
 
 </body>

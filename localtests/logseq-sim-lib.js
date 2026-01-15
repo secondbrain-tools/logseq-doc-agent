@@ -223,7 +223,7 @@ const Block = ({ node }) => {
     return html`
     <div class="ls-block ${isCollapsed ? 'is-collapsed' : ''}" 
          data-block-id="${node.id}"
-         data-refs="${JSON.stringify(Object.keys(node.properties))}">
+         data-refs-self="${JSON.stringify(Object.keys(node.properties))}">
         
         <div class="block-main-container">
             <div class="block-control-wrap">
@@ -286,7 +286,14 @@ const App = () => {
     }, []);
 
     return html`
-    <${ThemeSwitcher} />
+    <div class="sim-header" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid var(--border-color, #ccc);">
+        <div class="header-left">
+             <${ThemeSwitcher} />
+        </div>
+        <div id="sim-pagebar" style="display: flex; gap: 10px; align-items: center;">
+            <!-- Icons injected here -->
+        </div>
+    </div>
     <div class="page">
         <h1 style="margin-bottom: 2rem;">Logseq Simulation</h1>
         

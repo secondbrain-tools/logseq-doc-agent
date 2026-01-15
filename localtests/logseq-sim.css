@@ -67,16 +67,13 @@ body {
 
 /* Theme Switcher */
 .theme-switcher {
-    position: fixed;
-    top: 20px;
-    right: 20px;
     padding: 8px 16px;
     border-radius: 4px;
     background: var(--ls-menu-hover-color);
     border: 1px solid var(--ls-border-color);
     color: var(--ls-primary-text-color);
     cursor: pointer;
-    z-index: 1000;
+    /* Removed absolute positioning */
 }
 
 /* Logseq Classes */

@@ -15,7 +15,7 @@ export class LogseqApiImpl implements LogseqApi {
   constructor() {
 
     // @ts-ignore - logseq is a global object provided by Logseq
-    this.api = logseq;
+    this.api = (window as any).logseq;
   }
 
   async getCurrentGraph(): Promise<any> {
@@ -61,9 +61,9 @@ export class LogseqApiImpl implements LogseqApi {
       const block = await this.api.Editor.getBlock(uuid, {
         includeChildren: false
       });
-      
 
-      if(uuid == "6941d548-fcd6-4057-a64e-c404e2031a99" || uuid == "6941d548-3a24-43c0-9e7e-1d833615618d") {
+
+      if (uuid == "6941d548-fcd6-4057-a64e-c404e2031a99" || uuid == "6941d548-3a24-43c0-9e7e-1d833615618d") {
         console.log(`Getting property '${propertyName}' for block ${uuid}:`, block);
         console.log('Block content:', block ? block.content : 'Block not found');
       }
@@ -86,14 +86,14 @@ export class LogseqApiImpl implements LogseqApi {
       const block = await this.api.Editor.getBlock(uuid, {
         includeChildren: false
       });
-      
+
       if (!block || !block.content) {
         return '';
       }
 
       // Split content into lines
       const lines = block.content.split('\n');
-      
+
       // Filter out empty lines and property lines (key:: value)
       const filteredLines = lines.filter((line: string) => {
         const trimmedLine = line.trim();

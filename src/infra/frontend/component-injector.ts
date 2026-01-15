@@ -41,7 +41,7 @@ export class FrontendComponentInjector implements ComponentInjector {
     container.style.position = 'absolute';
     container.style.top = '0';
     container.style.left = `${target.offsetWidth}px`;
-    container.style.zIndex = '1';
+    container.style.zIndex = '0';
     container.style.width = '10em';
 
     // Insert the container based on the specified position

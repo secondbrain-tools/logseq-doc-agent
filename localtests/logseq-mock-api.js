@@ -1,4 +1,4 @@
-import { getBlocks } from './logseq-sim-lib.js';
+import { getBlocks, blockState } from './logseq-sim-lib.js';
 
 // Recursive helper to find a block by ID
 function findBlockById(roots, id) {
@@ -40,17 +40,20 @@ export const logseq = {
             console.log(`[MockLogseq] registerBlockContextMenuItem: ${name}`);
         },
         getBlock: async (uuid, opts) => {
-            console.log(`[MockLogseq] getBlock: ${uuid}`);
-            const roots = getBlocks();
-            const block = findBlockById(roots, uuid);
+            // console.log(`[MockLogseq] getBlock: ${uuid}`);
+            const state = blockState.value;
+            const block = state[uuid];
+
             if (block) {
                 // Return a simplified BlockEntity structure
                 return {
-                    uuid: block.id,
+                    uuid: block.uuid,
                     content: block.content,
                     properties: block.properties,
                     // mock other fields if needed
                 };
+            } else {
+                console.warn(`[MockLogseq] getBlock: Block not found for uuid: ${uuid}`);
             }
             return null;
         },
@@ -58,7 +61,54 @@ export const logseq = {
     UI: {
         showMsg: async (message, type) => {
             console.log(`[MockLogseq] showMsg: [${type}] ${message}`);
-            alert(`[${type || 'info'}] ${message}`);
+
+            let container = document.getElementById('logseq-mock-toasts');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'logseq-mock-toasts';
+                container.style.position = 'fixed';
+                container.style.top = '20px';
+                container.style.left = '20px';
+                container.style.display = 'flex';
+                container.style.flexDirection = 'column';
+                container.style.gap = '10px';
+                container.style.zIndex = '10000';
+                document.body.appendChild(container);
+            }
+
+            const toast = document.createElement('div');
+            toast.className = `logseq-toast type-${type || 'info'}`;
+            toast.innerText = message;
+
+            // Base styles for toast
+            toast.style.padding = '12px 16px';
+            toast.style.borderRadius = '4px';
+            toast.style.background = 'var(--ls-bg-color, #fff)';
+            toast.style.color = 'var(--ls-primary-text-color, #333)';
+            toast.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+            toast.style.borderLeft = `4px solid ${type === 'error' ? 'red' : type === 'warning' ? 'orange' : 'green'}`;
+            toast.style.minWidth = '200px';
+            toast.style.maxWidth = '400px';
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateY(-10px)';
+            toast.style.transition = 'all 0.3s ease';
+
+            container.appendChild(toast);
+
+            // Animate in
+            requestAnimationFrame(() => {
+                toast.style.opacity = '1';
+                toast.style.transform = 'translateY(0)';
+            });
+
+            // Disappear after 10 seconds
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(-10px)';
+                setTimeout(() => {
+                    if (toast.parentNode) toast.parentNode.removeChild(toast);
+                }, 300);
+            }, 10000);
         }
     },
     provideModel: (model) => {

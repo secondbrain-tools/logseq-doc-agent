@@ -240,3 +240,11 @@ textarea#source-input {
     font-size: 14px;
     margin-bottom: 20px;
 }
+/* Page Title */
+.page-title {
+    font-size: var(--ls-page-title-size);
+    font-weight: 700;
+    margin-top: 0;
+    margin-bottom: 2rem;
+    line-height: 1.2;
+}

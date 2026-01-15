@@ -68,7 +68,18 @@ export class LogseqApiImpl implements LogseqApi {
         console.log('Block content:', block ? block.content : 'Block not found');
       }
 
-      if (!block || !block.content) {
+      if (!block) {
+        return null;
+      }
+
+      // Check properties object first (preferred method)
+      if (block.properties && block.properties[propertyName]) {
+        console.log(`Found property '${propertyName}' in block.properties:`, block.properties[propertyName]);
+        const val = block.properties[propertyName];
+        return typeof val === 'string' ? val : JSON.stringify(val);
+      }
+
+      if (!block.content) {
         return null;
       }
 

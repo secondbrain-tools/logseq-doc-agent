@@ -7,6 +7,8 @@ import { html } from 'https://esm.sh/htm@3.1.1/preact';
 export const theme = signal('dark');
 export const sourceText = signal('');
 export const showEditor = signal(false);
+// Map of uuid -> block node
+export const blockState = signal({});
 
 effect(() => {
     document.documentElement.setAttribute('data-theme', theme.value);
@@ -40,10 +42,24 @@ function parseProperties(lines) {
     return { props, rest };
 }
 
+function generateUUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+}
+
 export function parseOrg(text) {
-    const lines = text.split('\n');
+    const allLines = text.split('\n');
+    if (allLines.length === 0) return { title: '', roots: [] };
+
+    // Extract Title (First Line)
+    const title = allLines[0].trim();
+    const lines = allLines.slice(1);
+
     const roots = [];
-    const stack = []; // { indent, node }
+    const stack = []; // { level, node }
+    const newBlockState = {};
 
     lines.forEach((line) => {
         if (!line.trim()) return;
@@ -53,80 +69,85 @@ export function parseOrg(text) {
         // 2. Indented bullets:   * Item,   - Item
         const match = line.match(/^(\s*)(\*+|-)\s+(.*)/);
 
-        let level = 0;
+        let levelIdx = 0; // Internal level index for hierarchy building
         let content = "";
         let isBlock = false;
 
         if (match) {
             const indentStr = match[1];
             const bullet = match[2];
-            const text = match[3];
+            const textMatch = match[3];
 
             if (bullet === '-') {
                 // Dash is always indentation based
-                level = Math.floor(indentStr.length / 2);
+                levelIdx = Math.floor(indentStr.length / 2);
             } else {
                 // Star(s)
                 if (indentStr.length === 0) {
                     // No indent -> Standard Org Header (* is level 0, ** is level 1)
-                    level = bullet.length - 1;
+                    levelIdx = bullet.length - 1;
                 } else {
                     // Indented -> Treat as listed item
-                    level = Math.floor(indentStr.length / 2);
+                    levelIdx = Math.floor(indentStr.length / 2);
                 }
             }
-            content = text;
+            content = textMatch;
             isBlock = true;
         }
 
         if (isBlock) {
             const node = {
-                id: Math.random().toString(36).substr(2, 9),
+                // Temporary ID until properties are parsed, or final if no ID prop
+                uuid: null,
                 content: content,
                 rawLines: [], // for properties
                 children: [],
                 properties: {},
-                level: level,
+                level: 1, // Will be set correctly after hierarchy
                 collapsed: signal(false)
             };
 
-            // Find parent
-            // If level is 0, stack should be empty or we pop until empty?
-            // Actually, if we have level 0, we pop everything.
-            // If level > stack.level, we push.
-            // If level <= stack.level, we pop until we find a parent with level < current level.
-
-            while (stack.length > 0 && stack[stack.length - 1].level >= level) {
+            // Maintain hierarchy strictly based on visual levelIdx
+            while (stack.length > 0 && stack[stack.length - 1].levelIdx >= levelIdx) {
                 stack.pop();
             }
 
             if (stack.length === 0) {
+                // Top level block
+                node.level = 1;
                 roots.push(node);
             } else {
-                // Parent is now at top of stack
-                stack[stack.length - 1].node.children.push(node);
+                // Child block
+                const parent = stack[stack.length - 1].node;
+                node.level = parent.level + 1;
+                parent.children.push(node);
             }
-            stack.push({ level, node });
+            stack.push({ levelIdx, node });
 
         } else {
             // Continuation line or property
             if (stack.length > 0) {
                 const lastNode = stack[stack.length - 1].node;
                 lastNode.rawLines.push(line);
-            } else {
-                // Orphan text? 
-                // If it's a property block at start of file? Ignore or console.warn
             }
         }
     });
 
-    // Post-process for properties
+    // Post-process: Parse properties, Assign UUIDs, Populate State
     const processNode = (node) => {
         const { props, rest } = parseProperties(node.rawLines);
         node.properties = props;
-        // Append rest to content if any? Usually simple multiline content isn't handled this way in logseq 
-        // (it's new blocks), but let's assume rawLines are just properties for now.
-        // Text after properties in a block is usually not standard Logseq unless Soft Line Break.
+
+        // Check for ID property, else generate
+        if (node.properties.id) {
+            node.uuid = node.properties.id;
+        } else {
+            node.uuid = generateUUID();
+        }
+
+        // Add to state
+        newBlockState[node.uuid] = node;
+
         if (rest.length > 0) {
             node.content += '\n' + rest.join('\n');
         }
@@ -134,14 +155,53 @@ export function parseOrg(text) {
     };
     roots.forEach(processNode);
 
-    return roots;
+    // Update global signal using a side-effect (not ideal in pure computed, but practical here)
+    // We defer this update to avoid side-effects during computation if possible, 
+    // but since 'blocks' is widely used, we'll expose blockState via a separate action or just update it here.
+    // However, computing derived state in a computed is fine as long as we don't cause loops.
+    // We will update a separate signal in an effect in the component or just let consumers read the latest map from here.
+    // Ideally `blocks` returns the whole structure including the map.
+
+    return { title, roots, blockMap: newBlockState };
 }
 
-export const blocks = computed(() => parseOrg(sourceText.value));
+export const parsedData = computed(() => parseOrg(sourceText.value));
+export const blocks = computed(() => parsedData.value.roots);
+export const pageTitle = computed(() => parsedData.value.title);
+
+// Update global block state whenever parsing finishes
+effect(() => {
+    blockState.value = parsedData.value.blockMap;
+});
 
 export const getBlocks = () => blocks.value;
 
+
 // --- Components ---
+
+const PropertyRow = ({ name, value }) => {
+    const isLong = value && value.length > 20;
+    const [collapsed, setCollapsed] = useState(isLong);
+
+    const toggle = (e) => {
+        if (isLong) {
+            e.stopPropagation();
+            setCollapsed(!collapsed);
+        }
+    };
+
+    const displayValue = (isLong && collapsed) ? value.substring(0, 20) + '...' : value;
+
+    return html`
+    <div class="block-properties-row" onClick=${toggle} style=${isLong ? 'cursor: pointer;' : ''}>
+        <span class="block-properties-name">${name}:</span>
+        <span class="block-properties-value">
+            ${displayValue}
+            ${isLong ? html`<span style="opacity: 0.5; margin-left: 5px; font-size: 0.8em;">${collapsed ? '(more)' : '(less)'}</span>` : ''}
+        </span>
+    </div>
+    `;
+};
 
 const BlockProperties = ({ properties }) => {
     const entries = Object.entries(properties);
@@ -150,10 +210,7 @@ const BlockProperties = ({ properties }) => {
     return html`
     <div class="block-properties">
         ${entries.map(([key, value]) => html`
-            <div class="block-properties-row">
-                <span class="block-properties-name">${key}:</span>
-                <span class="block-properties-value">${value}</span>
-            </div>
+            <${PropertyRow} name=${key} value=${value} />
         `)}
     </div>
 `;
@@ -222,7 +279,9 @@ const Block = ({ node }) => {
 
     return html`
     <div class="ls-block ${isCollapsed ? 'is-collapsed' : ''}" 
-         data-block-id="${node.id}"
+         id="ls-block-${node.uuid}"
+         blockid="${node.uuid}"
+         level="${node.level}"
          data-refs-self="${JSON.stringify(Object.keys(node.properties))}">
         
         <div class="block-main-container">
@@ -275,13 +334,17 @@ const App = () => {
     // Subscribe to theme to re-render button text
     const [currentTheme, setCurrentTheme] = useState(theme.value);
 
+    const [currentTitle, setCurrentTitle] = useState(pageTitle.value);
+
     // Effect to track signals manually (avoids Preact instance mismatch issues with automatic signal tracking)
     useEffect(() => {
         const disposeBlocks = effect(() => setCurrentBlocks(blocks.value));
         const disposeTheme = effect(() => setCurrentTheme(theme.value));
+        const disposeTitle = effect(() => setCurrentTitle(pageTitle.value));
         return () => {
             disposeBlocks();
             disposeTheme();
+            disposeTitle();
         };
     }, []);
 
@@ -295,7 +358,7 @@ const App = () => {
         </div>
     </div>
     <div class="page">
-        <h1 style="margin-bottom: 2rem;">Logseq Simulation</h1>
+        <h1 class="page-title" style="margin-bottom: 2rem;">${currentTitle}</h1>
         
         <div id="editor-toggle" onClick=${() => setEditorVisible(!isEditorVisible)}>
             ${isEditorVisible ? 'Hide Source' : 'Edit Source'}

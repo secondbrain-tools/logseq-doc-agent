@@ -13,39 +13,21 @@
     <div id="app">Loading...</div>
 
     <!-- Sample Content -->
-    <script type="text/plain" id="default-content">
-* Embracing Imperfection
-  property:: true
-  ls-type:: guide
-  * Our society glorifies perfection and achievement, but the truth is that **imperfection is an inevitable** part of the human experience. Instead of constantly striving for perfection, it's important to learn to embrace our imperfections.
-  * Accepting imperfection:
-    status:: active
-    * Imperfection is a natural part of the human experience.
-    * [[Perfectionism]] can be harmful and prevent us from taking action.
-      reason:: fear of failure
-    * Accepting imperfection can lead to greater [[self-acceptance]] and resilience.
-  * How to embrace imperfection:
-    * Practice [[self-compassion]] and treat yourself with kindness.
-    * Focus on progress, not perfection.
-    * Be open to making mistakes and learning from them.
-    * Embrace your unique qualities and embrace your flaws.
-  * Embracing imperfection is a liberating and empowering mindset that can help us live a more authentic and fulfilling life.
-* Alternative: Perfectionism
-  * Perfectionism is a personality trait characterized by a desire for flawlessness and high standards.
-  * Perfectionism can be both positive and negative:
-    * Positive perfectionism is associated with high achievement and success.
-    * Negative perfectionism is associated with anxiety, depression, and burnout.
-  * Perfectionism can be overcome by practicing self-compassion and focusing on progress, not perfection.
-</script>
-
     <!-- App Logic -->
     <script type="module">
         import { mountApp } from './logseq-sim-lib.js';
         import './logseq-mock-api.js'; // Initialize API
 
         // Initialize the app with the default content
-        const defaultContent = document.getElementById('default-content').textContent.trim();
-        mountApp('app', defaultContent);
+        fetch('./default-content.txt')
+            .then(res => res.text())
+            .then(defaultContent => {
+                mountApp('app', defaultContent.trim());
+            })
+            .catch(e => {
+                console.error('[Sim] Failed to load default content:', e);
+                mountApp('app', '* Error loading content');
+            });
 
         // Load the plugin code dynamically to catch errors and ensure ordering
         import('../dist/main.js')

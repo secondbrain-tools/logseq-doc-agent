@@ -18,7 +18,7 @@ export class InjectRatingsUseCase {
   async execute() {
     try {
 
-      const position = InjectionPosition.NextSibling;
+      const position = InjectionPosition.LastChild;
       const containerClass = 'feedback-rating-container';
 
       this.styleInjector.removeStyles('feedback-rating-styles');
@@ -106,8 +106,8 @@ export class InjectRatingsUseCase {
               blockId: blockId || undefined,
               feedbackData
             });
+            console.log(`Successfully injected FeedbackRating component for element: ${targetId}, rating: ${props.rating}`);
           }
-          console.log(`Successfully injected FeedbackRating component for element: ${targetId}, rating: ${props.rating}`);
         } catch (error) {
           console.error('Failed to inject FeedbackRating component for element:', error);
         }

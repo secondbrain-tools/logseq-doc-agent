@@ -28,11 +28,13 @@ export class FrontendComponentInjector implements ComponentInjector {
       throw new Error('Target element is required for component injection');
     }
 
-    // Make sure the parent element can contain positioned children
-    if (target.parentNode) {
+    // Make sure the positioning context is correct
+    if (position === InjectionPosition.FirstChild || position === InjectionPosition.LastChild) {
+      target.style.position = 'relative';
+    } else if (target.parentNode) {
       (target.parentNode as HTMLElement).style.position = 'relative';
     }
-    
+
     // Create a container for our component
     const container = document.createElement('div');
     container.className = 'feedback-rating-container';
@@ -41,16 +43,16 @@ export class FrontendComponentInjector implements ComponentInjector {
     container.style.left = `${target.offsetWidth}px`;
     container.style.zIndex = '1';
     container.style.width = '10em';
-    
+
     // Insert the container based on the specified position
     this.insertContainerAtPosition(container, target, position);
-    
+
     // Mount the component
     mount(component, {
       target: container,
       props: props || {}
     });
-    
+
     console.log(`Component injected at position: ${position}`);
     return container;
   }
@@ -95,7 +97,7 @@ export class FrontendComponentInjector implements ComponentInjector {
 
   findBlockElementsWithProperty(property: string): HTMLElement[] {
     const mainDocument = this.getMainDocument();
-    
+
     if (!mainDocument) {
       console.error('Cannot access document');
       return [];
@@ -104,7 +106,7 @@ export class FrontendComponentInjector implements ComponentInjector {
     const allElements = mainDocument.querySelectorAll('div[data-refs-self]');
     console.log(`Found ${allElements.length} elements with data-refs-self attribute.`);
     const matchingElements: HTMLElement[] = [];
-    
+
     allElements.forEach((element) => {
       const dataRefs = element.getAttribute('data-refs-self');
       if (dataRefs) {
@@ -119,7 +121,7 @@ export class FrontendComponentInjector implements ComponentInjector {
         }
       }
     });
-    
+
     console.log(`Found ${matchingElements.length} elements with property: ${property}`);
     return matchingElements;
   }
@@ -132,12 +134,12 @@ export class FrontendComponentInjector implements ComponentInjector {
 
     // Look for the 'blockid' attribute as specified
     const blockId = element.getAttribute('blockid');
-    
+
     if (blockId) {
       console.log(`Found block ID: ${blockId}`);
       return blockId;
     }
-    
+
     console.warn('No blockid attribute found on element');
     return null;
   }

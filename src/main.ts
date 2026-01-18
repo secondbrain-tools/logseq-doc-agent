@@ -98,4 +98,12 @@ const main = async () => {
 }
 
 // Initialize the plugin when Logseq is ready
-logseq.ready(main).catch(console.error)
+import { setupSettings } from './settings';
+
+logseq.ready(async () => {
+  // Initialize settings
+  setupSettings();
+
+  await main();
+}).catch(console.error)
+

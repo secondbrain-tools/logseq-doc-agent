@@ -1,0 +1,241 @@
+<script lang="ts">
+  import { createEventDispatcher } from "svelte";
+  import { slide } from "svelte/transition";
+  import { RatingValue } from "../../domain/value-objects";
+  import type {
+    FeedbackRating,
+    CategoryRating,
+    CriterionRating,
+  } from "../../domain/entities";
+  import { AddToSidebarUseCase } from "../../application/usecases/add-to-sidebar.usecase";
+  import { FrontendSidebarInjector } from "../../infra/frontend";
+  import RatingStars from "./RatingStars.svelte";
+
+  let {
+    detailedRatings = [],
+    feedbackData,
+    categoryRatings = [],
+    showPopover = false,
+  }: {
+    detailedRatings?: Array<{ category: string; rating: number }>;
+    feedbackData?: FeedbackRating;
+    categoryRatings?: CategoryRating[];
+    showPopover: boolean;
+  } = $props();
+
+  const dispatch = createEventDispatcher();
+
+  // Track expanded state for categories
+  let expandedCategories = $state<Record<string, boolean>>({});
+
+  // Icons
+  const icons = {
+    chevronDown: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>`,
+    chevronRight: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>`,
+  };
+
+  // Get star color based on rating value
+  function getStarColor(ratingValue: number): string {
+    const rating = RatingValue.fromNumber(ratingValue);
+    return rating.getColor();
+  }
+
+  // Generate star display based on rating
+  function getStarDisplay(ratingValue: number): string {
+    const rating = RatingValue.fromNumber(ratingValue);
+    return rating.toStars();
+  }
+
+  function toggleCategory(categoryName: string) {
+    expandedCategories[categoryName] = !expandedCategories[categoryName];
+  }
+
+  // Use provided category ratings or fall back to detailedRatings
+  const categories = $derived(
+    categoryRatings ||
+      detailedRatings?.map((item) => ({
+        category: item.category,
+        overallRating: item.rating,
+        criteriaRatings: [],
+      })) ||
+      [],
+  );
+
+  $inspect("feedbackData", feedbackData, showPopover);
+  $inspect("categoryRatings", categoryRatings, showPopover);
+
+  const hasDetailedFeedback = $derived(
+    categoryRatings &&
+      categoryRatings.length > 0 &&
+      categoryRatings.some(
+        (cat) => cat.criteriaRatings && cat.criteriaRatings.length > 0,
+      ),
+  );
+
+  function openInSidebar(e: Event) {
+    e.stopPropagation();
+    console.log("[LDA Debug] openInSidebar clicked", { feedbackData });
+    if (feedbackData) {
+      console.log("[LDA Debug] feedbackData present, creating useCase");
+      const useCase = new AddToSidebarUseCase(new FrontendSidebarInjector());
+      const icon = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>`;
+      useCase.showAnalysisSidebar(feedbackData, icon);
+      dispatch("close");
+    } else {
+      console.warn("[LDA Debug] feedbackData is missing!");
+    }
+  }
+
+  function nativeClick(node: HTMLElement) {
+    function onClick(e: MouseEvent) {
+      console.log("[LDA Debug] Native click action detected");
+      openInSidebar(e);
+    }
+    function onMouseDown(e: MouseEvent) {
+      console.log("[LDA Debug] Native mousedown action detected");
+      e.stopPropagation();
+    }
+
+    node.addEventListener("click", onClick);
+    node.addEventListener("mousedown", onMouseDown);
+
+    return {
+      destroy() {
+        node.removeEventListener("click", onClick);
+        node.removeEventListener("mousedown", onMouseDown);
+      },
+    };
+  }
+</script>
+
+<div class="lda-rating-popover">
+  <div class="lda-popover-header">
+    <div
+      style="display: flex; justify-content: space-between; align-items: center;"
+    >
+      <h4 id="lda-popover-title" style="margin: 0;">
+        {hasDetailedFeedback ? "Detailed Feedback" : "Detailed Ratings"}
+        {#if feedbackData}
+          <div style="display: inline-block; margin-left: 8px;">
+            <RatingStars
+              rating={feedbackData.overallRating}
+              showValue={true}
+              size="sm"
+            />
+          </div>
+        {/if}
+      </h4>
+      <button
+        use:nativeClick
+        class="lda-sidebar-trigger"
+        title="Open in Sidebar"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          ><path d="M15 3h6v18h-6M10 17l5-5-5-5M3 12h12" /></svg
+        >
+      </button>
+    </div>
+  </div>
+  <div class="lda-popover-content">
+    {#if hasDetailedFeedback}
+      <!-- Detailed view with accordion categories -->
+      {#each categories as category}
+        {@const ratingObj = RatingValue.fromNumber(category.overallRating)}
+
+        <div class="lda-accordion-item" style="margin-bottom: 8px;">
+          <button
+            class="lda-accordion-header"
+            onclick={() => toggleCategory(category.category)}
+          >
+            <div class="lda-accordion-title-row">
+              <span class="lda-accordion-icon">
+                {@html expandedCategories[category.category]
+                  ? icons.chevronDown
+                  : icons.chevronRight}
+              </span>
+              <span class="lda-category-name">{category.category}</span>
+              <RatingStars
+                rating={category.overallRating}
+                showValue={true}
+                size="sm"
+              />
+            </div>
+            <!-- Progress Bar -->
+            <div class="lda-dist-bar">
+              <div
+                class="lda-dist-segment"
+                style="width: {ratingObj.getPercentage()}%; background: {ratingObj.getColor()};"
+              ></div>
+            </div>
+          </button>
+
+          {#if expandedCategories[category.category]}
+            <div class="lda-accordion-content" transition:slide|local>
+              {#if category.criteriaRatings && category.criteriaRatings.length > 0}
+                <div class="lda-criteria-list">
+                  {#each category.criteriaRatings as criterion}
+                    <div
+                      class="lda-criterion-item"
+                      style="border-left: none; padding: 4px 8px; background: transparent;"
+                    >
+                      <div class="lda-criterion-header">
+                        <div
+                          style="display: flex; align-items: center; justify-content: space-between; width: 100%;"
+                        >
+                          <span
+                            class="lda-criterion-name"
+                            style="margin-right: 8px;"
+                            >{criterion.criterion}</span
+                          >
+                          <RatingStars
+                            rating={criterion.rating}
+                            showValue={false}
+                            size="sm"
+                          />
+                        </div>
+                      </div>
+                      <!-- No text feedback here as requested -->
+                    </div>
+                  {/each}
+                </div>
+              {/if}
+            </div>
+          {/if}
+        </div>
+      {/each}
+    {:else}
+      <!-- Simple view with just categories and ratings -->
+      <table class="lda-ratings-table">
+        <thead>
+          <tr>
+            <th>Category</th>
+            <th>Rating</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each categories as item}
+            <tr>
+              <td class="lda-category-name">{item.category}</td>
+              <td class="lda-rating-stars">
+                <RatingStars
+                  rating={item.overallRating}
+                  showValue={true}
+                  size="sm"
+                />
+              </td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    {/if}
+  </div>
+</div>

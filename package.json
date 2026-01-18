@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "concurrently \"vite build --watch\" \"http-server -c-1 -p 9000 .\"",
     "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json"
@@ -13,6 +13,8 @@
     "@sveltejs/vite-plugin-svelte": "^6.2.1",
     "@tsconfig/svelte": "^5.0.6",
     "@types/node": "^24.10.1",
+    "concurrently": "^9.2.1",
+    "http-server": "^14.1.1",
     "svelte": "^5.43.8",
     "svelte-check": "^4.3.4",
     "typescript": "~5.9.3",
@@ -22,7 +24,7 @@
     "id": "logseq-hello-world",
     "description": "A simple hello world plugin for Logseq",
     "title": "Hello World Plugin",
-    "icon": "./icon.png",
+    "icon": "icon.png",
     "author": "Logseq Developer",
     "repo": "https://github.com/yourusername/logseq-hello-world",
     "main": "dist/main.js"

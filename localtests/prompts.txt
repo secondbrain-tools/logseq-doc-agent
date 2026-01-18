@@ -1,0 +1,7 @@
+* Feedback Prompts
+** Prompt 1
+doc-agent-feedback-prompt:: Check clarity and conciseness
+This is a test promptblock.
+** Prompt 2
+doc-agent-feedback-prompt:: Verify code correctness
+Another prompt for testing.

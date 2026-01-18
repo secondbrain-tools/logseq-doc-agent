@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Logseq Simulation</title>
+    <link rel="stylesheet" href="logseq-sim.css" />
+    <link rel="stylesheet" href="styles/ui.css" />
+    <link rel="stylesheet" href="styles/style.css" />
+</head>
+
+<body>
+    <div id="app">Loading...</div>
+
+    <!-- Sample Content -->
+    <!-- App Logic -->
+    <script type="module">
+        import { mountApp } from "./logseq-sim-lib.js";
+        import "./logseq-mock-api.js"; // Initialize API
+
+        // Initialize the app with content from multiple files
+        Promise.all([
+            fetch("./default-content.txt").then(res => res.text()),
+            fetch("./prompts.txt").then(res => res.text())
+        ])
+            .then(([defaultContent, promptsContent]) => {
+                const combinedContent = defaultContent.trim() + "\n" + promptsContent.trim();
+                mountApp("app", combinedContent);
+            })
+            .catch((e) => {
+                console.error("[Sim] Failed to load content:", e);
+                mountApp("app", "* Error loading content");
+            });
+
+        // Load the plugin code dynamically to catch errors and ensure ordering
+        import("../dist/main.js")
+            .then(() =>
+                console.log("[Sim] Plugin script loaded successfully"),
+            )
+            .catch((e) =>
+                console.error("[Sim] Failed to load plugin script:", e),
+            );
+    </script>
+</body>
+
+</html>

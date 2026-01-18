@@ -50,24 +50,6 @@ A simple "Hello World" plugin for Logseq built with Svelte, TypeScript, and Vite
    npm run build
    ```
 
-### Project Structure
-
-```
-src/
-├── main.ts          # Main plugin entry point
-├── App.svelte       # Main UI component
-├── index.ts         # Alternative entry point
-└── assets/          # Static assets
-```
-
-## Usage
-
-Once installed, you can:
-
-1. Use the slash command `/Hello World` in any block
-2. Right-click on blocks and select "Say Hello" from the context menu
-3. Click the "Hello" button in the toolbar
-4. Interact with the UI components that appear when the plugin is loaded
 
 ## Plugin API Usage
 

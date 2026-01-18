@@ -1,9 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   
-  export let message: string = 'Hello World!'
+  let { message = 'Hello World!' } = $props()
   
-  let greeting = 'Loading...'
+  let greeting = $state('Loading...')
   
   onMount(async () => {
     // Get current graph info when component mounts
@@ -20,12 +20,17 @@
   }
   
   async function createHelloBlock() {
-    const block = await logseq.Editor.insertBlock('Hello World from Logseq Plugin! 🎉', {
-      sibling: false,
-      focused: true
-    })
-    if (block) {
-      await logseq.UI.showMsg('Hello World block created!', 'success')
+    const currentPage = await logseq.Editor.getCurrentPage()
+    if (currentPage && currentPage.uuid) {
+      const block = await logseq.Editor.appendBlockInPage(
+        currentPage.uuid,
+        'Hello World from Logseq Plugin! 🎉'
+      )
+      if (block) {
+        await logseq.UI.showMsg('Hello World block created!', 'success')
+      }
+    } else {
+      await logseq.UI.showMsg('No current page found', 'error')
     }
   }
 </script>
@@ -35,10 +40,10 @@
   <p>This is a hello world Logseq plugin built with Svelte!</p>
   
   <div class="button-group">
-    <button on:click={sayHello}>
+    <button onclick={sayHello}>
       Say Hello
     </button>
-    <button on:click={createHelloBlock}>
+    <button onclick={createHelloBlock}>
       Create Hello Block
     </button>
   </div>

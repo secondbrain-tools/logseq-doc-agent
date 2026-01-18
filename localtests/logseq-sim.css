@@ -1,0 +1,292 @@
+:root {
+    --ls-primary-text-color: #37352f;
+    --ls-secondary-text-color: #585858;
+    --ls-bg-color: #ffffff;
+    --ls-menu-hover-color: #efefef;
+    --ls-border-color: #d3d3d3;
+    --ls-link-text-color: #106ba3;
+    --ls-block-bullet-color: #c0c0c0;
+    --ls-block-bullet-active-color: #4c4c4c;
+    --ls-guideline-color: #ddd;
+    --ls-page-title-size: 36px;
+    --ls-font-family: 'Inter', system-ui, -apple-system, sans-serif;
+
+    --ls-block-properties-bg: #f7f7f7;
+    --ls-block-properties-text: #666;
+}
+
+[data-theme="dark"] {
+    --ls-primary-text-color: #e2e2e2;
+    --ls-secondary-text-color: #a4a4a4;
+    --ls-bg-color: #1a1a1a;
+    --ls-menu-hover-color: #2a2a2a;
+    --ls-border-color: #444;
+    --ls-link-text-color: #7ad1ff;
+    --ls-block-bullet-color: #4a4a4a;
+    --ls-block-bullet-active-color: #a0a0a0;
+    --ls-guideline-color: #333;
+    --ls-block-properties-bg: #262626;
+    --ls-block-properties-text: #a0a0a0;
+}
+
+body {
+    background-color: var(--ls-bg-color);
+    color: var(--ls-primary-text-color);
+    font-family: var(--ls-font-family);
+    margin: 0;
+    padding: 0;
+    /* Removed padding */
+    line-height: 1.6;
+    transition: background-color 0.3s, color 0.3s;
+    overflow: hidden;
+    /* Manage scroll in sub-containers */
+    height: 100vh;
+    width: 100%;
+}
+
+#app {
+    width: 100%;
+    height: 100%;
+    /* max-width and margin removed for full app layout */
+}
+
+/* Page container specifically */
+.page {
+    padding-right: 170px !important;
+}
+
+/* Utility */
+.hidden {
+    display: none;
+}
+
+.flex {
+    display: flex;
+}
+
+.items-center {
+    align-items: center;
+}
+
+.justify-between {
+    justify-content: space-between;
+}
+
+.mb-4 {
+    margin-bottom: 1rem;
+}
+
+/* Theme Switcher */
+.theme-switcher {
+    padding: 8px 16px;
+    border-radius: 4px;
+    background: var(--ls-menu-hover-color);
+    border: 1px solid var(--ls-border-color);
+    color: var(--ls-primary-text-color);
+    cursor: pointer;
+    /* Removed absolute positioning */
+}
+
+/* Logseq Classes */
+.ls-block {
+    position: relative;
+    padding-left: 0;
+    margin-top: 4px;
+}
+
+/* Nesting lines and indentation */
+.block-children-container {
+    margin-left: 24px;
+    border-left: 1px solid var(--ls-guideline-color);
+    padding-left: 10px;
+}
+
+.ls-block:hover>.block-children-container {
+    border-left-color: var(--ls-block-bullet-active-color);
+}
+
+/* Main Container Layout */
+.block-main-container {
+    display: flex;
+    align-items: flex-start;
+}
+
+/* Controls (Bullet) */
+/* Controls (Bullet + Arrow) */
+.block-control-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    margin-right: 6px;
+    flex-shrink: 0;
+    position: relative;
+}
+
+/* Arrow Toggle */
+.block-control-wrap .arrow {
+    position: absolute;
+    left: -11px;
+    /* Left of the bullet (was -16px) */
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    /* Visible on hover */
+    transition: opacity 0.2s, transform 0.2s;
+    color: var(--ls-secondary-text-color);
+    font-size: 10px;
+    user-select: none;
+}
+
+.ls-block:hover>.block-main-container .block-control-wrap .arrow {
+    opacity: 1;
+}
+
+.arrow svg {
+    width: 13px;
+    height: 13px;
+    fill: currentColor;
+    transition: transform 0.2s;
+}
+
+/* Rotation logic:
+   User request: "pointing right when open [expanded] and pointing down when collapsed".
+   Standard UI: Right=Collapsed, Down=Expanded.
+   Interpreting Request: "Open" as "available to open" (collapsed)? Or just inverted convention.
+   Let's stick to Standard (Down=Expanded). If user complains, we invert.
+*/
+.is-collapsed .arrow svg {
+    transform: rotate(-90deg);
+    /* Point Right (assuming default is Down) */
+}
+
+/* Bullet */
+.block-control-wrap .bullet-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    border-radius: 50%;
+}
+
+.block-control-wrap .bullet {
+    width: 6px;
+    height: 6px;
+    background-color: var(--ls-block-bullet-color);
+    border-radius: 50%;
+    transition: transform 0.2s, background-color 0.2s, box-shadow 0.2s;
+}
+
+.block-control-wrap:hover .bullet {
+    background-color: var(--ls-block-bullet-active-color);
+    transform: scale(1.1);
+}
+
+/* Collapsed State Halo */
+.is-collapsed .bullet {
+    background-color: var(--ls-link-text-color) !important;
+    box-shadow: 0 0 0 4px rgba(16, 107, 163, 0.3);
+    /* Fallback color */
+}
+
+[data-theme="dark"] .is-collapsed .bullet {
+    box-shadow: 0 0 0 4px rgba(122, 209, 255, 0.3);
+}
+
+.is-collapsed .block-children-container {
+    display: none;
+}
+
+/* Properties */
+.block-properties {
+    display: table;
+    font-size: 0.85em;
+    opacity: 0.8;
+    margin-top: 4px;
+    background: var(--ls-menu-hover-color);
+    padding: 8px;
+    border-radius: 4px;
+    width: fit-content;
+}
+
+.block-properties-row {
+    display: table-row;
+}
+
+.block-properties-name {
+    display: table-cell;
+    font-weight: 500;
+    padding-right: 10px;
+    color: var(--ls-secondary-text-color);
+}
+
+.block-properties-value {
+    display: table-cell;
+}
+
+/* Editor Area for Testing */
+#editor-toggle {
+    margin-bottom: 20px;
+    font-size: 0.9em;
+    color: var(--ls-link-text-color);
+    cursor: pointer;
+    display: inline-block;
+}
+
+textarea#source-input {
+    width: 100%;
+    height: 150px;
+    background: var(--ls-menu-hover-color);
+    color: var(--ls-primary-text-color);
+    border: 1px solid var(--ls-border-color);
+    padding: 10px;
+    font-family: monospace;
+    font-size: 14px;
+    margin-bottom: 20px;
+}
+
+/* Page Title */
+.page-title {
+    font-size: var(--ls-page-title-size);
+    font-weight: 700;
+    margin-top: 0;
+    margin-bottom: 2rem;
+    line-height: 1.2;
+}
+
+/* Context Menu */
+.context-menu {
+    position: fixed;
+    z-index: 10000;
+    min-width: 180px;
+    background: var(--ls-bg-color);
+    border: 1px solid var(--ls-border-color);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border-radius: 4px;
+    padding: 4px 0;
+    font-size: 14px;
+}
+
+.context-menu-item {
+    padding: 8px 16px;
+    cursor: pointer;
+    color: var(--ls-primary-text-color);
+    transition: background-color 0.2s;
+}
+
+.context-menu-item:hover {
+    background-color: var(--ls-menu-hover-color);
+}
+
+.context-menu-empty {
+    padding: 8px 16px;
+    color: var(--ls-secondary-text-color);
+    font-style: italic;
+}

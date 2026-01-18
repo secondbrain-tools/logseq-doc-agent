@@ -161,6 +161,23 @@ export const logseq = {
         }
         return Promise.resolve();
     },
+    useSettingsSchema: (schema) => {
+        console.log(`[MockLogseq] useSettingsSchema:`, schema);
+        logseq._settingsSchema = schema;
+    },
+    onSettingsChanged: (callback) => {
+        console.log(`[MockLogseq] onSettingsChanged registered`);
+        logseq._onSettingsChangedCallback = callback;
+    },
+    updateSettings: (newSettingsParts) => {
+        const oldSettings = { ...logseq.settings };
+        const newSettings = { ...logseq.settings, ...newSettingsParts };
+        logseq.settings = newSettings;
+        console.log(`[MockLogseq] updateSettings:`, newSettings);
+        if (logseq._onSettingsChangedCallback) {
+            logseq._onSettingsChangedCallback(newSettings, oldSettings);
+        }
+    },
     settings: {}, // Mock settings object
     baseInfo: {
         id: 'logseq-doc-agent',

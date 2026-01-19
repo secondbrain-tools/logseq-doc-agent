@@ -7,6 +7,9 @@ import { InjectRatingsUseCase } from './application/usecases/inject-ratings.usec
 import { FrontendComponentInjector, FrontendStyleInjector } from './infra/frontend'
 import { LogseqApiImpl } from './infra/logseq'
 import { LogseqPromptRepository } from './infra/logseq/prompt-repo';
+import { ChatSidebarUseCase } from './application/usecases/chat-sidebar.usecase';
+import { FrontendSidebarInjector } from './infra/frontend/sidebar-injector';
+import { FrontendToolbarInjector } from './infra/frontend/toolbar-injector';
 
 
 // Force usage of global logseq (Mock in sim, Real in App)
@@ -26,6 +29,22 @@ const main = async () => {
       message: 'Hello from Logseq Plugin!'
     }
   })
+
+  // Initialize dependencies
+  const sidebarInjector = new FrontendSidebarInjector();
+  const toolbarInjector = new FrontendToolbarInjector();
+  const chatUseCase = new ChatSidebarUseCase(sidebarInjector);
+
+  // Register Toolbar Chat Button
+  toolbarInjector.injectToolbarItem(
+    'open-chat',
+    'ti-message', // Icon class
+    'AI Chat',
+    () => {
+      console.log('[src/main.ts] Open Chat clicked');
+      chatUseCase.openChat();
+    }
+  );
 
   // Register a slash command to get block content
   logseq.Editor.registerSlashCommand('Get Block Content', async () => {
@@ -62,38 +81,25 @@ const main = async () => {
     }
   })
 
-  // Register a toolbar button
-  /*logseq.App.registerUIItem('toolbar', {
-    key: 'hello-world',
-    template: '<a title="logseq-doc-agent" style="font-size:15px;color:#1f9ee1;opacity:unset" data-on-click="showHello" class="button icon">.🤖</a>'
-    //template: '<button data-on-click="showHello">🤖</button>',
-  })*/
-
+  // Register a pagebar button (Legacy/Debug)
   logseq.App.registerUIItem('pagebar', {
     key: 'hello-world',
     template: '<a title="logseq-doc-agent" style="font-size:15px;color:#1f9ee1;opacity:unset" data-on-click="injectIntoPage" class="button icon">.🤖</a>'
-    //template: '<button data-on-click="showHello">🤖</button>',
   })
 
-  // Handle the toolbar button click
+  // Handle the pagebar button click
   logseq.provideModel({
     async injectIntoPage() {
-      //await logseq.UI.showMsg('Injecting feedback components!', 'info')
-
       // Wait a bit for DOM to be ready, then inject components
       setTimeout(() => {
         try {
-
           new InjectRatingsUseCase(new FrontendComponentInjector(), new FrontendStyleInjector(), new LogseqApiImpl).execute();
-          //logseq.UI.showMsg(`Injected feedback components!`, 'success')
         } catch (error) {
           console.error('Error injecting feedback components:', error)
           logseq.UI.showMsg('Error injecting feedback components', 'error')
         }
       }, 500)
     },
-
-
   })
 }
 

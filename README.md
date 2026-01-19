@@ -26,6 +26,11 @@ A simple "Hello World" plugin for Logseq built with Svelte, TypeScript, and Vite
    - Click "Load unpacked plugin"
    - Select the `dist` folder from this project
 
+## AI SDK
+
+### installed providers
+
+
 ## Development
 
 ### Prerequisites

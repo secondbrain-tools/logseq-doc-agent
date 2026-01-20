@@ -1,7 +1,7 @@
 
 import { mount } from 'svelte';
 import App from '../App.svelte';
-import { Services } from '../services';
+import { Services, doc } from '../services';
 import { setupSettings } from './settings-manager';
 
 export const setupPlugin = async () => {
@@ -18,6 +18,37 @@ export const setupPlugin = async () => {
         props: {
             message: 'Hello from Logseq Plugin!'
         }
+    });
+
+    // Inject CSS into Logseq main window
+    setTimeout(() => {
+        try {
+            // "document" here is the iframe's document, which should have the Vite-bundled CSS link.
+            // We assume the first stylesheet is the main one (or the only one).
+            const cssPath = document.styleSheets[0]?.href;
+            if (cssPath && doc.head) {
+                // Remove existing if any (for HMR/reload safety)
+                doc.getElementById('logseq-doc-agent')?.remove();
+
+                const logseqCSS = doc.head.querySelector(`link[href="./css/style.css"]`);
+                const key = 'logseq-doc-agent';
+                const linkHtml = `<link rel="stylesheet" id="${key}" href="${cssPath}">`;
+
+                if (logseqCSS) {
+                    logseqCSS.insertAdjacentHTML('afterend', linkHtml);
+                } else {
+                    doc.head.insertAdjacentHTML('beforeend', linkHtml);
+                }
+                console.log('[src/plugin/index.ts] Injected CSS:', cssPath);
+            }
+        } catch (e) {
+            console.error('[src/plugin/index.ts] Failed to inject CSS', e);
+        }
+    }, 100);
+
+    // Register cleanup
+    logseq.beforeunload(async () => {
+        doc.getElementById('logseq-doc-agent')?.remove();
     });
 
     // Register Toolbar Chat Button

@@ -21,13 +21,13 @@
     "vite": "^7.2.4"
   },
   "logseq": {
-    "id": "logseq-hello-world",
+    "id": "logseq-doc-agent",
     "description": "A simple hello world plugin for Logseq",
-    "title": "Hello World Plugin",
+    "title": "Logseq Doc Agent",
     "icon": "icon.png",
     "author": "Logseq Developer",
     "repo": "https://github.com/yourusername/logseq-hello-world",
-    "main": "dist/main.js"
+    "main": "dist/index.html"
   },
   "dependencies": {
     "@ai-sdk/amazon-bedrock": "^4.0.19",

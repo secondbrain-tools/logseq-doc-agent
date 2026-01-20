@@ -125,8 +125,8 @@
                 >
                     <div
                         class="w-4 h-4 rounded-full {msg.role === 'user'
-                            ? 'ls-bg-secondary'
-                            : 'ls-bg-accent'}"
+                            ? 'ls-accent-user'
+                            : 'ls-accent-agent'}"
                     ></div>
                     <span class="font-bold"
                         >{msg.personalityName ||
@@ -138,9 +138,7 @@
                 <div
                     class="
                     max-w-[90%] rounded-lg p-3 shadow-sm border ls-border
-                    {msg.role === 'user'
-                        ? 'ls-bg-secondary ls-text-primary'
-                        : 'ls-bg-accent'}
+                    {msg.role === 'user' ? 'ls-bg-user' : 'ls-bg-agent'}
                 "
                 >
                     <!-- Standard Content (Flat) -->

@@ -137,3 +137,27 @@ button:focus-visible {
   color: inherit;
   text-decoration: underline;
 }
+
+/* Chat Message Backgrounds */
+/* Use color-mix to create subtle tints of the secondary background */
+.ls-bg-user {
+  /* Tint towards a distinct user hue (e.g. Purple/Violet) to differentiate from Agent */
+  background-color: color-mix(in srgb, var(--ls-secondary-background-color, #f0f0f0), #8a2be2 8%);
+  color: var(--ls-primary-text-color, #000000);
+}
+
+.ls-bg-agent {
+  /* Tint towards the link color (Accent) to match the Agent's accent bullet */
+  background-color: color-mix(in srgb, var(--ls-secondary-background-color, #f0f0f0), var(--ls-link-text-color, #106ba3) 8%);
+  color: var(--ls-primary-text-color, #000000);
+}
+
+/* Chat Accents (Bullets/Avatars) */
+/* Stronger saturation of the same hues */
+.ls-accent-user {
+  background-color: color-mix(in srgb, var(--ls-secondary-background-color, #f0f0f0), #8a2be2 60%);
+}
+
+.ls-accent-agent {
+  background-color: color-mix(in srgb, var(--ls-secondary-background-color, #f0f0f0), var(--ls-link-text-color, #106ba3) 60%);
+}

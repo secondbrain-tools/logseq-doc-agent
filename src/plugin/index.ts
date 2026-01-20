@@ -3,6 +3,8 @@ import { mount } from 'svelte';
 import App from '../App.svelte';
 import { Services, doc } from '../services';
 import { setupSettings } from './settings-manager';
+import logseqCSS from '../app.css?inline';
+import feedbackCSS from '../ui/styles/feedback-components.css?inline';
 
 export const setupPlugin = async () => {
     console.log('[src/plugin/index.ts] setupPlugin() called');
@@ -23,23 +25,16 @@ export const setupPlugin = async () => {
     // Inject CSS into Logseq main window
     setTimeout(() => {
         try {
-            // "document" here is the iframe's document, which should have the Vite-bundled CSS link.
-            // We assume the first stylesheet is the main one (or the only one).
-            const cssPath = document.styleSheets[0]?.href;
-            if (cssPath && doc.head) {
+            if (doc.head) {
                 // Remove existing if any (for HMR/reload safety)
-                doc.getElementById('logseq-doc-agent')?.remove();
+                doc.getElementById('logseq-doc-agent-css')?.remove();
 
-                const logseqCSS = doc.head.querySelector(`link[href="./css/style.css"]`);
-                const key = 'logseq-doc-agent';
-                const linkHtml = `<link rel="stylesheet" id="${key}" href="${cssPath}">`;
+                const key = 'logseq-doc-agent-css';
+                const cssContent = `${logseqCSS}\n${feedbackCSS}`;
+                const styleHtml = `<style id="${key}">${cssContent}</style>`;
 
-                if (logseqCSS) {
-                    logseqCSS.insertAdjacentHTML('afterend', linkHtml);
-                } else {
-                    doc.head.insertAdjacentHTML('beforeend', linkHtml);
-                }
-                console.log('[src/plugin/index.ts] Injected CSS:', cssPath);
+                doc.head.insertAdjacentHTML('beforeend', styleHtml);
+                console.log('[src/plugin/index.ts] Injected Inline CSS');
             }
         } catch (e) {
             console.error('[src/plugin/index.ts] Failed to inject CSS', e);
@@ -48,7 +43,7 @@ export const setupPlugin = async () => {
 
     // Register cleanup
     logseq.beforeunload(async () => {
-        doc.getElementById('logseq-doc-agent')?.remove();
+        doc.getElementById('logseq-doc-agent-css')?.remove();
     });
 
     // Register Toolbar Chat Button

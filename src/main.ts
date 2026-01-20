@@ -1,6 +1,5 @@
 import '@logseq/libs'
-import './app.css'
-import './ui/styles/feedback-components.css'
+import '@logseq/libs'
 import { setupPlugin } from './plugin'
 
 // Force usage of global logseq (Mock in sim, Real in App)

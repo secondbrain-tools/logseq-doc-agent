@@ -27,7 +27,7 @@
     "icon": "icon.png",
     "author": "Logseq Developer",
     "repo": "https://github.com/yourusername/logseq-hello-world",
-    "main": "dist/index.html"
+    "main": "dist/main.js"
   },
   "dependencies": {
     "@ai-sdk/amazon-bedrock": "^4.0.19",

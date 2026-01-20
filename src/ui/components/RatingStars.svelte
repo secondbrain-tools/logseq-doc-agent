@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { RatingValue } from "../../domain/value-objects";
+    import { RatingValue } from "../../domain/rating";
 
     let {
         rating = 0,

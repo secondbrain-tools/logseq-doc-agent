@@ -1,0 +1,90 @@
+/**
+ * Domain value objects for the feedback rating system
+ * These are immutable value objects that represent domain concepts
+ */
+
+export class RatingValue {
+    readonly value: number;
+    readonly max: number;
+
+    constructor(value: number, max: number = 5) {
+        if (value < 0 || value > max) {
+            throw new Error(`Rating value must be between 0 and ${max}`);
+        }
+        this.value = value;
+        this.max = max;
+    }
+
+    static fromNumber(value: number, max: number = 5): RatingValue {
+        return new RatingValue(value, max);
+    }
+
+    equals(other: RatingValue): boolean {
+        return this.value === other.value && this.max === other.max;
+    }
+
+    toString(): string {
+        return `${this.value}/${this.max}`;
+    }
+
+    toStars(): string {
+        if (this.value === 0) {
+            return '○'; // Circle for "not applicable"
+        }
+        return '★'.repeat(this.value);
+    }
+
+    getColor(): string {
+        if (this.value === 0) {
+            return '#9ca3af'; // gray for "not applicable"
+        }
+        // Handle float values
+        if (this.value < 1.5) return '#dc2626'; // red (darker)
+        if (this.value < 2.5) return '#d97706'; // yellow/amber (darker)
+        if (this.value < 3.5) return '#65a30d'; // light green (lime-600)
+        return '#16a34a'; // dark green (unchanged)
+    }
+
+    isNotApplicable(): boolean {
+        return this.value === 0;
+    }
+
+    getPercentage(): number {
+        if (this.value === 0) {
+            return 0;
+        }
+        return Math.round((this.value / this.max) * 100);
+    }
+
+    toRoundedValue(): number {
+        // Rounds to nearest 0.5
+        return Math.round(this.value * 2) / 2;
+    }
+
+    toFormattedString(): string {
+        return `${this.value.toFixed(1)}/${this.max}`;
+    }
+}
+
+export class RatingCategory {
+    readonly name: string;
+
+    constructor(name: string) {
+        if (!name || name.trim().length === 0) {
+            throw new Error('Category name cannot be empty');
+        }
+        this.name = name.trim();
+    }
+
+    static fromString(name: string): RatingCategory {
+        return new RatingCategory(name);
+    }
+
+    equals(other: RatingCategory): boolean {
+        return this.name === other.name;
+    }
+
+    toString(): string {
+        return this.name;
+    }
+}

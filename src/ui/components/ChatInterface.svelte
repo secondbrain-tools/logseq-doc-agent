@@ -3,6 +3,9 @@
     import { marked } from "marked";
     import type { Writable } from "svelte/store";
 
+    import { PROVIDERS } from "../../domain/settings";
+    import ModelSelector, { type ProviderGroup } from "./ModelSelector.svelte";
+
     // --- Types ---
     export interface Message {
         id: string;
@@ -29,20 +32,68 @@
         messages: Writable<Message[]>;
         isLoading: Writable<boolean>;
         onSendMessage: (text: string) => void;
+        onClose: () => void; // Added onClose prop which was missing in original define but used in usecase
     }
 
     let { messages, isLoading, onSendMessage }: Props = $props();
 
     // --- State ---
     let inputText = $state("");
-    let messageContainer: HTMLDivElement;
+    let messageContainer: HTMLDivElement | undefined = $state();
     let selectedModel = $state("gpt-4o");
+    let modelGroups: ProviderGroup[] = $state([]);
 
-    const models = [
-        { id: "gpt-4o", name: "GPT-4o" },
-        { id: "claude-3-5-sonnet", name: "Claude 3.5 Sonnet" },
-        { id: "gemini-pro", name: "Gemini Pro 1.5" },
-    ];
+    onMount(() => {
+        loadConfiguredModels();
+    });
+
+    function loadConfiguredModels() {
+        // Access logseq settings safely
+        const settings = (window as any).logseq?.settings || {};
+        const groups: ProviderGroup[] = [];
+
+        for (const provider of PROVIDERS) {
+            const defaultProviderEnabled = provider.id === "openai";
+            const providerKey = `enable_provider_${provider.id}`;
+            const isProviderEnabled =
+                settings[providerKey] !== undefined
+                    ? settings[providerKey]
+                    : defaultProviderEnabled;
+
+            if (!isProviderEnabled) continue;
+
+            const groupModels: any[] = [];
+            for (const model of provider.models) {
+                const modelKey = `enable_model_${model.value}`;
+                const isModelEnabled =
+                    settings[modelKey] !== undefined
+                        ? settings[modelKey]
+                        : model.defaultEnabled;
+
+                if (isModelEnabled) {
+                    groupModels.push({ id: model.value, name: model.label });
+                }
+            }
+
+            if (groupModels.length > 0) {
+                groups.push({
+                    providerId: provider.id,
+                    providerName: provider.label,
+                    models: groupModels,
+                });
+            }
+        }
+        modelGroups = groups;
+
+        // Ensure selected model is still valid, else pick first
+        if (groups.length > 0) {
+            const allModels = groups.flatMap((g) => g.models);
+            const exists = allModels.find((m) => m.id === selectedModel);
+            if (!exists && allModels.length > 0) {
+                selectedModel = allModels[0].id;
+            }
+        }
+    }
 
     // --- Actions ---
     function handleSubmit() {
@@ -248,13 +299,7 @@
             </button>
 
             <!-- Model Selection -->
-            <div style="position: relative;">
-                <select class="lda-model-select" bind:value={selectedModel}>
-                    {#each models as model}
-                        <option value={model.id}>{model.name}</option>
-                    {/each}
-                </select>
-            </div>
+            <ModelSelector bind:value={selectedModel} groups={modelGroups} />
 
             <div class="lda-spacer"></div>
 

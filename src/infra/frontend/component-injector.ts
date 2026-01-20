@@ -1,6 +1,6 @@
 import { mount } from 'svelte';
 import type { ComponentInjector } from '../../application/ports';
-import { InjectionPosition } from '../../domain/value-objects';
+import { InjectionPosition } from '../../domain/logseq';
 
 /**
  * Concrete implementation of ComponentInjector for frontend applications

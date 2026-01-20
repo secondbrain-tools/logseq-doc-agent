@@ -21,17 +21,18 @@ export class FrontendSidebarInjector implements SidebarInjector {
 
     injectIntoSidebar(component: any, props: any, title: string, icon?: string): void {
         console.log('[LDA Debug] injectIntoSidebar called with title:', title);
+
+        // Always attempt to open the sidebar to ensure it's visible.
+        // This fixes the issue in simulation where container exists (hidden) but sidebar is visually closed.
+        if (typeof (window as any).logseq?.App?.openRightSidebar === 'function') {
+            console.log('[LDA Debug] calling logseq.App.openRightSidebar() to ensure visibility');
+            (window as any).logseq.App.openRightSidebar();
+        }
+
         let container = this.getSidebarContainer();
 
         if (!container) {
-            console.log('[LDA Debug] Container not found. Attempting to open Logseq sidebar...');
-            // Try to open sidebar if using Logseq API
-            if (typeof (window as any).logseq?.App?.openRightSidebar === 'function') {
-                console.log('[LDA Debug] calling logseq.App.openRightSidebar()');
-                (window as any).logseq.App.openRightSidebar();
-            } else {
-                console.warn('[LDA Debug] logseq.App.openRightSidebar is not a function');
-            }
+            console.log('[LDA Debug] Container not found immediately after open request.');
 
             // Retry finding container after a short delay or check immediately if update is synchronous (Sim is effectively synch via event but React/Preact might take a tick)
             // Since Preact renders asynchronously, we might need to wait properly.

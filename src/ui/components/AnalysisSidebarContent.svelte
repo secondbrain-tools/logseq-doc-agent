@@ -1,11 +1,11 @@
 <script lang="ts">
     import { createEventDispatcher } from "svelte";
-    import { RatingValue } from "../../domain/value-objects";
+    import { RatingValue } from "../../domain/rating";
     import type {
         FeedbackRating,
         CategoryRating,
         CriterionRating,
-    } from "../../domain/entities";
+    } from "../../domain/rating";
     import { fade, slide } from "svelte/transition";
     import RatingStars from "./RatingStars.svelte";
 

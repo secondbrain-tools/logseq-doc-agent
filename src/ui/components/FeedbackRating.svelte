@@ -2,8 +2,8 @@
   import { createEventDispatcher, onMount, onDestroy } from "svelte";
   import RatingPopover from "./RatingPopover.svelte";
   import RatingStars from "./RatingStars.svelte";
-  import { RatingValue } from "../../domain/value-objects";
-  import type { FeedbackRating, CategoryRating } from "../../domain/entities";
+  import { RatingValue } from "../../domain/rating";
+  import type { FeedbackRating, CategoryRating } from "../../domain/rating";
 
   let {
     rating = 0,

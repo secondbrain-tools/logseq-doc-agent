@@ -2,7 +2,7 @@
  * UI-only mappers/formatters for rating display
  */
 
-import { RatingValue } from '../../domain/value-objects';
+import { RatingValue } from '../../domain/rating';
 
 /**
  * Format rating value as a percentage
@@ -35,11 +35,11 @@ export function getRatingColorClass(rating: number): string {
 /**
  * Format detailed ratings for display
  */
-export function formatDetailedRatings(detailedRatings: Array<{category: string, rating: number}>): string {
+export function formatDetailedRatings(detailedRatings: Array<{ category: string, rating: number }>): string {
   if (!detailedRatings || detailedRatings.length === 0) {
     return 'No ratings available';
   }
-  
+
   return detailedRatings
     .map(item => `${item.category}: ${formatRatingWithStars(item.rating)}`)
     .join(', ');

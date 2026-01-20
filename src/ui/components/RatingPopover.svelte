@@ -1,12 +1,12 @@
 <script lang="ts">
   import { createEventDispatcher } from "svelte";
   import { slide } from "svelte/transition";
-  import { RatingValue } from "../../domain/value-objects";
+  import { RatingValue } from "../../domain/rating";
   import type {
     FeedbackRating,
     CategoryRating,
     CriterionRating,
-  } from "../../domain/entities";
+  } from "../../domain/rating";
   import { AddToSidebarUseCase } from "../../application/usecases/add-to-sidebar.usecase";
   import { FrontendSidebarInjector } from "../../infra/frontend";
   import RatingStars from "./RatingStars.svelte";

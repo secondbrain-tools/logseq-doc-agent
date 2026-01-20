@@ -197,7 +197,7 @@
 
                     {#if expandedCategories[category.category]}
                         <div
-                            class="lda-accordion-content"
+                            class="lda-accordion-content-panel"
                             transition:slide|local
                         >
                             {#each category.criteriaRatings as criterion (criterion.criterion)}

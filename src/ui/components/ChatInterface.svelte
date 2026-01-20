@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { onMount } from "svelte";
+    import { onMount, tick } from "svelte";
     import { marked } from "marked";
     import type { Writable } from "svelte/store";
 
@@ -36,6 +36,13 @@
     // --- State ---
     let inputText = $state("");
     let messageContainer: HTMLDivElement;
+    let selectedModel = $state("gpt-4o");
+
+    const models = [
+        { id: "gpt-4o", name: "GPT-4o" },
+        { id: "claude-3-5-sonnet", name: "Claude 3.5 Sonnet" },
+        { id: "gemini-pro", name: "Gemini Pro 1.5" },
+    ];
 
     // --- Actions ---
     function handleSubmit() {
@@ -93,40 +100,22 @@
             return text;
         }
     }
-
-    function getAvatarColor(role: string, personality?: string): string {
-        // We will handle specific personality overrides if needed later,
-        // for now let's rely on base theme classes or return specific classes if requested.
-        // But user said: "use primary and secondary for the chat items at first"
-        // Let's stick to standard classes in the template.
-        return "";
-    }
 </script>
 
-<div
-    class="ls-bg-primary ls-text-primary flex flex-col w-full text-sm ls-border border"
-    style="height: 70vh; max-height: 90vh; min-height: 300px; resize: vertical; overflow: auto;"
->
+<div class="lda-chat-container">
     <!-- Message List -->
-    <div
-        bind:this={messageContainer}
-        class="flex-1 overflow-y-auto p-4 space-y-4"
-        style="min-height: 0;"
-    >
+    <div bind:this={messageContainer} class="lda-chat-messages">
         {#each $messages as msg, mIndex (msg.id)}
-            <div
-                class="flex flex-col gap-1 {msg.role === 'user'
-                    ? 'items-end'
-                    : 'items-start'}"
-            >
+            <div class="lda-message-row {msg.role}">
                 <!-- Avatar / Sender Name -->
-                <div
-                    class="flex items-center gap-2 opacity-70 text-xs ls-text-secondary"
-                >
+                <div class="lda-message-meta">
                     <div
-                        class="w-4 h-4 rounded-full {msg.role === 'user'
+                        class="lda-avatar {msg.role === 'user'
                             ? 'ls-accent-user'
                             : 'ls-accent-agent'}"
+                        style="background-color: {msg.role === 'user'
+                            ? 'var(--ls-link-text-color)'
+                            : '#888'};"
                     ></div>
                     <span class="font-bold"
                         >{msg.personalityName ||
@@ -136,10 +125,9 @@
 
                 <!-- Bubble -->
                 <div
-                    class="
-                    max-w-[90%] rounded-lg p-3 shadow-sm border ls-border
-                    {msg.role === 'user' ? 'ls-bg-user' : 'ls-bg-agent'}
-                "
+                    class="lda-bubble {msg.role === 'user'
+                        ? 'ls-bg-user'
+                        : 'ls-bg-agent'}"
                 >
                     <!-- Standard Content (Flat) -->
                     {#if !msg.parts || msg.parts.length === 0}
@@ -153,9 +141,13 @@
                         {#each msg.parts as part, pIndex}
                             <!-- Reasoning Block -->
                             {#if part.type === "reasoning"}
-                                <div class="mb-2 border-l-2 ls-border pl-2">
+                                <div
+                                    class="mb-2 border-l-2 pl-2"
+                                    style="border-color: var(--ls-border-color);"
+                                >
                                     <button
-                                        class="text-xs ls-text-secondary font-medium flex items-center hover:underline focus:outline-none"
+                                        class="text-xs font-medium flex items-center hover:underline focus:outline-none"
+                                        style="color: var(--ls-secondary-text-color); background: none; border: none; cursor: pointer;"
                                         onclick={() =>
                                             togglePartCollapse(mIndex, pIndex)}
                                     >
@@ -168,7 +160,8 @@
                                     </button>
                                     {#if !part.isCollapsed}
                                         <div
-                                            class="text-xs ls-text-secondary italic mt-1 animate-fadeIn"
+                                            class="text-xs italic mt-1 lda-animate-fadeIn"
+                                            style="color: var(--ls-secondary-text-color);"
                                         >
                                             {part.text}
                                         </div>
@@ -178,11 +171,13 @@
                                 <!-- Tool Call Block -->
                             {:else if part.type === "tool_call"}
                                 <div
-                                    class="mb-2 border ls-border ls-bg-secondary rounded p-2 text-xs"
+                                    class="mb-2 border rounded p-2 text-xs"
+                                    style="border-color: var(--ls-border-color); background: var(--ls-secondary-background-color);"
                                 >
                                     <button
                                         type="button"
-                                        class="flex justify-between items-center cursor-pointer font-mono w-full text-left focus:outline-none ls-text-link"
+                                        class="flex justify-between items-center cursor-pointer font-mono w-full text-left focus:outline-none"
+                                        style="background: none; border: none; color: var(--ls-link-text-color);"
                                         onclick={() =>
                                             togglePartCollapse(mIndex, pIndex)}
                                     >
@@ -197,17 +192,11 @@
                                     </button>
                                     {#if !part.isCollapsed && part.toolArgs}
                                         <pre
-                                            class="mt-2 overflow-x-auto p-1 rounded border ls-border ls-bg-primary ls-text-primary">{JSON.stringify(
-                                                part.toolArgs,
-                                                null,
-                                                2,
-                                            )}</pre>
+                                            class="mt-2 overflow-x-auto p-1 rounded border"
+                                            style="background: var(--ls-primary-background-color); border-color: var(--ls-border-color); color: var(--ls-primary-text-color);">
+{JSON.stringify(part.toolArgs, null, 2)}</pre>
                                     {/if}
                                 </div>
-
-                                <!-- Tool Result Block (Optional if we show it) -->
-
-                                <!-- Standard Content -->
                             {:else if part.type === "content"}
                                 <div class="markdown-body">
                                     {@html renderMarkdown(part.text || "")}
@@ -220,92 +209,80 @@
         {/each}
 
         {#if $isLoading}
-            <div class="flex items-center gap-2 ls-text-secondary text-xs p-2">
-                <div class="animate-pulse">Writing...</div>
+            <div
+                class="flex items-center gap-2 p-2"
+                style="color: var(--ls-secondary-text-color); font-size: 0.8rem;"
+            >
+                <div class="animate-pulse">Thinking...</div>
             </div>
         {/if}
     </div>
 
     <!-- Input Area -->
-    <div class="p-3 border-t ls-border ls-bg-secondary">
-        <div class="relative rounded-md shadow-sm">
-            <textarea
-                class="block w-full rounded-md border ls-border ls-bg-primary ls-text-primary p-2 text-sm focus:border-ring focus:ring-ring resize-none"
-                rows="2"
-                placeholder="Ask anything..."
-                bind:value={inputText}
-                onkeydown={handleKeydown}
-            ></textarea>
+    <div class="lda-chat-input-area">
+        <textarea
+            class="lda-chat-textarea"
+            rows="2"
+            placeholder="Ask anything..."
+            bind:value={inputText}
+            onkeydown={handleKeydown}
+        ></textarea>
+
+        <div class="lda-chat-footer">
+            <!-- Add Context Button -->
+            <button class="lda-btn-icon" title="Add Context">
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+            </button>
+
+            <!-- Model Selection -->
+            <div style="position: relative;">
+                <select class="lda-model-select" bind:value={selectedModel}>
+                    {#each models as model}
+                        <option value={model.id}>{model.name}</option>
+                    {/each}
+                </select>
+            </div>
+
+            <div class="lda-spacer"></div>
+
+            <!-- Send Button -->
             <button
-                class="absolute bottom-2 right-2 p-1 ls-text-link hover:ls-bg-secondary rounded"
+                class="lda-btn-primary"
                 onclick={handleSubmit}
                 title="Send"
+                disabled={!inputText.trim()}
+                style={!inputText.trim()
+                    ? "opacity: 0.5; cursor: default;"
+                    : ""}
             >
                 <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    class="h-5 w-5"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
                 >
-                    <path
-                        d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"
-                    />
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                    <polyline points="12 5 19 12 12 19"></polyline>
                 </svg>
             </button>
         </div>
     </div>
 </div>
-
-<style>
-    /* basic markdown styles reset/shim */
-    .markdown-body :global(h1),
-    .markdown-body :global(h2) {
-        font-weight: 600;
-        margin-bottom: 0.5rem;
-        margin-top: 1rem;
-        color: inherit;
-    }
-    .markdown-body :global(p) {
-        margin-bottom: 0.5rem;
-        line-height: 1.5;
-        color: inherit;
-    }
-    .markdown-body :global(a) {
-        color: var(--ls-link-text-color);
-        text-decoration: underline;
-    }
-    .markdown-body :global(pre) {
-        background: var(--ls-secondary-background-color);
-        color: var(--ls-primary-text-color);
-        padding: 0.5rem;
-        border-radius: 0.25rem;
-        overflow-x: auto;
-        font-family: monospace;
-        font-size: 0.9em;
-    }
-    .markdown-body :global(code) {
-        background: var(--ls-secondary-background-color);
-        color: var(--ls-primary-text-color);
-        padding: 0.1rem 0.3rem;
-        border-radius: 0.2rem;
-        font-family: monospace;
-        font-size: 0.9em;
-    }
-    .markdown-body :global(ul) {
-        list-style-type: disc;
-        padding-left: 1.25rem;
-        margin-bottom: 0.5rem;
-    }
-
-    .animate-fadeIn {
-        animation: fadeIn 0.3s ease-in;
-    }
-    @keyframes fadeIn {
-        from {
-            opacity: 0;
-        }
-        to {
-            opacity: 1;
-        }
-    }
-</style>

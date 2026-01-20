@@ -5,6 +5,7 @@ import { Services, doc } from '../services';
 import { setupSettings } from './settings-manager';
 import logseqCSS from '../app.css?inline';
 import feedbackCSS from '../ui/styles/feedback-components.css?inline';
+import chatCSS from '../ui/styles/chat.css?inline';
 
 export const setupPlugin = async () => {
     console.log('[src/plugin/index.ts] setupPlugin() called');
@@ -30,7 +31,7 @@ export const setupPlugin = async () => {
                 doc.getElementById('logseq-doc-agent-css')?.remove();
 
                 const key = 'logseq-doc-agent-css';
-                const cssContent = `${logseqCSS}\n${feedbackCSS}`;
+                const cssContent = `${logseqCSS}\n${feedbackCSS}\n${chatCSS}`;
                 const styleHtml = `<style id="${key}">${cssContent}</style>`;
 
                 doc.head.insertAdjacentHTML('beforeend', styleHtml);

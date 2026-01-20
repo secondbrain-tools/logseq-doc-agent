@@ -95,24 +95,3 @@
         </span>
     {/if}
 </div>
-
-<style>
-    .lda-rating-stars {
-        display: inline-flex;
-        flex-direction: row; /* Force row layout */
-        flex-wrap: nowrap; /* Prevent wrapping */
-        align-items: center;
-        gap: 2px;
-        font-weight: 600;
-    }
-
-    .lda-rating-text {
-        margin-left: 6px;
-        opacity: 0.9;
-    }
-
-    /* Ensure SVGs don't shrink */
-    .lda-star-icon {
-        flex-shrink: 0;
-    }
-</style>

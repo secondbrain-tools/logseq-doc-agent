@@ -33,28 +33,36 @@ Project Structure
 
 
 # Styling
+    
+### 1. Naming Convention
+*   **Prefix**: All CSS classes MUST use the `.lda-` prefix (e.g., `.lda-popover`, `.lda-btn`).
+*   **Scope**: This ensures styles do not conflict with Logseq's native UI or other plugins.
 
-use a lda- prefix for all styles, to prevent conflicts
+### 2. File Organization
+*   Place CSS files in `src/ui/styles/` (e.g., `chat.css`, `feedback-components.css`).
+*   **Do not** use `<style>` blocks inside Svelte components for styles that need to be injected into Logseq (popovers, sidebars).
 
-### Global CSS Pattern for Injected Components
+### 3. Logseq Integration (Injection)
+Styles must be manually injected into the main Logseq document to work in the Sidebar or Main UI.
 
-For Logseq plugins that inject components into the main document:
+1.  **Import as Inline**: In `src/plugin/index.ts`:
+    ```typescript
+    import chatCSS from '../ui/styles/chat.css?inline';
+    ```
+2.  **Inject**:
+    ```typescript
+    const cssContent = `${logseqCSS}\n${chatCSS}`;
+    // Inject logic typically in setupPlugin() or style-injector utility
+    doc.head.insertAdjacentHTML('beforeend', `<style id="logseq-doc-agent-css">${cssContent}</style>`);
+    ```
 
-1. **Global CSS file**: Create in `src/styles/` with all component styles
-2. **Dual imports**:
-   - `import './styles/component.css'` in main.ts (for bundling)
-   - `import cssContent from '../styles/component.css?raw'` in domUtils.ts (for injection)
-3. **Injection pattern**:
-   ```typescript
-   function injectStyles(): void {
-     const mainDocument = window.parent?.document || window.top?.document;
-     const styleElement = mainDocument.createElement('style');
-     styleElement.id = 'unique-id';
-     styleElement.textContent = cssContent;
-     mainDocument.head.appendChild(styleElement);
-   }
-   ```
-4. **Components**: Remove local `<style>` blocks, use global classes only
+### 4. Theming
+*   Use Logseq's native CSS variables to support Light/Dark modes automatically.
+*   Examples:
+    *   `var(--ls-primary-background-color)`
+    *   `var(--ls-primary-text-color)`
+    *   `var(--ls-border-color)`
+    *   `var(--ls-link-text-color)`
 
 # Building / Checking
 

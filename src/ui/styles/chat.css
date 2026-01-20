@@ -1,0 +1,253 @@
+/* Chat Interface Styles */
+/* Scoped to .lda-chat-container to avoid seeking global styles */
+
+.lda-chat-container {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 70vh;
+    max-height: 90vh;
+    min-height: 300px;
+    resize: vertical;
+    overflow: hidden;
+    /* Container handles scroll internally */
+    background-color: var(--ls-primary-background-color, #ffffff);
+    color: var(--ls-primary-text-color, #000000);
+    border: 1px solid var(--ls-border-color, #dddddd);
+    font-family: var(--ct-text-font-family, system-ui, sans-serif);
+    font-size: 0.95rem;
+}
+
+.lda-chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+/* Scrollbar styling for webkit */
+.lda-chat-messages::-webkit-scrollbar {
+    width: 8px;
+}
+
+.lda-chat-messages::-webkit-scrollbar-thumb {
+    background-color: var(--ls-scrollbar-foreground-color, #ccc);
+    border-radius: 4px;
+}
+
+.lda-chat-messages::-webkit-scrollbar-track {
+    background-color: transparent;
+}
+
+
+/* Message Bubble Layout */
+.lda-message-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    max-width: 100%;
+}
+
+.lda-message-row.user {
+    align-items: flex-end;
+}
+
+.lda-message-row.assistant {
+    align-items: flex-start;
+}
+
+.lda-message-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    opacity: 0.7;
+    color: var(--ls-secondary-text-color, #555);
+}
+
+.lda-avatar {
+    width: 1rem;
+    height: 1rem;
+    border-radius: 50%;
+}
+
+.lda-bubble {
+    max-width: 90%;
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    border: 1px solid var(--ls-border-color, #eee);
+}
+
+/* Input Area Layout */
+.lda-chat-input-area {
+    border-top: 1px solid var(--ls-border-color, #ddd);
+    /* Slightly darker */
+    background-color: var(--ls-secondary-background-color, #f9f9f9);
+    /* Subtle background diff */
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.lda-chat-textarea {
+    width: 100%;
+    border: 1px solid var(--ls-border-color, #ccc);
+    border-radius: 0.375rem;
+    padding: 0.5rem;
+    background-color: var(--ls-primary-background-color, #fff);
+    color: var(--ls-primary-text-color);
+    font-family: inherit;
+    font-size: 0.9rem;
+    resize: none;
+    min-height: 2.5rem;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.lda-chat-textarea:focus {
+    border-color: var(--ls-link-text-color, #106ba3);
+    box-shadow: 0 0 0 2px rgba(16, 107, 163, 0.1);
+}
+
+/* Footer Controls */
+.lda-chat-footer {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.lda-btn-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.4rem;
+    border-radius: 0.375rem;
+    color: var(--ls-secondary-text-color, #666);
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.lda-btn-icon:hover {
+    background-color: var(--ls-tertiary-background-color, #e5e5e5);
+    color: var(--ls-primary-text-color);
+}
+
+.lda-btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background-color: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--ls-link-text-color, #106ba3);
+    padding: 0.4rem;
+    border-radius: 0.375rem;
+    transition: transform 0.1s;
+}
+
+.lda-btn-primary:hover {
+    background-color: var(--ls-tertiary-background-color, #eee);
+}
+
+.lda-btn-primary:active {
+    transform: scale(0.95);
+}
+
+/* Dropdown */
+.lda-model-select {
+    appearance: none;
+    background-color: transparent;
+    border: none;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--ls-secondary-text-color, #555);
+    padding: 0.25rem 1.5rem 0.25rem 0.5rem;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 0.25rem center;
+    background-size: 0.8em;
+}
+
+.lda-model-select:hover {
+    color: var(--ls-primary-text-color);
+}
+
+.lda-model-select:focus {
+    outline: none;
+}
+
+
+/* Markdown & Animations */
+.lda-chat-container .markdown-body h1,
+.lda-chat-container .markdown-body h2 {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    margin-top: 1rem;
+    color: inherit;
+}
+
+.lda-chat-container .markdown-body p {
+    margin-bottom: 0.5rem;
+    line-height: 1.5;
+    color: inherit;
+}
+
+.lda-chat-container .markdown-body a {
+    color: var(--ls-link-text-color);
+    text-decoration: underline;
+}
+
+.lda-chat-container .markdown-body pre {
+    background: var(--ls-tertiary-background-color, #f5f5f5);
+    color: var(--ls-primary-text-color);
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+    overflow-x: auto;
+    font-family: monospace;
+    font-size: 0.9em;
+}
+
+.lda-chat-container .markdown-body code {
+    background: var(--ls-tertiary-background-color, #f5f5f5);
+    color: var(--ls-primary-text-color);
+    padding: 0.1rem 0.3rem;
+    border-radius: 0.2rem;
+    font-family: monospace;
+    font-size: 0.9em;
+}
+
+.lda-chat-container .markdown-body ul {
+    list-style-type: disc;
+    padding-left: 1.25rem;
+    margin-bottom: 0.5rem;
+}
+
+.lda-animate-fadeIn {
+    animation: ldaFadeIn 0.3s ease-in;
+}
+
+@keyframes ldaFadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+/* Utility to push items to right */
+.lda-spacer {
+    flex: 1;
+}
+
+.lda-hidden {
+    display: none;
+}

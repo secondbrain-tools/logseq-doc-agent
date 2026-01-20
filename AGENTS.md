@@ -14,9 +14,14 @@ Project Structure
 │ │ │ └ types.ts                   # Internal usecase types (e.g. RatingResponse, ReasoningResponse)
 │ │ └ ports/                       # Boundary contracts (try to separte into different files according to library / or even use case)
 │ ├ domain/                        # DDD core (framework-agnostic)
-│ │ ├ group_entities.ts                  # Pure domain entities (try to separate by groups e.g. feedback, or chat)
-│ │ └ group_value-objects.ts             # Domain value objects (e.g. try to separate by groups e.g. feedback, or chat)
+│ │ ├ settings.ts                    # Settings domain and provider definitions
+│ │ ├ group_entities.ts              # Pure domain entities (try to separate by groups e.g. feedback, or chat)
+│ │ └ group_value-objects.ts         # Domain value objects (e.g. try to separate by groups e.g. feedback, or chat)
 │ ├ infra/                         # Concrete communication interfaces (e.g. for rest clients)
+│ ├ plugin/                        # Logseq integration layer
+│ │ ├ index.ts                       # Plugin entry point & registration
+│ │ └ settings-manager.ts            # Logseq settings handling logic
+│ ├ services.ts                    # DI Container & Global Services Registry
 ├ localtests/                      # Simulation environment for UI testing
 │ ├ logseq-sim*                   # Logseq UI simulator with a mock Logseq API implementation
 ├ public/                            # Public assets

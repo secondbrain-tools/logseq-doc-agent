@@ -461,6 +461,7 @@ const App = () => {
                 <div id="sim-pagebar" style="display: flex; gap: 10px; align-items: center;">
                     <!-- Icons injected here -->
                 </div>
+                <div id="sim-toolbar" style="display: flex; gap: 10px; align-items: center;"></div>
                 <div class="header-right" style="margin-left: 10px;">
                     <button onClick=${() => setSidebarOpen(!isSidebarOpen)} title="Toggle Right Sidebar">
                         ${isSidebarOpen ? 'Sidebar >>' : '<< Sidebar'}
@@ -493,27 +494,25 @@ const App = () => {
              </div>
 
              <!-- Right Sidebar (Resizable) -->
-             ${isSidebarOpen && html`
-                <div id="right-sidebar-container" style="width: ${sidebarWidth}px; min-width: 200px; height: 100%; border-left: 1px solid var(--ls-border-color); background: var(--ls-secondary-background-color, #f5f5f5); display: flex; flex-direction: column; z-index: 50; flex-shrink: 0; position: relative;">
-                    <!-- Resize Handle -->
-                    <div 
-                        onMouseDown=${startResizing}
-                        style="position: absolute; left: -6px; top: 0; bottom: 0; width: 12px; cursor: col-resize; z-index: 1000; background: transparent;"
-                        title="Drag to resize">
-                    </div>
-
-                    <div class="cp__right-sidebar-scrollable" style="flex: 1; overflow-y: auto;">
-                         <div class="sidebar-item-list flex-1 scrollbar-spacing px-2" style="padding: 10px;">
-                            <!-- Sidebar content injected here -->
-                            <div style="padding: 10px; opacity: 0.5; text-align: center; color: var(--ls-secondary-text-color);">Right Sidebar Area</div>
-                         </div>
-                    </div>
+             <div id="right-sidebar-container" style="width: ${sidebarWidth}px; min-width: 200px; height: 100%; border-left: 1px solid var(--ls-border-color); background: var(--ls-secondary-background-color, #f5f5f5); display: ${isSidebarOpen ? 'flex' : 'none'}; flex-direction: column; z-index: 50; flex-shrink: 0; position: relative;">
+                <!-- Resize Handle -->
+                <div 
+                    onMouseDown=${startResizing}
+                    style="position: absolute; left: -6px; top: 0; bottom: 0; width: 12px; cursor: col-resize; z-index: 1000; background: transparent;"
+                    title="Drag to resize">
                 </div>
-             `}
+
+                <div class="cp__right-sidebar-scrollable" style="flex: 1; overflow-y: auto;">
+                     <div class="sidebar-item-list flex-1 scrollbar-spacing px-2" style="padding: 10px;">
+                        <!-- Sidebar content injected here -->
+                        <div style="padding: 10px; opacity: 0.5; text-align: center; color: var(--ls-secondary-text-color);">Right Sidebar Area</div>
+                     </div>
+                </div>
+            </div>
         </div>
         <${ContextMenu} />
     </div>
-`;
+    `;
 };
 
 export function mountApp(elementId, initialContent) {

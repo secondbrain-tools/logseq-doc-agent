@@ -31,7 +31,10 @@
     let isOpen = $state(false);
     let triggerRef = $state<HTMLElement>();
     let popoverRef = $state<HTMLElement>();
-    let popoverStyle = $state("");
+    // Initialize hidden to prevent jump before positioning
+    let popoverStyle = $state(
+        "visibility: hidden; position: absolute; top: 0; left: 0;",
+    );
 
     // Cleanup for global listeners
     let cleanupListeners = () => {};

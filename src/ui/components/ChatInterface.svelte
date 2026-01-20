@@ -3,7 +3,7 @@
     import { marked } from "marked";
     import type { Writable } from "svelte/store";
 
-    import { PROVIDERS } from "../../domain/settings";
+    import { PROVIDERS } from "../../domain/settings/index";
     import ModelSelector, { type ProviderGroup } from "./ModelSelector.svelte";
 
     // --- Types ---
@@ -31,7 +31,7 @@
     interface Props {
         messages: Writable<Message[]>;
         isLoading: Writable<boolean>;
-        onSendMessage: (text: string) => void;
+        onSendMessage: (text: string, modelId: string) => void;
         onClose: () => void; // Added onClose prop which was missing in original define but used in usecase
     }
 
@@ -98,7 +98,7 @@
     // --- Actions ---
     function handleSubmit() {
         if (!inputText.trim()) return;
-        onSendMessage(inputText);
+        onSendMessage(inputText, selectedModel);
         inputText = "";
     }
 

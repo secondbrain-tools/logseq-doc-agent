@@ -105,7 +105,7 @@ const main = async () => {
 
 // Initialize the plugin when Logseq is ready
 import { setupSettings } from './settings';
-
+// more about init and settings: https://github.com/yoyurec/logseq-awesome-styler/blob/main/src/plugin/plugin.ts
 logseq.ready(async () => {
   // Initialize settings
   setupSettings();

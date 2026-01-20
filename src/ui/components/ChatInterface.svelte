@@ -95,20 +95,16 @@
     }
 
     function getAvatarColor(role: string, personality?: string): string {
-        if (role === "user") return "bg-blue-500";
-        switch (personality) {
-            case "Critic":
-                return "bg-red-500";
-            case "Subagent":
-                return "bg-purple-500";
-            default:
-                return "bg-green-500"; // Agent
-        }
+        // We will handle specific personality overrides if needed later,
+        // for now let's rely on base theme classes or return specific classes if requested.
+        // But user said: "use primary and secondary for the chat items at first"
+        // Let's stick to standard classes in the template.
+        return "";
     }
 </script>
 
 <div
-    class="flex flex-col w-full bg-white text-sm"
+    class="ls-bg-primary ls-text-primary flex flex-col w-full text-sm ls-border border"
     style="height: 70vh; max-height: 90vh; min-height: 300px; resize: vertical; overflow: auto;"
 >
     <!-- Message List -->
@@ -124,12 +120,13 @@
                     : 'items-start'}"
             >
                 <!-- Avatar / Sender Name -->
-                <div class="flex items-center gap-2 opacity-70 text-xs">
+                <div
+                    class="flex items-center gap-2 opacity-70 text-xs ls-text-secondary"
+                >
                     <div
-                        class="w-4 h-4 rounded-full {getAvatarColor(
-                            msg.role,
-                            msg.personality,
-                        )}"
+                        class="w-4 h-4 rounded-full {msg.role === 'user'
+                            ? 'ls-bg-secondary'
+                            : 'ls-bg-accent'}"
                     ></div>
                     <span class="font-bold"
                         >{msg.personalityName ||
@@ -140,10 +137,10 @@
                 <!-- Bubble -->
                 <div
                     class="
-                    max-w-[90%] rounded-lg p-3 shadow-sm border
+                    max-w-[90%] rounded-lg p-3 shadow-sm border ls-border
                     {msg.role === 'user'
-                        ? 'bg-blue-50 border-blue-100 text-gray-800'
-                        : 'bg-white border-gray-200 text-gray-800'}
+                        ? 'ls-bg-secondary ls-text-primary'
+                        : 'ls-bg-accent'}
                 "
                 >
                     <!-- Standard Content (Flat) -->
@@ -158,11 +155,9 @@
                         {#each msg.parts as part, pIndex}
                             <!-- Reasoning Block -->
                             {#if part.type === "reasoning"}
-                                <div
-                                    class="mb-2 border-l-2 border-orange-300 pl-2"
-                                >
+                                <div class="mb-2 border-l-2 ls-border pl-2">
                                     <button
-                                        class="text-xs text-orange-600 font-medium flex items-center hover:underline focus:outline-none"
+                                        class="text-xs ls-text-secondary font-medium flex items-center hover:underline focus:outline-none"
                                         onclick={() =>
                                             togglePartCollapse(mIndex, pIndex)}
                                     >
@@ -175,7 +170,7 @@
                                     </button>
                                     {#if !part.isCollapsed}
                                         <div
-                                            class="text-xs text-gray-500 italic mt-1 animate-fadeIn"
+                                            class="text-xs ls-text-secondary italic mt-1 animate-fadeIn"
                                         >
                                             {part.text}
                                         </div>
@@ -185,11 +180,11 @@
                                 <!-- Tool Call Block -->
                             {:else if part.type === "tool_call"}
                                 <div
-                                    class="mb-2 border border-purple-200 bg-purple-50 rounded p-2 text-xs"
+                                    class="mb-2 border ls-border ls-bg-secondary rounded p-2 text-xs"
                                 >
                                     <button
                                         type="button"
-                                        class="flex justify-between items-center cursor-pointer text-purple-700 font-mono w-full text-left focus:outline-none"
+                                        class="flex justify-between items-center cursor-pointer font-mono w-full text-left focus:outline-none ls-text-link"
                                         onclick={() =>
                                             togglePartCollapse(mIndex, pIndex)}
                                     >
@@ -204,7 +199,7 @@
                                     </button>
                                     {#if !part.isCollapsed && part.toolArgs}
                                         <pre
-                                            class="mt-2 text-gray-600 overflow-x-auto bg-white p-1 rounded border border-purple-100">{JSON.stringify(
+                                            class="mt-2 overflow-x-auto p-1 rounded border ls-border ls-bg-primary ls-text-primary">{JSON.stringify(
                                                 part.toolArgs,
                                                 null,
                                                 2,
@@ -227,24 +222,24 @@
         {/each}
 
         {#if $isLoading}
-            <div class="flex items-center gap-2 text-gray-400 text-xs p-2">
+            <div class="flex items-center gap-2 ls-text-secondary text-xs p-2">
                 <div class="animate-pulse">Writing...</div>
             </div>
         {/if}
     </div>
 
     <!-- Input Area -->
-    <div class="p-3 border-t bg-gray-50">
+    <div class="p-3 border-t ls-border ls-bg-secondary">
         <div class="relative rounded-md shadow-sm">
             <textarea
-                class="block w-full rounded-md border-gray-300 p-2 text-sm focus:border-blue-500 focus:ring-blue-500 resize-none"
+                class="block w-full rounded-md border ls-border ls-bg-primary ls-text-primary p-2 text-sm focus:border-ring focus:ring-ring resize-none"
                 rows="2"
                 placeholder="Ask anything..."
                 bind:value={inputText}
                 onkeydown={handleKeydown}
             ></textarea>
             <button
-                class="absolute bottom-2 right-2 p-1 text-blue-600 hover:bg-blue-100 rounded"
+                class="absolute bottom-2 right-2 p-1 ls-text-link hover:ls-bg-secondary rounded"
                 onclick={handleSubmit}
                 title="Send"
             >
@@ -270,13 +265,20 @@
         font-weight: 600;
         margin-bottom: 0.5rem;
         margin-top: 1rem;
+        color: inherit;
     }
     .markdown-body :global(p) {
         margin-bottom: 0.5rem;
         line-height: 1.5;
+        color: inherit;
+    }
+    .markdown-body :global(a) {
+        color: var(--ls-link-text-color);
+        text-decoration: underline;
     }
     .markdown-body :global(pre) {
-        background: #f3f4f6;
+        background: var(--ls-secondary-background-color);
+        color: var(--ls-primary-text-color);
         padding: 0.5rem;
         border-radius: 0.25rem;
         overflow-x: auto;
@@ -284,7 +286,8 @@
         font-size: 0.9em;
     }
     .markdown-body :global(code) {
-        background: #f3f4f6;
+        background: var(--ls-secondary-background-color);
+        color: var(--ls-primary-text-color);
         padding: 0.1rem 0.3rem;
         border-radius: 0.2rem;
         font-family: monospace;

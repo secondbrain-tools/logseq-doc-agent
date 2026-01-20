@@ -1,27 +1,29 @@
 import '@logseq/libs';
-import { PROVIDERS, type SettingSchemaDesc } from '../domain/settings';
+import { PROVIDERS, type SettingSchemaDesc } from '../domain/settings/index';
 
 export const configureSettings = () => {
     const currentSettings = (logseq.settings as any) || {};
     const settings: SettingSchemaDesc[] = [];
 
-    // 1. Providers Section
-    //    We iterate through ALL providers.
-    //    Always show a heading and an Enable toggle.
-    //    If enabled, show configuration.
+    // Parse custom models
+    let customModels: Record<string, string[]> = {};
+    try {
+        customModels = JSON.parse(currentSettings['custom_models'] || '{}');
+    } catch (e) {
+        console.error('Failed to parse custom_models', e);
+    }
 
+    // 1. Providers Section
     const enabledModels: { label: string, value: string }[] = [];
 
     for (const provider of PROVIDERS) {
         const enableKey = `enable_provider_${provider.id}`;
-        // Default OpenAI to true, others to false.
         const defaultEnabled = provider.id === 'openai';
 
-        // Add a visual spacer before each provider block
         settings.push({
             key: `spacer_provider_${provider.id}`,
             type: 'heading',
-            title: '', // Visual separator using empty heading
+            title: '',
             description: '',
             default: null
         });
@@ -42,30 +44,29 @@ export const configureSettings = () => {
             default: defaultEnabled,
         });
 
-        // Check if enabled in current settings (or default if not set)
         const isProviderEnabled = currentSettings[enableKey] !== undefined ? currentSettings[enableKey] : defaultEnabled;
 
         if (isProviderEnabled) {
-            // API Key
+            // API Key with password type
             settings.push({
                 key: provider.apiKeySettingKey,
                 type: 'string',
                 title: provider.apiKeyLabel,
                 description: provider.apiKeyDesc,
                 default: '',
+                inputAs: 'password' as any
             });
 
-            // Models
-            // We can add a small heading or separator if we want, but "Enable X" per model is clear enough?
-            // Let's add a small definition to make it clear.
+            // Models Heading
             settings.push({
                 key: `heading_models_${provider.id}`,
                 type: 'heading',
-                title: `  ${provider.label} Models`, // Indent visually if possible? Logseq might trim.
+                title: `  ${provider.label} Models`,
                 description: '',
                 default: null
             });
 
+            // Built-in Models
             for (const model of provider.models) {
                 const modelEnableKey = `enable_model_${model.value}`;
                 settings.push({
@@ -83,16 +84,68 @@ export const configureSettings = () => {
                         label: `${provider.label}: ${model.label}`,
                         value: model.value
                     });
+
+                    // Disable Streaming Toggle
+                    settings.push({
+                        key: `disable_streaming_${provider.id}_${model.value}`,
+                        type: 'boolean',
+                        title: `    ↳ Disable Streaming`,
+                        description: `Show full response at once instead of typing effect.`,
+                        default: false,
+                    });
                 }
             }
+
+            // Custom Models
+            const providerCustomModels = customModels[provider.id] || [];
+            if (providerCustomModels.length > 0) {
+                settings.push({
+                    key: `heading_custom_models_${provider.id}`,
+                    type: 'heading',
+                    title: `  Custom ${provider.label} Models`,
+                    description: '',
+                    default: null
+                });
+
+                for (const modelName of providerCustomModels) {
+                    enabledModels.push({
+                        label: `${provider.label}: ${modelName} (Custom)`,
+                        value: modelName
+                    });
+
+                    // Disable Streaming Toggle for Custom Model
+                    settings.push({
+                        key: `disable_streaming_${provider.id}_${modelName}`,
+                        type: 'boolean',
+                        title: `    ↳ Disable Streaming`,
+                        description: `Show full response at once.`,
+                        default: false,
+                    });
+
+                    settings.push({
+                        key: `remove_custom_model_${provider.id}_${modelName}`,
+                        type: 'boolean',
+                        title: `Remove ${modelName}`,
+                        description: `Remove this custom model.`,
+                        default: false,
+                    });
+                }
+            }
+
+            // Add New Model Field
+            settings.push({
+                key: `add_custom_model_${provider.id}`,
+                type: 'string',
+                title: `Add New ${provider.label} Model`,
+                description: 'Enter model name and click away to add (e.g. gpt-4-32k)',
+                default: '',
+            });
         }
     }
 
     // 2. Active Model Selection
-    //    Only show enabled models.
     const modelEnumChoices = enabledModels.map(m => m.value);
 
-    // Spacer before global settings
     settings.unshift({
         key: 'spacer_global_models',
         type: 'heading',
@@ -102,16 +155,6 @@ export const configureSettings = () => {
     });
 
     if (modelEnumChoices.length > 0) {
-        // Add "Mini AI Model" first (order matters for unshift, so user sees them top-down: Model, Mini)
-        // Actually unshift adds to the BEGINNING array.
-        // So we want the array to look like:
-        // [Default Model]
-        // [Mini Model]
-        // [Spacer]
-        // [Provider 1...]
-
-        // So we unshift Mini Model first, then Default Model.
-
         const defaultMiniModel = modelEnumChoices.find(m => m.includes('mini') || m.includes('flash') || m.includes('haiku')) || modelEnumChoices[0];
 
         settings.unshift({
@@ -153,22 +196,72 @@ export const setupSettings = () => {
     // Re-configure when settings change
     logseq.onSettingsChanged((newSettings, oldSettings) => {
         let shouldReconfigure = false;
+        let shouldUpdateCustomModels = false;
+
+        // Parse custom models
+        let customModels: Record<string, string[]> = {};
+        try {
+            customModels = JSON.parse(newSettings['custom_models'] || '{}');
+        } catch (e) {
+            console.error('Failed to parse custom_models', e);
+        }
 
         // Check for provider enable/disable changes
+        if (newSettings['custom_models'] !== oldSettings['custom_models']) {
+            shouldReconfigure = true;
+        }
+
         for (const provider of PROVIDERS) {
             const key = `enable_provider_${provider.id}`;
             if (newSettings[key] !== oldSettings[key]) {
                 shouldReconfigure = true;
-                break;
             }
-            // Check for model enable/disable changes
+
+            // Check for built-in model enable/disable changes
             for (const model of provider.models) {
                 const modelKey = `enable_model_${model.value}`;
                 if (newSettings[modelKey] !== oldSettings[modelKey]) {
                     shouldReconfigure = true;
-                    break;
                 }
             }
+
+            // Check for "Add New Model"
+            const addKey = `add_custom_model_${provider.id}`;
+            const newModelName = newSettings[addKey];
+            if (newModelName && newModelName.trim() !== '') {
+
+                if (!customModels[provider.id]) {
+                    customModels[provider.id] = [];
+                }
+                const name = newModelName.trim();
+                if (!customModels[provider.id].includes(name)) {
+                    customModels[provider.id].push(name);
+                    shouldUpdateCustomModels = true;
+                }
+
+                logseq.updateSettings({ [addKey]: '' });
+            }
+
+            // Check for "Remove Custom Model"
+            const providerCustomModels = customModels[provider.id] || [];
+            const modelsToRemove: string[] = [];
+            for (const modelName of providerCustomModels) {
+                const removeKey = `remove_custom_model_${provider.id}_${modelName}`;
+                if (newSettings[removeKey] === true) {
+                    modelsToRemove.push(modelName);
+                    logseq.updateSettings({ [removeKey]: false });
+                }
+            }
+
+            if (modelsToRemove.length > 0) {
+                customModels[provider.id] = customModels[provider.id].filter(m => !modelsToRemove.includes(m));
+                shouldUpdateCustomModels = true;
+            }
+        }
+
+        if (shouldUpdateCustomModels) {
+            logseq.updateSettings({ custom_models: JSON.stringify(customModels) });
+            return;
         }
 
         if (shouldReconfigure) {

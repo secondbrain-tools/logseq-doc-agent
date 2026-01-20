@@ -8,6 +8,7 @@ export interface SettingSchemaDesc {
     default?: any;
     enumChoices?: string[];
     enumPicker?: 'radio' | 'select' | 'checkbox';
+    inputType?: 'password' | 'text' | 'number';
     [key: string]: any;
 }
 

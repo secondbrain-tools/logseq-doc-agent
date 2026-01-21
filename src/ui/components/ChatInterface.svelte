@@ -43,7 +43,8 @@
     // --- State ---
     let inputText = $state("");
     let messageContainer: HTMLDivElement | undefined = $state();
-    let selectedModel = $state("gpt-4o");
+    let selectedModel = $state("");
+    let userHasSelectedModel = $state(false);
     let modelGroups: ProviderGroup[] = $state([]);
 
     // --- Reactivity ---
@@ -52,6 +53,14 @@
             untrack(() => loadConfiguredModels($settingsStore));
         }
     });
+
+    // --- Actions ---
+    function handleModelChange(newModel: string) {
+        // Called when user manually selects from dropdown
+        userHasSelectedModel = true;
+        // The value is already bound, but we set the flag.
+        console.log("[LDA Debug] User selected model:", newModel);
+    }
 
     function loadConfiguredModels(settings: any) {
         const groups: ProviderGroup[] = [];
@@ -123,15 +132,21 @@
                 defaultModelSetting &&
                 allModels.some((m) => m.id === defaultModelSetting);
 
-            if (currentIsValid) {
-                return; // Keep current
+            // Logic:
+            // If the user has manually selected a model, and it's still valid, we keep it.
+            if (userHasSelectedModel && currentIsValid) {
+                return;
             }
 
-            if (defaultIsValid) {
-                selectedModel = defaultModelSetting;
-            } else {
-                // Fallback to first available
-                selectedModel = allModels[0].id;
+            // If user has NOT manually selected, OR the current selection is invalid (removed):
+            // We should try to set to default setting if valid.
+            if (!userHasSelectedModel || !currentIsValid) {
+                if (defaultIsValid) {
+                    selectedModel = defaultModelSetting;
+                } else if (!currentIsValid) {
+                    // Fallback only if we have nothing valid
+                    selectedModel = allModels[0].id;
+                }
             }
         }
     }
@@ -340,7 +355,11 @@
             </button>
 
             <!-- Model Selection -->
-            <ModelSelector bind:value={selectedModel} groups={modelGroups} />
+            <ModelSelector
+                bind:value={selectedModel}
+                groups={modelGroups}
+                onChange={handleModelChange}
+            />
 
             <div class="lda-spacer"></div>
 

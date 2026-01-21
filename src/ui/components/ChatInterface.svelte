@@ -18,6 +18,7 @@
             providerId: string,
         ) => void;
         onClose: () => void; // Added onClose prop which was missing in original define but used in usecase
+        onReset: () => void;
     }
 
     let { messages, isLoading, onSendMessage }: Props = $props();

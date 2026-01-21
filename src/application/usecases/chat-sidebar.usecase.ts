@@ -1,5 +1,6 @@
 import type { SidebarInjector } from '../ports/sidebar-injector';
 import ChatContainer from '../../ui/components/ChatContainer.svelte';
+import ChatHeaderActions from '../../ui/components/ChatHeaderActions.svelte';
 import type { Message } from '../../domain/chat/types';
 import type { IAIService } from '../ports/ai-service';
 
@@ -33,8 +34,19 @@ export class ChatSidebarUseCase {
             onSendMessage: (text: string, modelId: string, providerId: string) => this.handleUserMessage(text, modelId, providerId),
             onClose: () => {
                 this.isChatOpen = false;
+            },
+            headerActions: ChatHeaderActions,
+            headerActionsProps: {
+                onReset: () => this.resetChat()
             }
-        }, "AI Assistant", "ti-message");
+        }, "Doc Agent", '<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-message-2" width="20" height="20" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 20l-3 -3h-2a3 3 0 0 1 -3 -3v-6a3 3 0 0 1 3 -3h10a3 3 0 0 1 3 3v6a3 3 0 0 1 -3 3h-2l-3 3" /><path d="M8 9l8 0" /><path d="M8 13l6 0" /></svg>');
+    }
+
+    resetChat() {
+        this.messages.set([
+            { id: Date.now().toString(), role: 'assistant', content: "Hello! I'm your AI assistant. I can help you research, write, and critique content.", personality: 'Agent' }
+        ]);
+        this.isLoading.set(false);
     }
 
     private async handleUserMessage(text: string, modelId: string, providerId: string) {

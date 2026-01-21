@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { onMount, tick } from "svelte";
+    import { onMount, tick, getContext, untrack } from "svelte";
     import { marked } from "marked";
     import type { Writable } from "svelte/store";
 
@@ -37,20 +37,32 @@
 
     let { messages, isLoading, onSendMessage }: Props = $props();
 
+    // --- Context ---
+    const settingsStore = getContext<Writable<any>>("settings");
+
     // --- State ---
     let inputText = $state("");
     let messageContainer: HTMLDivElement | undefined = $state();
     let selectedModel = $state("gpt-4o");
     let modelGroups: ProviderGroup[] = $state([]);
 
-    onMount(() => {
-        loadConfiguredModels();
+    // --- Reactivity ---
+    $effect(() => {
+        if ($settingsStore) {
+            untrack(() => loadConfiguredModels($settingsStore));
+        }
     });
 
-    function loadConfiguredModels() {
-        // Access logseq settings safely
-        const settings = (window as any).logseq?.settings || {};
+    function loadConfiguredModels(settings: any) {
         const groups: ProviderGroup[] = [];
+
+        // Parse custom models
+        let customModels: Record<string, string[]> = {};
+        try {
+            customModels = JSON.parse(settings["custom_models"] || "{}");
+        } catch (e) {
+            console.error("Failed to parse custom_models", e);
+        }
 
         for (const provider of PROVIDERS) {
             const defaultProviderEnabled = provider.id === "openai";
@@ -63,6 +75,8 @@
             if (!isProviderEnabled) continue;
 
             const groupModels: any[] = [];
+
+            // Built-in models
             for (const model of provider.models) {
                 const modelKey = `enable_model_${model.value}`;
                 const isModelEnabled =
@@ -75,6 +89,15 @@
                 }
             }
 
+            // Custom models
+            const providerCustomModels = customModels[provider.id] || [];
+            for (const modelName of providerCustomModels) {
+                groupModels.push({
+                    id: modelName,
+                    name: `${modelName} (Custom)`,
+                });
+            }
+
             if (groupModels.length > 0) {
                 groups.push({
                     providerId: provider.id,
@@ -85,11 +108,29 @@
         }
         modelGroups = groups;
 
-        // Ensure selected model is still valid, else pick first
+        // Ensure selected model is still valid
         if (groups.length > 0) {
             const allModels = groups.flatMap((g) => g.models);
-            const exists = allModels.find((m) => m.id === selectedModel);
-            if (!exists && allModels.length > 0) {
+
+            // 1. Check if current selected model is valid
+            const currentIsValid = allModels.some(
+                (m) => m.id === selectedModel,
+            );
+
+            // 2. Get default from settings
+            const defaultModelSetting = settings["model"];
+            const defaultIsValid =
+                defaultModelSetting &&
+                allModels.some((m) => m.id === defaultModelSetting);
+
+            if (currentIsValid) {
+                return; // Keep current
+            }
+
+            if (defaultIsValid) {
+                selectedModel = defaultModelSetting;
+            } else {
+                // Fallback to first available
                 selectedModel = allModels[0].id;
             }
         }

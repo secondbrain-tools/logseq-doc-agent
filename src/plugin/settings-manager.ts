@@ -113,20 +113,20 @@ export const configureSettings = () => {
                         value: modelName
                     });
 
+                    settings.push({
+                        key: `remove_custom_model_${provider.id}_${modelName}`,
+                        type: 'boolean',
+                        title: `Remove ${modelName}`,
+                        description: `Remove this custom model.`,
+                        default: false,
+                    });
+
                     // Disable Streaming Toggle for Custom Model
                     settings.push({
                         key: `disable_streaming_${provider.id}_${modelName}`,
                         type: 'boolean',
                         title: `    ↳ Disable Streaming`,
                         description: `Show full response at once.`,
-                        default: false,
-                    });
-
-                    settings.push({
-                        key: `remove_custom_model_${provider.id}_${modelName}`,
-                        type: 'boolean',
-                        title: `Remove ${modelName}`,
-                        description: `Remove this custom model.`,
                         default: false,
                     });
                 }

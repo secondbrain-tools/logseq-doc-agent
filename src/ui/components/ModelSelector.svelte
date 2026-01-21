@@ -68,20 +68,16 @@
         if (!isOpen || !triggerRef) return;
 
         const rect = triggerRef.getBoundingClientRect();
-        const targetWin = window.parent || window;
-        const scrollX = targetWin.scrollX || targetWin.pageXOffset;
-        const scrollY = targetWin.scrollY || targetWin.pageYOffset;
 
-        // Position roughly 4px above the trigger
-        // We use translateY(-100%) to flip it upwards from the top edge
+        // Use fixed positioning relative to viewport
+        // Position upwards (translateY -100%) above the trigger
         const gap = 4;
-
-        const top = rect.top + scrollY - gap;
-        const left = rect.left + scrollX;
+        const top = rect.top - gap;
+        const left = rect.left;
         const width = Math.max(rect.width, 220); // Min width 220
 
         popoverStyle = `
-            position: absolute;
+            position: fixed;
             top: ${top}px;
             left: ${left}px;
             width: ${width}px;
@@ -90,19 +86,24 @@
         `;
     }
 
-    // --- Portal Action ---
-    function portal(node: HTMLElement) {
-        const targetDoc = window.parent?.document || window.document;
-        targetDoc.body.appendChild(node);
-
-        // Initial pos
-        updatePosition();
+    // --- Actions ---
+    function genericClick(node: HTMLElement, fn: () => void) {
+        const handler = (e: MouseEvent) => {
+            e.stopPropagation();
+            fn();
+        };
+        node.addEventListener("click", handler);
+        // Prevent popover close on click inside logic (which uses document listener)
+        // We must stop propagation of mousedown to prevent logic that closes popover on 'outside' click if that logic triggers on mousedown.
+        // In this file, global listener is 'click', but just in case or for consistency with Pattern.
+        // Actually, preventing mousedown propagation might prevent focus changes or other behaviors, but let's stick to the working pattern.
+        const stop = (e: Event) => e.stopPropagation();
+        node.addEventListener("mousedown", stop);
 
         return {
             destroy() {
-                if (node.parentNode) {
-                    node.parentNode.removeChild(node);
-                }
+                node.removeEventListener("click", handler);
+                node.removeEventListener("mousedown", stop);
             },
         };
     }
@@ -111,8 +112,6 @@
     $effect(() => {
         const targetWin = window.parent || window;
         if (isOpen) {
-            // Need to wait for DOM update to render portal content so we can measure?
-            // Actually style is applied during render loop, but let's ensure position is correct.
             updatePosition();
             targetWin.addEventListener("scroll", updatePosition, true);
             targetWin.addEventListener("resize", updatePosition);
@@ -131,7 +130,6 @@
             // If click inside trigger or popover, ignore
             if (triggerRef && triggerRef.contains(target)) return;
             if (popoverRef && popoverRef.contains(target)) return;
-            // Also check if target is inside portal container if ref check fails (shouldn't if bind works)
 
             // Otherwise close
             if (isOpen) isOpen = false;
@@ -179,13 +177,12 @@
             stroke-linecap="round"
             stroke-linejoin="round"
         >
-            <polyline points="6 9 12 15 18 9"></polyline>
+            <polyline points="18 15 12 9 6 15"></polyline>
         </svg>
     </button>
 
     {#if isOpen}
         <div
-            use:portal
             bind:this={popoverRef}
             class="lda-model-dropdown-portal"
             style={popoverStyle}
@@ -197,7 +194,7 @@
                         <button
                             class="lda-model-item"
                             class:selected={model.id === value}
-                            onclick={() => selectModel(model.id)}
+                            use:genericClick={() => selectModel(model.id)}
                         >
                             <span>{model.name}</span>
                             {#if model.id === value}

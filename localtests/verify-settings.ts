@@ -93,6 +93,18 @@ async function runTest() {
         console.error('✗ Disable streaming setting NOT found for custom model');
     }
 
+    // Verify Order: Remove should be before Disable Streaming
+    const removeIdx = mockSchema.findIndex(s => s.key === 'remove_custom_model_openai_gpt-test-custom');
+    const disableIdx = mockSchema.findIndex(s => s.key === 'disable_streaming_openai_gpt-test-custom');
+
+    if (removeIdx !== -1 && disableIdx !== -1) {
+        if (removeIdx < disableIdx) {
+            console.log('✓ Settings Order Correct: Remove < Disable Streaming');
+        } else {
+            console.error(`✗ Settings Order INCORRECT: Remove (${removeIdx}) > Disable Streaming (${disableIdx})`);
+        }
+    }
+
     // Verify it is in the model list
     const modelDropdown = mockSchema.find(s => s.key === 'model');
     // Note: The value in enabledModels for custom model is just the name

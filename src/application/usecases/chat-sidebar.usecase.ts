@@ -1,8 +1,6 @@
 import type { SidebarInjector } from '../ports/sidebar-injector';
-import ChatInterface from '../../ui/components/ChatInterface.svelte';
+import ChatContainer from '../../ui/components/ChatContainer.svelte';
 import { type Message } from '../../ui/components/ChatInterface.svelte'; // Import types
-
-
 
 // Rewriting file with STORE approach for reactivity
 import { writable, type Writable } from 'svelte/store';
@@ -25,8 +23,8 @@ export class ChatSidebarUseCase {
             { id: '1', role: 'assistant', content: "Hello! I'm your AI assistant. I can help you research, write, and critique content.", personality: 'Agent' }
         ]);
 
-        this.sidebarInjector.injectIntoSidebar(ChatInterface, {
-            messages: this.messages, // Pass the store! (Component needs to handle $messages or we pass the store itself)
+        this.sidebarInjector.injectIntoSidebar(ChatContainer, {
+            messages: this.messages,
             isLoading: this.isLoading,
             onSendMessage: (text: string, modelId: string) => this.handleUserMessage(text, modelId),
             onClose: () => {

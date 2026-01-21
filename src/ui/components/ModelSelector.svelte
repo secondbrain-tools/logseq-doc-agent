@@ -15,13 +15,15 @@
 
     interface Props {
         value: string;
+        providerId?: string; // New prop
         groups: ProviderGroup[];
         disabled?: boolean;
-        onChange?: (newValue: string) => void;
+        onChange?: (newValue: string, providerId: string) => void; // Updated signature
     }
 
     let {
         value = $bindable(),
+        providerId = $bindable(""), // Bindable providerId
         groups = [],
         disabled = false,
         onChange,
@@ -40,12 +42,31 @@
     let cleanupListeners = () => {};
 
     // Derived
-    let selectedModelName = $derived(getSelectedModelName(value, groups));
+    let selectedModelName = $derived(
+        getSelectedModelName(value, providerId, groups),
+    );
 
-    function getSelectedModelName(val: string, grps: ProviderGroup[]): string {
+    function getSelectedModelName(
+        val: string,
+        pid: string,
+        grps: ProviderGroup[],
+    ): string {
         for (const g of grps) {
+            // If providerId is known, check matching provider first
+            if (pid && g.providerId !== pid) continue;
+
             const found = g.models.find((m) => m.id === val);
-            if (found) return found.name;
+            if (found) {
+                // Double check if we are just searching by ID (fallback) or if we matched provider
+                return found.name;
+            }
+        }
+        // Fallback search if providerId was empty but val exists (e.g. init)
+        if (!pid && val) {
+            for (const g of grps) {
+                const found = g.models.find((m) => m.id === val);
+                if (found) return found.name;
+            }
         }
         return val || "Select Model";
     }
@@ -57,9 +78,10 @@
         }
     }
 
-    function selectModel(id: string) {
+    function selectModel(id: string, pid: string) {
         value = id;
-        if (onChange) onChange(id);
+        providerId = pid;
+        if (onChange) onChange(id, pid);
         isOpen = false;
     }
 
@@ -193,11 +215,13 @@
                     {#each group.models as model}
                         <button
                             class="lda-model-item"
-                            class:selected={model.id === value}
-                            use:genericClick={() => selectModel(model.id)}
+                            class:selected={model.id === value &&
+                                group.providerId === providerId}
+                            use:genericClick={() =>
+                                selectModel(model.id, group.providerId)}
                         >
                             <span>{model.name}</span>
-                            {#if model.id === value}
+                            {#if model.id === value && group.providerId === providerId}
                                 <svg
                                     class="lda-check"
                                     xmlns="http://www.w3.org/2000/svg"

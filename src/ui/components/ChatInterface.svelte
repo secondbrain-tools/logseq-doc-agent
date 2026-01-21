@@ -7,31 +7,16 @@
     import ModelSelector, { type ProviderGroup } from "./ModelSelector.svelte";
 
     // --- Types ---
-    export interface Message {
-        id: string;
-        role: "user" | "assistant" | "system";
-        content: string;
-
-        // Extended attributes for multi-part / personality
-        personality?: "Agent" | "Subagent" | "Critic";
-        personalityName?: string; // e.g. "BrowserTool"
-
-        parts?: MessagePart[]; // For structured responses
-    }
-
-    export interface MessagePart {
-        type: "content" | "reasoning" | "tool_call" | "tool_result";
-        text?: string;
-        toolName?: string;
-        toolArgs?: any;
-        toolResult?: any;
-        isCollapsed?: boolean; // UI state
-    }
+    import type { Message, MessagePart } from "../../domain/chat/types";
 
     interface Props {
         messages: Writable<Message[]>;
         isLoading: Writable<boolean>;
-        onSendMessage: (text: string, modelId: string) => void;
+        onSendMessage: (
+            text: string,
+            modelId: string,
+            providerId: string,
+        ) => void;
         onClose: () => void; // Added onClose prop which was missing in original define but used in usecase
     }
 
@@ -44,6 +29,7 @@
     let inputText = $state("");
     let messageContainer: HTMLDivElement | undefined = $state();
     let selectedModel = $state("");
+    let selectedProviderId = $state(""); // New state
     let userHasSelectedModel = $state(false);
     let modelGroups: ProviderGroup[] = $state([]);
 
@@ -55,11 +41,11 @@
     });
 
     // --- Actions ---
-    function handleModelChange(newModel: string) {
+    function handleModelChange(newModel: string, providerId: string) {
         // Called when user manually selects from dropdown
         userHasSelectedModel = true;
         // The value is already bound, but we set the flag.
-        console.log("[LDA Debug] User selected model:", newModel);
+        console.log("[LDA Debug] User selected model:", newModel, providerId);
     }
 
     function loadConfiguredModels(settings: any) {
@@ -147,6 +133,14 @@
                     // Fallback only if we have nothing valid
                     selectedModel = allModels[0].id;
                 }
+
+                // Also update providerId for the default/fallback model
+                for (const group of groups) {
+                    if (group.models.some((m) => m.id === selectedModel)) {
+                        selectedProviderId = group.providerId;
+                        break;
+                    }
+                }
             }
         }
     }
@@ -154,7 +148,11 @@
     // --- Actions ---
     function handleSubmit() {
         if (!inputText.trim()) return;
-        onSendMessage(inputText, selectedModel);
+
+        // Use bound provider ID (ModelSelector ensures it matches)
+        // Fallback search only if needed (e.g. init state fallback)
+        let providerId = selectedProviderId;
+        onSendMessage(inputText, selectedModel, providerId);
         inputText = "";
     }
 
@@ -357,6 +355,7 @@
             <!-- Model Selection -->
             <ModelSelector
                 bind:value={selectedModel}
+                bind:providerId={selectedProviderId}
                 groups={modelGroups}
                 onChange={handleModelChange}
             />

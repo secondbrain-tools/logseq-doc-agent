@@ -6,6 +6,7 @@ import { ChatSidebarUseCase } from './application/usecases/chat-sidebar.usecase'
 import { FrontendSidebarInjector } from './infra/frontend/sidebar-injector';
 import { FrontendToolbarInjector } from './infra/frontend/toolbar-injector';
 import { LogseqPromptRepository } from './infra/logseq/prompt-repo';
+import { VercelAIAdapter } from './infra/ai/vercel-ai-adapter';
 
 // Globals from previous implementation
 // We use 'parent.document' because the plugin runs in an iframe
@@ -43,7 +44,10 @@ export class Services {
             this.logseqApi
         );
 
-        this.chatUseCase = new ChatSidebarUseCase(this.sidebarInjector);
+        this.chatUseCase = new ChatSidebarUseCase(
+            this.sidebarInjector,
+            new VercelAIAdapter()
+        );
 
         // Initialize Globals
         // Note: package.json import handling might need adjustment based on build system

@@ -18,6 +18,9 @@ Project Structure
 │ │ ├ group_entities.ts              # Pure domain entities (try to separate by groups e.g. feedback, or chat)
 │ │ └ group_value-objects.ts         # Domain value objects (e.g. try to separate by groups e.g. feedback, or chat)
 │ ├ infra/                         # Concrete communication interfaces (e.g. for rest clients)
+│ │ ├ ai/                          # AI service adapters and tools
+│ │ │ ├ tools/                     # AI tools definitions (impl. of ai-sdk tools)
+│ │ │ └ vercel-ai-adapter.ts       # Adapter for Vercel AI SDK
 │ ├ plugin/                        # Logseq integration layer
 │ │ ├ index.ts                       # Plugin entry point & registration
 │ │ └ settings-manager.ts            # Logseq settings handling logic
@@ -84,3 +87,5 @@ The user should have `npm run dev` running on port 9000. If not ask the user to 
 3.  **Isolates State**: Provides a clean environment to verify parser logic (`logseq-sim-lib.js`) and interaction flows without the overhead of reloading Logseq.
 
 Use this environment to iterate on component designs and verify interactions before integrating them into the main plugin.
+
+

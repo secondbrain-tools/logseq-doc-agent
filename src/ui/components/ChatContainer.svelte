@@ -13,6 +13,7 @@
             providerId: string,
         ) => void;
         onClose: () => void;
+        onReset: () => void;
     }
 
     let props: Props = $props();

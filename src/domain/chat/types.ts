@@ -1,8 +1,9 @@
-export type Role = 'user' | 'assistant' | 'system';
+export type Role = 'user' | 'assistant' | 'system' | 'tool';
 
 export interface MessagePart {
     type: 'content' | 'reasoning' | 'tool_call' | 'tool_result';
     text?: string;
+    toolCallId?: string; // Required for linking tool results to calls
     toolName?: string;
     toolArgs?: any;
     toolResult?: any;

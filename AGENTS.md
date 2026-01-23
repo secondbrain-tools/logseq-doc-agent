@@ -25,7 +25,8 @@ Project Structure
 │ │ ├ index.ts                       # Plugin entry point & registration
 │ │ └ settings-manager.ts            # Logseq settings handling logic
 │ ├ services.ts                    # DI Container & Global Services Registry
-├ localtests/                      # Simulation environment for UI testing
+├ services.ts                    # DI Container & Global Services Registry
+├ tests/                           # Integration tests & Simulation environment
 │ ├ logseq-sim*                   # Logseq UI simulator with a mock Logseq API implementation
 ├ public/                            # Public assets
 ├ svelte.config.js                   # experimental.remoteFunctions + compiler experimental.async
@@ -74,13 +75,13 @@ use `ǹpm run build` for building and `npm run check` for checking
 
 # Plugin UI-Testing
 
-The `localtests` directory facilitates rapid UI development and testing outside of the full Logseq environment.
+The `tests` directory facilitates rapid UI development and testing outside of the full Logseq environment.
 
 ### Logseq Simulation (`logseq-sim`)
 
-The user should have `npm run dev` running on port 9000. If not ask the user to start the server. reach it under http://localhost:9000/localtests/logseq-sim.html
+The user should have `npm run dev` running on port 9000. If not ask the user to start the server. reach it under http://localhost:9000/tests/logseq-sim.html
 
-`localtests/logseq-sim.html` is a standalone simulation page that:
+`tests/logseq-sim.html` is a standalone simulation page that:
 
 1.  **Mimics Logseq UI**: Replicates the DOM structure and CSS variables (including themes) of Logseq, allowing you to style and test components as if they were injected into the real app.
 2.  **Mocks the API**: Uses `logseq-mock-api.js` to implement the `LogseqApi` interface. This allows testing plugin features that rely on `window.logseq` (like `Editor.getBlock` or `UI.showMsg`) in isolation, with controllable state.
@@ -89,3 +90,21 @@ The user should have `npm run dev` running on port 9000. If not ask the user to 
 Use this environment to iterate on component designs and verify interactions before integrating them into the main plugin.
 
 
+
+# Automated Testing
+
+We use **Vitest** for automated testing, configured with `jsdom` for browser simulation.
+
+### 1. Unit Strategy (Colocation)
+*   **Unit tests** should be colocated with the file they check, using the `*.test.ts` naming convention.
+*   **Domain & Infra**: Test pure logic (parsers, calculators, entities) in isolation.
+*   **Components**: Test Svelte components using `@testing-library/svelte` to verify rendering and behavior.
+
+### 2. Integration Tests (`tests/`)
+*   The `tests/` directory at the root is reserved for higher-level integration tests, simulation scripts (moved from `localtests`), and manual verification pages.
+*   These tests may verify end-to-end flows or complex interactions that span multiple layers.
+
+### 3. Running Tests
+*   `npm test`: Runs all tests in watch mode.
+*   `npm run test:run`: Runs all tests once (CI mode).
+*   `npm run test:ui`: Opens Vitest UI.

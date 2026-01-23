@@ -171,15 +171,33 @@
             const msg = { ...newMsgs[msgIndex] };
             if (msg.parts) {
                 const parts = [...msg.parts];
+                const part = parts[partIndex];
+
+                // Determine current collapsed state
+                // For tool_call: default is true (collapsed)
+                // For others: default is false (expanded) -- matching previous behavior
+                const defaultCollapsed = part.type === "tool_call";
+                const isCollapsed = part.isCollapsed ?? defaultCollapsed;
+
                 parts[partIndex] = {
-                    ...parts[partIndex],
-                    isCollapsed: !parts[partIndex].isCollapsed,
+                    ...part,
+                    isCollapsed: !isCollapsed,
                 };
                 msg.parts = parts;
                 newMsgs[msgIndex] = msg;
             }
             return newMsgs;
         });
+    }
+
+    function findToolResult(
+        msg: Message,
+        toolCallId: string | undefined,
+    ): MessagePart | undefined {
+        if (!toolCallId || !msg.parts) return undefined;
+        return msg.parts.find(
+            (p) => p.type === "tool_result" && p.toolCallId === toolCallId,
+        );
     }
 
     // --- Effects ---
@@ -274,71 +292,106 @@
                                     {/if}
                                 </div>
 
-                                <!-- Tool Call Block -->
+                                <!-- Tool Call Block (Integrated with Result) -->
                             {:else if part.type === "tool_call"}
+                                {@const resultPart = findToolResult(
+                                    msg,
+                                    part.toolCallId,
+                                )}
+                                {@const isCollapsed = part.isCollapsed ?? true}
                                 <div
-                                    class="mb-2 border rounded p-2 text-xs"
+                                    class="mb-2 border rounded text-xs"
                                     style="border-color: var(--ls-border-color); background: var(--ls-secondary-background-color);"
                                 >
+                                    <!-- Header: Icon, Name, Checkmark, Toggle -->
                                     <button
                                         type="button"
-                                        class="flex justify-between items-center cursor-pointer font-mono w-full text-left focus:outline-none"
-                                        style="background: none; border: none; color: var(--ls-link-text-color);"
+                                        class="flex justify-between items-center w-full p-2 cursor-pointer focus:outline-none hover:opacity-80 transition-opacity"
+                                        style="background: none; border: none; color: var(--ls-primary-text-color); text-align: left;"
                                         onclick={() =>
                                             togglePartCollapse(mIndex, pIndex)}
+                                        aria-expanded={!isCollapsed}
                                     >
-                                        <span class="font-bold"
-                                            >🔨 Call: {part.toolName}</span
+                                        <div
+                                            class="flex items-center gap-2 font-mono"
                                         >
-                                        <span
-                                            >{part.isCollapsed
-                                                ? "Show Args"
-                                                : "Hide"}</span
+                                            <span>🔨</span>
+                                            <span class="font-bold"
+                                                >{part.toolName}</span
+                                            >
+                                            {#if resultPart}
+                                                <span
+                                                    class="text-green-500 ml-1"
+                                                    title="Tool finished"
+                                                    style="color: var(--ls-success-text-color, green);"
+                                                    >✔</span
+                                                >
+                                            {/if}
+                                        </div>
+                                        <div
+                                            class="font-bold text-lg leading-none"
                                         >
+                                            {isCollapsed ? "+" : "−"}
+                                        </div>
                                     </button>
-                                    {#if !part.isCollapsed && part.toolArgs}
-                                        <pre
-                                            class="mt-2 overflow-x-auto p-1 rounded border"
-                                            style="background: var(--ls-primary-background-color); border-color: var(--ls-border-color); color: var(--ls-primary-text-color);">
-{JSON.stringify(part.toolArgs, null, 2)}</pre>
+
+                                    <!-- Expanded Content: Args + Result -->
+                                    {#if !isCollapsed}
+                                        <div
+                                            class="p-2 border-t lda-animate-fadeIn"
+                                            style="border-color: var(--ls-border-color);"
+                                        >
+                                            <!-- Parameters -->
+                                            {#if part.toolArgs}
+                                                <div class="mb-2">
+                                                    <div
+                                                        class="font-semibold mb-1 opacity-70"
+                                                    >
+                                                        Parameters:
+                                                    </div>
+                                                    <pre
+                                                        class="overflow-x-auto p-2 rounded border"
+                                                        style="background: var(--ls-primary-background-color); border-color: var(--ls-border-color); color: var(--ls-primary-text-color);">{JSON.stringify(
+                                                            part.toolArgs,
+                                                            null,
+                                                            2,
+                                                        )}</pre>
+                                                </div>
+                                            {/if}
+
+                                            <!-- Result -->
+                                            {#if resultPart}
+                                                <div class="mt-2">
+                                                    <div
+                                                        class="font-semibold mb-1 opacity-70"
+                                                    >
+                                                        Result:
+                                                    </div>
+                                                    <pre
+                                                        class="overflow-x-auto p-2 rounded border"
+                                                        style="background: var(--ls-tertiary-background-color, #f5f5f5); border-color: var(--ls-border-color); color: var(--ls-primary-text-color);">{typeof resultPart.toolResult ===
+                                                        "string"
+                                                            ? resultPart.toolResult
+                                                            : JSON.stringify(
+                                                                  resultPart.toolResult,
+                                                                  null,
+                                                                  2,
+                                                              )}</pre>
+                                                </div>
+                                            {:else}
+                                                <div
+                                                    class="italic opacity-50 mt-1"
+                                                >
+                                                    Waiting for result...
+                                                </div>
+                                            {/if}
+                                        </div>
                                     {/if}
                                 </div>
 
-                                <!-- Tool Result Block -->
+                                <!-- Tool Result Block (Hidden, integrated above) -->
                             {:else if part.type === "tool_result"}
-                                <div
-                                    class="mb-2 border rounded p-2 text-xs"
-                                    style="border-color: var(--ls-border-color); background: var(--ls-tertiary-background-color, #f5f5f5);"
-                                >
-                                    <button
-                                        type="button"
-                                        class="flex justify-between items-center cursor-pointer font-mono w-full text-left focus:outline-none"
-                                        style="background: none; border: none; color: var(--ls-success-text-color, green);"
-                                        onclick={() =>
-                                            togglePartCollapse(mIndex, pIndex)}
-                                    >
-                                        <span class="font-bold"
-                                            >✅ Result: {part.toolName}</span
-                                        >
-                                        <span
-                                            >{part.isCollapsed
-                                                ? "Show Output"
-                                                : "Hide"}</span
-                                        >
-                                    </button>
-                                    {#if !part.isCollapsed && part.toolResult}
-                                        <pre
-                                            class="mt-2 overflow-x-auto p-1 rounded border"
-                                            style="background: var(--ls-primary-background-color); border-color: var(--ls-border-color); color: var(--ls-primary-text-color);">
-{typeof part.toolResult === "string"
-                                                ? part.toolResult
-                                                : JSON.stringify(
-                                                      part.toolResult,
-                                                      null,
-                                                      2,
-                                                  )}</pre>
-                                    {/if}
-                                </div>
+                                <!-- Do nothing, rendered in tool_call -->
                             {:else if part.type === "content"}
                                 <div class="markdown-body">
                                     {@html renderMarkdown(part.text || "")}

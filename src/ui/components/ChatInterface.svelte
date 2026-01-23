@@ -288,7 +288,7 @@
                                             togglePartCollapse(mIndex, pIndex)}
                                     >
                                         <span class="font-bold"
-                                            >🔨 {part.toolName}</span
+                                            >🔨 Call: {part.toolName}</span
                                         >
                                         <span
                                             >{part.isCollapsed
@@ -301,6 +301,42 @@
                                             class="mt-2 overflow-x-auto p-1 rounded border"
                                             style="background: var(--ls-primary-background-color); border-color: var(--ls-border-color); color: var(--ls-primary-text-color);">
 {JSON.stringify(part.toolArgs, null, 2)}</pre>
+                                    {/if}
+                                </div>
+
+                                <!-- Tool Result Block -->
+                            {:else if part.type === "tool_result"}
+                                <div
+                                    class="mb-2 border rounded p-2 text-xs"
+                                    style="border-color: var(--ls-border-color); background: var(--ls-tertiary-background-color, #f5f5f5);"
+                                >
+                                    <button
+                                        type="button"
+                                        class="flex justify-between items-center cursor-pointer font-mono w-full text-left focus:outline-none"
+                                        style="background: none; border: none; color: var(--ls-success-text-color, green);"
+                                        onclick={() =>
+                                            togglePartCollapse(mIndex, pIndex)}
+                                    >
+                                        <span class="font-bold"
+                                            >✅ Result: {part.toolName}</span
+                                        >
+                                        <span
+                                            >{part.isCollapsed
+                                                ? "Show Output"
+                                                : "Hide"}</span
+                                        >
+                                    </button>
+                                    {#if !part.isCollapsed && part.toolResult}
+                                        <pre
+                                            class="mt-2 overflow-x-auto p-1 rounded border"
+                                            style="background: var(--ls-primary-background-color); border-color: var(--ls-border-color); color: var(--ls-primary-text-color);">
+{typeof part.toolResult === "string"
+                                                ? part.toolResult
+                                                : JSON.stringify(
+                                                      part.toolResult,
+                                                      null,
+                                                      2,
+                                                  )}</pre>
                                     {/if}
                                 </div>
                             {:else if part.type === "content"}

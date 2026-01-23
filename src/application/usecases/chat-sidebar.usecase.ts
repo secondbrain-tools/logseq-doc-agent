@@ -78,21 +78,66 @@ export class ChatSidebarUseCase {
             const currentMessages = get(this.messages);
             const stream = await this.aiService.streamResponse(currentMessages, modelId, providerId);
 
-            let accumulatedContent = "";
+            let currentText = "";
+            let currentParts: any[] = [];
 
             // 4. Consume Stream
-            for await (const chunk of stream) {
-                accumulatedContent += chunk;
+            try {
+                for await (const chunk of stream) {
+                    const partType = (chunk as any).type;
 
-                // Update the last message (AI response)
-                this.updateMessages(msgs => msgs.map(m => m.id === aiMsgId ? {
-                    ...m,
-                    content: accumulatedContent,
-                    // If we want to use parts, we would update parts here.
-                    // For now, mirroring content to parts if needed or just using content.
-                    // The UI prefers parts if present, but falls back to content.
-                    // Let's stick to updating content for now as VercelAIAdapter maps text stream.
-                } : m));
+
+                    if (partType === 'text-delta') {
+
+                        const textDelta = (chunk as any).text || (chunk as any).textDelta || "";
+                        currentText += textDelta;
+                        // Update the last message content (legacy) AND parts.
+
+                        // Logic for parts: Update the last "content" part or add a new one if the last one wasn't content
+                        if (currentParts.length === 0 || currentParts[currentParts.length - 1].type !== 'content') {
+                            currentParts.push({ type: 'content', text: textDelta });
+                        } else {
+                            const lastIdx = currentParts.length - 1;
+                            const lastPart = currentParts[lastIdx];
+                            currentParts[lastIdx] = { ...lastPart, text: lastPart.text + textDelta };
+                        }
+
+                    } else if (partType === 'tool-call') {
+                        const toolCall = chunk as any;
+                        currentParts.push({
+                            type: 'tool_call',
+                            toolCallId: toolCall.toolCallId,
+                            toolName: toolCall.toolName,
+                            toolArgs: toolCall.args || toolCall.input
+                        });
+                    } else if (partType === 'tool-result') {
+                        const toolResult = chunk as any;
+                        currentParts.push({
+                            type: 'tool_result',
+                            toolCallId: toolResult.toolCallId,
+                            toolName: toolResult.toolName,
+                            toolResult: toolResult.result || toolResult.output
+                        });
+                    } else if (partType === 'reasoning-delta') {
+                        // Optional: Handle reasoning if you want to show it
+                        const reasoningDelta = (chunk as any).textDelta; // or 'text' depending on sdk version
+                        if (currentParts.length === 0 || currentParts[currentParts.length - 1].type !== 'reasoning') {
+                            currentParts.push({ type: 'reasoning', text: reasoningDelta });
+                        } else {
+                            currentParts[currentParts.length - 1].text += reasoningDelta;
+                        }
+                    }
+
+                    // Update the store
+                    this.updateMessages(msgs => msgs.map(m => m.id === aiMsgId ? {
+                        ...m,
+                        content: currentText, // Keep simple content synced for legacy/simple views
+                        parts: [...currentParts]
+                    } : m));
+                }
+            } catch (streamError) {
+                console.error('[ChatSidebar] Error consuming stream:', streamError);
+                throw streamError;
             }
 
         } catch (error) {

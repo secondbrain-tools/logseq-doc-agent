@@ -72,10 +72,13 @@
 
     function getStarColor(ratingValue: number): string {
         const severity = RatingValue.fromNumber(ratingValue).getSeverity();
-        if (severity === "critical") return "#ff4d4f";
-        if (severity === "warning") return "#faad14";
-        if (severity === "success") return "#52c41a";
-        return "#d9d9d9";
+        if (severity === "bad") return "var(--ls-error-text-color, #dc2626)";
+        if (severity === "warning")
+            return "var(--ls-warning-text-color, #d97706)";
+        if (severity === "good") return "var(--ls-link-text-color, #106ba3)";
+        if (severity === "excellent")
+            return "var(--ls-success-text-color, #16a34a)";
+        return "var(--ls-secondary-text-color, #9ca3af)";
     }
 
     function getApplicableCount(criteria: CriterionRating[]) {

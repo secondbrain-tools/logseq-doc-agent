@@ -150,8 +150,28 @@
 .ls-accent-agent {
   background-color: color-mix(in srgb, var(--ls-secondary-background-color, #f0f0f0), var(--ls-link-text-color, #106ba3) 60%);
 }
+
 /* Feedback Rating Semantic Colors */
-.lda-text-error { color: var(--ls-error-text-color, #dc2626); }
-.lda-text-warning { color: var(--ls-warning-text-color, #d97706); }
-.lda-text-success { color: var(--ls-success-text-color, #16a34a); }
-.lda-text-muted { color: var(--ls-secondary-text-color, #9ca3af); }
+.lda-text-excellent {
+  color: var(--ls-success-text-color, #16a34a);
+}
+
+/* > 4 */
+.lda-text-good {
+  color: var(--ls-link-text-color, #7ca310);
+}
+
+/* > 3 */
+.lda-text-warning {
+  color: var(--ls-warning-text-color, #d97706);
+}
+
+/* > 2 */
+.lda-text-bad {
+  color: var(--ls-error-text-color, #dc2626);
+}
+
+/* > 1 (and <= 2) */
+.lda-text-muted {
+  color: var(--ls-secondary-text-color, #9ca3af);
+}

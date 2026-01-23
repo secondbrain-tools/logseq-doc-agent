@@ -34,14 +34,18 @@ export class RatingValue {
         return '★'.repeat(this.value);
     }
 
-    getSeverity(): 'critical' | 'warning' | 'success' | 'muted' {
+    getSeverity(): 'excellent' | 'good' | 'warning' | 'bad' | 'muted' {
         if (this.value === 0) {
             return 'muted';
         }
-        // Handle float values
-        if (this.value < 2.5) return 'critical'; // red
-        if (this.value < 3.5) return 'warning'; // amber/yellow
-        return 'success'; // green
+
+        // Use rounded value for visual consistency with stars
+        const displayValue = this.toRoundedValue();
+
+        if (displayValue > 4) return 'excellent'; // 4.5, 5
+        if (displayValue > 3) return 'good';      // 3.5, 4
+        if (displayValue > 2) return 'warning';   // 2.5, 3
+        return 'bad';                             // 0.5, 1, 1.5, 2
     }
 
     isNotApplicable(): boolean {

@@ -157,13 +157,15 @@
               <div
                 class="lda-dist-segment"
                 style="width: {ratingObj.getPercentage()}%; background: {ratingObj.getSeverity() ===
-                'critical'
-                  ? '#ff4d4f'
+                'bad'
+                  ? 'var(--ls-error-text-color)'
                   : ratingObj.getSeverity() === 'warning'
-                    ? '#faad14'
-                    : ratingObj.getSeverity() === 'success'
-                      ? '#52c41a'
-                      : '#d9d9d9'};"
+                    ? 'var(--ls-warning-text-color)'
+                    : ratingObj.getSeverity() === 'good'
+                      ? 'var(--ls-link-text-color)'
+                      : ratingObj.getSeverity() === 'excellent'
+                        ? 'var(--ls-success-text-color)'
+                        : 'var(--ls-secondary-text-color)'};"
               ></div>
             </div>
           </button>

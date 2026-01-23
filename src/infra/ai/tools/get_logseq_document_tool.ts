@@ -6,6 +6,7 @@ import {
     type OutlineAnnotation,
     isLogseqBlockEntity
 } from './types';
+import { ShortIdService } from '../short-id.service';
 
 // Access the global logseq object
 const getLogseq = () => (window as any).logseq;
@@ -57,7 +58,7 @@ export const getLogseqDocument = tool({
     },
 } as any);
 
-function flattenBlocks(tree: any[], prefix: string = '', result: LogseqBlock[] = []): LogseqBlock[] {
+export function flattenBlocks(tree: any[], prefix: string = '', result: LogseqBlock[] = []): LogseqBlock[] {
     // This is a guess at how to flatten and adding hierarchy IDs if they are missing,
     // although `get_logseq_document` description says it returns them prefixed.
     // The user snippet `getHierarchyLabel` checks `block.hierarchyId`.
@@ -82,7 +83,7 @@ function flattenBlocks(tree: any[], prefix: string = '', result: LogseqBlock[] =
 
 // --- User Provided Functions (Adapted) ---
 
-function buildDocumentResponse(selection: LogseqSelection, blocks: LogseqBlock[]) {
+export function buildDocumentResponse(selection: LogseqSelection, blocks: LogseqBlock[]) {
     const summaryLines = describeSelection(selection);
     // Missing function from user snippet, implementing it based on context
     const annotations = buildOutlineAnnotations(blocks);
@@ -91,7 +92,7 @@ function buildDocumentResponse(selection: LogseqSelection, blocks: LogseqBlock[]
 }
 
 // INFERRED implementation
-function buildOutlineAnnotations(blocks: LogseqBlock[]): OutlineAnnotation[] {
+export function buildOutlineAnnotations(blocks: LogseqBlock[]): OutlineAnnotation[] {
     return blocks.map(block => ({
         block,
         // Tagging logic is custom. defaulting to undefined or basic heuristics?
@@ -101,7 +102,7 @@ function buildOutlineAnnotations(blocks: LogseqBlock[]): OutlineAnnotation[] {
     }));
 }
 
-function describeSelection(selection: LogseqSelection) {
+export function describeSelection(selection: LogseqSelection) {
     if (isLogseqBlockEntity(selection)) {
         const pageLabel = extractPageLabel(selection);
         const blockLabel =
@@ -126,7 +127,7 @@ function describeSelection(selection: LogseqSelection) {
     return [`Selection Type: page`, `Page: ${pageName}`];
 }
 
-function extractPageLabel(selection: LogseqBlock) {
+export function extractPageLabel(selection: LogseqBlock) {
     const page = selection.page;
     if (typeof page === 'object' && page !== null) {
         return (
@@ -142,7 +143,7 @@ function extractPageLabel(selection: LogseqBlock) {
     return 'Unknown Page';
 }
 
-function formatBlocks(annotations: OutlineAnnotation[]) {
+export function formatBlocks(annotations: OutlineAnnotation[]) {
     const lines: string[] = [];
     for (const annotation of annotations ?? []) {
         lines.push(...formatBlockLines(annotation));
@@ -150,11 +151,22 @@ function formatBlocks(annotations: OutlineAnnotation[]) {
     return lines;
 }
 
-function formatBlockLines(annotation: OutlineAnnotation) {
+
+// ... (existing imports)
+
+export function formatBlockLines(annotation: OutlineAnnotation) {
     const { block, tag } = annotation;
     const idLabel = getHierarchyLabel(block);
     const roleLabel = tag === 'chapter' ? 'Chapter ' : tag === 'section' ? 'Section ' : '';
-    const basePrefix = `[${roleLabel}${idLabel}]`;
+
+    // Short ID integration
+    let shortIdLabel = '';
+    if (block.uuid) {
+        const shortId = ShortIdService.getInstance().getShortId(block.uuid);
+        shortIdLabel = ` ${shortId}`;
+    }
+
+    const basePrefix = `[${roleLabel}${idLabel}${shortIdLabel}]`;
     const text = cleanBlockContent(block.content) || '(empty block)';
     const lines = text.split('\n');
     const formatted = lines.map((line, index) => {
@@ -167,7 +179,7 @@ function formatBlockLines(annotation: OutlineAnnotation) {
     return formatted;
 }
 
-function getHierarchyLabel(block: LogseqBlock) {
+export function getHierarchyLabel(block: LogseqBlock) {
     if (typeof block.hierarchyId === 'string' && block.hierarchyId.length > 0) {
         return block.hierarchyId;
     }
@@ -180,7 +192,7 @@ function getHierarchyLabel(block: LogseqBlock) {
     return 'block';
 }
 
-function cleanBlockContent(content?: string | null) {
+export function cleanBlockContent(content?: string | null) {
     if (!content) {
         return '';
     }

@@ -108,3 +108,12 @@ We use **Vitest** for automated testing, configured with `jsdom` for browser sim
 *   `npm test`: Runs all tests in watch mode.
 *   `npm run test:run`: Runs all tests once (CI mode).
 *   `npm run test:ui`: Opens Vitest UI.
+
+# AI Agent Tools & Conventions
+
+### Short ID Addressing
+We use **Session-based Short IDs** (e.g., `#a1b2`) for stable, concise block references without graph pollution.
+
+*   Implemented by `ShortIdService` (`src/infra/ai/short-id.service.ts`).
+*   IDs are ephemeral (session-only), 4-char alphanumeric, and lazily mapped 1:1 to UUIDs.
+*   Tools like `get_logseq_document` append these IDs (e.g., `[1.2 #a1b2]`) for the Agent to use in subsequent operations.

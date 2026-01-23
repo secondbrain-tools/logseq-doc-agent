@@ -7,7 +7,7 @@
         CriterionRating,
     } from "../../domain/rating";
     import { fade, slide } from "svelte/transition";
-    import RatingStars from "./RatingStars.svelte";
+    import RatingStars from "./rating/RatingStars.svelte";
 
     let {
         feedbackData,
@@ -71,7 +71,11 @@
     // --- Helpers ---
 
     function getStarColor(ratingValue: number): string {
-        return RatingValue.fromNumber(ratingValue).getColor();
+        const severity = RatingValue.fromNumber(ratingValue).getSeverity();
+        if (severity === "critical") return "#ff4d4f";
+        if (severity === "warning") return "#faad14";
+        if (severity === "success") return "#52c41a";
+        return "#d9d9d9";
     }
 
     function getApplicableCount(criteria: CriterionRating[]) {
@@ -190,7 +194,9 @@
                         <div class="lda-dist-bar">
                             <div
                                 class="lda-dist-segment"
-                                style="width: {ratingObj.getPercentage()}%; background: {ratingObj.getColor()};"
+                                style="width: {ratingObj.getPercentage()}%; background: {getStarColor(
+                                    category.overallRating,
+                                )};"
                             ></div>
                         </div>
                     </button>

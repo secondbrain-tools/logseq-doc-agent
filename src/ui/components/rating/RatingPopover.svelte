@@ -1,14 +1,14 @@
 <script lang="ts">
   import { createEventDispatcher } from "svelte";
   import { slide } from "svelte/transition";
-  import { RatingValue } from "../../domain/rating";
+  import { RatingValue } from "../../../domain/rating";
   import type {
     FeedbackRating,
     CategoryRating,
     CriterionRating,
-  } from "../../domain/rating";
-  import { AddToSidebarUseCase } from "../../application/usecases/add-to-sidebar.usecase";
-  import { FrontendSidebarInjector } from "../../infra/frontend";
+  } from "../../../domain/rating";
+  import { AddToSidebarUseCase } from "../../../application/usecases/add-to-sidebar.usecase";
+  import { FrontendSidebarInjector } from "../../../infra/frontend";
   import RatingStars from "./RatingStars.svelte";
 
   let {
@@ -156,7 +156,14 @@
             <div class="lda-dist-bar">
               <div
                 class="lda-dist-segment"
-                style="width: {ratingObj.getPercentage()}%; background: {ratingObj.getColor()};"
+                style="width: {ratingObj.getPercentage()}%; background: {ratingObj.getSeverity() ===
+                'critical'
+                  ? '#ff4d4f'
+                  : ratingObj.getSeverity() === 'warning'
+                    ? '#faad14'
+                    : ratingObj.getSeverity() === 'success'
+                      ? '#52c41a'
+                      : '#d9d9d9'};"
               ></div>
             </div>
           </button>

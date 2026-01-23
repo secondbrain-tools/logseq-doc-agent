@@ -34,15 +34,14 @@ export class RatingValue {
         return '★'.repeat(this.value);
     }
 
-    getColor(): string {
+    getSeverity(): 'critical' | 'warning' | 'success' | 'muted' {
         if (this.value === 0) {
-            return '#9ca3af'; // gray for "not applicable"
+            return 'muted';
         }
         // Handle float values
-        if (this.value < 1.5) return '#dc2626'; // red (darker)
-        if (this.value < 2.5) return '#d97706'; // yellow/amber (darker)
-        if (this.value < 3.5) return '#65a30d'; // light green (lime-600)
-        return '#16a34a'; // dark green (unchanged)
+        if (this.value < 2.5) return 'critical'; // red
+        if (this.value < 3.5) return 'warning'; // amber/yellow
+        return 'success'; // green
     }
 
     isNotApplicable(): boolean {

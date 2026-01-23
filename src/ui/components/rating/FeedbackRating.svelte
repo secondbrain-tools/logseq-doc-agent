@@ -2,8 +2,8 @@
   import { createEventDispatcher, onMount, onDestroy } from "svelte";
   import RatingPopover from "./RatingPopover.svelte";
   import RatingStars from "./RatingStars.svelte";
-  import { RatingValue } from "../../domain/rating";
-  import type { FeedbackRating, CategoryRating } from "../../domain/rating";
+  import { RatingValue } from "../../../domain/rating";
+  import type { FeedbackRating, CategoryRating } from "../../../domain/rating";
 
   let {
     rating = 0,
@@ -24,12 +24,6 @@
 
   const dispatch = createEventDispatcher();
   let cleanupListeners = () => {};
-
-  // Get star color based on rating value
-  function getStarColor(ratingValue: number): string {
-    const rating = RatingValue.fromNumber(ratingValue);
-    return rating.getColor();
-  }
 
   // Generate star display based on rating
   function getStarDisplay(ratingValue: number): string {
@@ -174,7 +168,6 @@
     class="lda-feedback-rating"
     onclick={handleClick}
     onkeydown={handleKeydown}
-    style="color: {getStarColor(rating)}"
     title="Rating: {rating}/5 - Click for details"
     aria-label="Rating {rating} out of 5 stars, click for details"
   >

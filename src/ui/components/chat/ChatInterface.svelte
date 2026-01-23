@@ -3,11 +3,11 @@
     import { marked } from "marked";
     import type { Writable } from "svelte/store";
 
-    import { PROVIDERS } from "../../domain/settings/index";
+    import { PROVIDERS } from "../../../domain/settings/index";
     import ModelSelector, { type ProviderGroup } from "./ModelSelector.svelte";
 
     // --- Types ---
-    import type { Message, MessagePart } from "../../domain/chat/types";
+    import type { Message, MessagePart } from "../../../domain/chat/types";
 
     interface Props {
         messages: Writable<Message[]>;

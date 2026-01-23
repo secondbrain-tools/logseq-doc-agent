@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { RatingValue } from "../../domain/rating";
+    import { RatingValue } from "../../../domain/rating";
 
     let {
         rating = 0,
@@ -39,7 +39,15 @@
     }
 </script>
 
-<div class="lda-rating-stars" style="color: {ratingObj.getColor()};">
+<div
+    class="lda-rating-stars {ratingObj.getSeverity() === 'critical'
+        ? 'lda-text-error'
+        : ratingObj.getSeverity() === 'warning'
+          ? 'lda-text-warning'
+          : ratingObj.getSeverity() === 'success'
+            ? 'lda-text-success'
+            : 'lda-text-muted'}"
+>
     {#if ratingObj.isNotApplicable()}
         <span style="font-size: {iconSize}px; line-height: 1;">○</span>
     {:else}

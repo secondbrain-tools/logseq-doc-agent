@@ -1,6 +1,6 @@
 import type { SidebarInjector } from '../ports/sidebar-injector';
-import ChatContainer from '../../ui/components/ChatContainer.svelte';
-import ChatHeaderActions from '../../ui/components/ChatHeaderActions.svelte';
+import ChatContainer from '../../ui/components/chat/ChatContainer.svelte';
+import ChatHeaderActions from '../../ui/components/chat/ChatHeaderActions.svelte';
 import type { Message } from '../../domain/chat/types';
 import type { IAIService } from '../ports/ai-service';
 

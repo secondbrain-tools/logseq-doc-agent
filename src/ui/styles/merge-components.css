@@ -1,0 +1,66 @@
+/* Container for the merge buttons */
+.lda-merge-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 8px;
+    vertical-align: middle;
+    background-color: var(--ls-primary-background-color);
+    padding: 2px 4px;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--ls-border-color);
+}
+
+/* Base button styles */
+.lda-merge-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 3px;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    background: transparent;
+    color: var(--ls-primary-text-color);
+    transition: background-color 0.1s ease, color 0.1s ease;
+}
+
+.lda-merge-btn:hover {
+    background-color: var(--ls-secondary-background-color);
+}
+
+/* Specific button colors (using Logseq palette nuances if available, or fallbacks) */
+.lda-merge-accept {
+    color: var(--ls-link-text-color);
+    /* Usually green or blue-ish depending on theme, or use specific succeed color if available */
+}
+
+.lda-merge-accept:hover {
+    color: #2ecc71;
+    /* Explicit Green on hover */
+    background-color: rgba(46, 204, 113, 0.1);
+}
+
+.lda-merge-revert {
+    color: var(--ls-error-text-color, #e74c3c);
+}
+
+.lda-merge-revert:hover {
+    color: #e74c3c;
+    /* Explicit Red */
+    background-color: rgba(231, 76, 60, 0.1);
+}
+
+.lda-merge-diff {
+    color: var(--ls-icon-color, #f1c40f);
+}
+
+.lda-merge-diff:hover {
+    color: #f39c12;
+    /* Orange-ish */
+    background-color: rgba(243, 156, 18, 0.1);
+}

@@ -5,6 +5,7 @@ import { Services, doc } from '../services';
 import { setupSettings } from './settings-manager';
 import logseqCSS from '../app.css?inline';
 import feedbackCSS from '../ui/styles/feedback-components.css?inline';
+import mergeCSS from '../ui/styles/merge-components.css?inline';
 import chatCSS from '../ui/styles/chat.css?inline';
 
 export const setupPlugin = async () => {
@@ -31,7 +32,7 @@ export const setupPlugin = async () => {
                 doc.getElementById('logseq-doc-agent-css')?.remove();
 
                 const key = 'logseq-doc-agent-css';
-                const cssContent = `${logseqCSS}\n${feedbackCSS}\n${chatCSS}`;
+                const cssContent = `${logseqCSS}\n${feedbackCSS}\n${chatCSS}\n${mergeCSS}`;
                 const styleHtml = `<style id="${key}">${cssContent}</style>`;
 
                 doc.head.insertAdjacentHTML('beforeend', styleHtml);
@@ -103,6 +104,7 @@ export const setupPlugin = async () => {
             setTimeout(() => {
                 try {
                     services.injectRatingsUseCase.execute();
+                    services.injectMergesUseCase.execute();
                 } catch (error) {
                     console.error('Error injecting feedback components:', error);
                     logseq.UI.showMsg('Error injecting feedback components', 'error');

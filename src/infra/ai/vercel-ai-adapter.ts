@@ -1,6 +1,5 @@
-
 // @ts-ignore
-import { streamText } from 'ai';
+import { streamText, generateText } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createTools } from './tools/index';
@@ -50,7 +49,12 @@ export class VercelAIAdapter implements IAIService {
     }
 
     async streamResponse(messages: Message[], modelId: string, providerId: string, merge: boolean = true): Promise<ReadableStream<any>> {
-        console.log('[VercelAIAdapter] streamResponse called (MANUAL LOOP)', { modelId, providerId, merge });
+        const logseq = (window as any).logseq;
+        const settings = logseq?.settings || {};
+        const disableStreamingKey = `disable_streaming_${providerId}_${modelId}`;
+        const disableStreaming = settings[disableStreamingKey] === true;
+
+        console.log('[VercelAIAdapter] streamResponse called', { modelId, providerId, merge, disableStreaming });
         const model = this.createModel(modelId, providerId);
         const toolsMap = createTools({ merge });
         const coreMessages = mapMessages(messages);
@@ -81,30 +85,62 @@ export class VercelAIAdapter implements IAIService {
                             })
                         );
 
-                        const result = streamText({
-                            model,
-                            messages: currentMessages as any[],
-                            tools: toolsForStream as any,
-                            maxSteps: 1, // Stop after generation
-                        } as any);
-
-                        const reader = result.fullStream.getReader();
                         const accumulatedToolCalls: any[] = [];
                         let accumulatedText = "";
 
-                        while (true) {
-                            const { done, value } = await reader.read();
-                            if (done) break;
+                        if (disableStreaming) {
+                            // Blocking Mode (generateText)
+                            const result = await generateText({
+                                model,
+                                messages: currentMessages as any[],
+                                tools: toolsForStream as any,
+                                maxSteps: 1,
+                            } as any);
 
-                            const type = (value as any).type;
+                            // Simulate Streaming for Client
+                            if (result.text) {
+                                controller.enqueue({ type: 'text-delta', textDelta: result.text });
+                                accumulatedText = result.text;
+                            }
 
-                            // Forward everything to client
-                            controller.enqueue(value);
+                            if (result.toolCalls && result.toolCalls.length > 0) {
+                                for (const tc of result.toolCalls) {
+                                    const toolCallChunk = {
+                                        type: 'tool-call',
+                                        toolCallId: tc.toolCallId,
+                                        toolName: tc.toolName,
+                                        args: (tc as any).args // generateText Result has typed args
+                                    };
+                                    controller.enqueue(toolCallChunk);
+                                    accumulatedToolCalls.push(toolCallChunk);
+                                }
+                            }
 
-                            if (type === 'tool-call') {
-                                accumulatedToolCalls.push(value);
-                            } else if (type === 'text-delta') {
-                                accumulatedText += (value as any).textDelta;
+                        } else {
+                            // Streaming Mode (streamText)
+                            const result = streamText({
+                                model,
+                                messages: currentMessages as any[],
+                                tools: toolsForStream as any,
+                                maxSteps: 1, // Stop after generation
+                            } as any);
+
+                            const reader = result.fullStream.getReader();
+
+                            while (true) {
+                                const { done, value } = await reader.read();
+                                if (done) break;
+
+                                const type = (value as any).type;
+
+                                // Forward everything to client
+                                controller.enqueue(value);
+
+                                if (type === 'tool-call') {
+                                    accumulatedToolCalls.push(value);
+                                } else if (type === 'text-delta') {
+                                    accumulatedText += (value as any).textDelta;
+                                }
                             }
                         }
 

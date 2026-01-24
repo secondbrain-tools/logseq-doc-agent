@@ -70,16 +70,8 @@
 
     // --- Helpers ---
 
-    function getStarColor(ratingValue: number): string {
-        const severity = RatingValue.fromNumber(ratingValue).getSeverity();
-        if (severity === "bad") return "var(--ls-error-text-color, #dc2626)";
-        if (severity === "warning")
-            return "var(--ls-warning-text-color, #d97706)";
-        if (severity === "good") return "var(--ls-link-text-color, #106ba3)";
-        if (severity === "excellent")
-            return "var(--ls-success-text-color, #16a34a)";
-        return "var(--ls-secondary-text-color, #9ca3af)";
-    }
+    // getStarColor helper removed in favor of CSS classes
+    // .lda-bg-{severity} and .lda-text-{severity}
 
     function getApplicableCount(criteria: CriterionRating[]) {
         return criteria.filter((c) => c.rating > 0).length;
@@ -125,8 +117,9 @@
             <h3>Analysis Report</h3>
             {#if feedbackData}
                 <div
-                    class="lda-overall-score"
-                    style="color: {getStarColor(feedbackData.overallRating)}"
+                    class="lda-overall-score lda-text-{RatingValue.fromNumber(
+                        feedbackData.overallRating,
+                    ).getSeverity()}"
                 >
                     {feedbackData.overallRating}/5
                 </div>
@@ -182,10 +175,9 @@
                                 >{category.category}</span
                             >
                             <span
-                                class="lda-category-avg"
-                                style="color: {getStarColor(
+                                class="lda-category-avg lda-text-{RatingValue.fromNumber(
                                     category.overallRating,
-                                )}"
+                                ).getSeverity()}"
                             >
                                 Avg {category.overallRating}
                             </span>
@@ -196,10 +188,8 @@
                         <!-- Progress Bar -->
                         <div class="lda-dist-bar">
                             <div
-                                class="lda-dist-segment"
-                                style="width: {ratingObj.getPercentage()}%; background: {getStarColor(
-                                    category.overallRating,
-                                )};"
+                                class="lda-dist-segment lda-bg-{ratingObj.getSeverity()}"
+                                style="width: {ratingObj.getPercentage()}%;"
                             ></div>
                         </div>
                     </button>

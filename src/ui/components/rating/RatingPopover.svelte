@@ -155,17 +155,8 @@
             <!-- Progress Bar -->
             <div class="lda-dist-bar">
               <div
-                class="lda-dist-segment"
-                style="width: {ratingObj.getPercentage()}%; background: {ratingObj.getSeverity() ===
-                'bad'
-                  ? 'var(--ls-error-text-color)'
-                  : ratingObj.getSeverity() === 'warning'
-                    ? 'var(--ls-warning-text-color)'
-                    : ratingObj.getSeverity() === 'good'
-                      ? 'var(--ls-link-text-color)'
-                      : ratingObj.getSeverity() === 'excellent'
-                        ? 'var(--ls-success-text-color)'
-                        : 'var(--ls-secondary-text-color)'};"
+                style="width: {ratingObj.getPercentage()}%;"
+                class="lda-dist-segment lda-bg-{ratingObj.getSeverity()}"
               ></div>
             </div>
           </button>

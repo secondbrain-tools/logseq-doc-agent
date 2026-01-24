@@ -153,12 +153,13 @@
 
 /* Feedback Rating Semantic Colors */
 .lda-text-excellent {
+
   color: var(--ls-success-text-color, #16a34a);
 }
 
 /* > 4 */
 .lda-text-good {
-  color: var(--ls-link-text-color, #7ca310);
+  color: color-mix(in srgb, var(--ls-success-text-color, #16a34a), #7ca310 60%);
 }
 
 /* > 3 */
@@ -172,6 +173,28 @@
 }
 
 /* > 1 (and <= 2) */
+/* > 1 (and <= 2) */
 .lda-text-muted {
   color: var(--ls-secondary-text-color, #9ca3af);
+}
+
+/* Backgrounds corresponding to the text colors */
+.lda-bg-excellent {
+  background-color: var(--ls-success-text-color, #16a34a);
+}
+
+.lda-bg-good {
+  background-color: color-mix(in srgb, var(--ls-success-text-color, #16a34a), #7ca310 60%);
+}
+
+.lda-bg-warning {
+  background-color: var(--ls-warning-text-color, #d97706);
+}
+
+.lda-bg-bad {
+  background-color: var(--ls-error-text-color, #dc2626);
+}
+
+.lda-bg-muted {
+  background-color: var(--ls-secondary-text-color, #9ca3af);
 }

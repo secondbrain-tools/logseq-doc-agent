@@ -31,7 +31,7 @@ export class ChatSidebarUseCase {
         this.sidebarInjector.injectIntoSidebar(ChatContainer, {
             messages: this.messages,
             isLoading: this.isLoading,
-            onSendMessage: (text: string, modelId: string, providerId: string) => this.handleUserMessage(text, modelId, providerId),
+            onSendMessage: (text: string, modelId: string, providerId: string, merge: boolean) => this.handleUserMessage(text, modelId, providerId, merge),
             onClose: () => {
                 this.isChatOpen = false;
             },
@@ -49,7 +49,7 @@ export class ChatSidebarUseCase {
         this.isLoading.set(false);
     }
 
-    private async handleUserMessage(text: string, modelId: string, providerId: string) {
+    private async handleUserMessage(text: string, modelId: string, providerId: string, merge: boolean) {
         // 1. Add User Message
         this.updateMessages(msgs => [...msgs, {
             id: Date.now().toString(),
@@ -76,7 +76,7 @@ export class ChatSidebarUseCase {
             // Pass current history including the new user message
             // Note: handleUserMessage has already added the user message to the store, so get(this.messages) includes it.
             const currentMessages = get(this.messages);
-            const stream = await this.aiService.streamResponse(currentMessages, modelId, providerId);
+            const stream = await this.aiService.streamResponse(currentMessages, modelId, providerId, merge);
 
             let currentText = "";
             let currentParts: any[] = [];

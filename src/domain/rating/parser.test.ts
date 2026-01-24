@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { FeedbackParser } from './parser';
-import { LogseqFeedbackData } from './parser';
+import type { LogseqFeedbackData } from './parser';
 
 const exampleFeedbackData: LogseqFeedbackData = {
     "CONTENT": {

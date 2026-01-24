@@ -16,6 +16,7 @@
             text: string,
             modelId: string,
             providerId: string,
+            merge: boolean,
         ) => void;
         onClose: () => void; // Added onClose prop which was missing in original define but used in usecase
         onReset: () => void;
@@ -33,6 +34,7 @@
     let selectedProviderId = $state(""); // New state
     let userHasSelectedModel = $state(false);
     let modelGroups: ProviderGroup[] = $state([]);
+    let isMergeOn = $state(true); // Default merge to true
 
     // --- Reactivity ---
     $effect(() => {
@@ -153,7 +155,7 @@
         // Use bound provider ID (ModelSelector ensures it matches)
         // Fallback search only if needed (e.g. init state fallback)
         let providerId = selectedProviderId;
-        onSendMessage(inputText, selectedModel, providerId);
+        onSendMessage(inputText, selectedModel, providerId, isMergeOn);
         inputText = "";
     }
 
@@ -441,6 +443,16 @@
                     <line x1="5" y1="12" x2="19" y2="12"></line>
                 </svg>
             </button>
+
+            <!-- Merge Toggle -->
+            <label
+                class="flex items-center gap-1 text-xs cursor-pointer select-none"
+                style="color: var(--ls-primary-text-color);"
+                title="Merge content with existing block content"
+            >
+                <input type="checkbox" bind:checked={isMergeOn} />
+                Merge
+            </label>
 
             <!-- Model Selection -->
             <ModelSelector

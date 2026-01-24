@@ -11,6 +11,7 @@
             text: string,
             modelId: string,
             providerId: string,
+            merge: boolean,
         ) => void;
         onClose: () => void;
         onReset: () => void;

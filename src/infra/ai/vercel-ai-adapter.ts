@@ -6,6 +6,7 @@ import { createAnthropic } from '@ai-sdk/anthropic';
 import { createTools } from './tools/index';
 import type { IAIService } from '../../application/ports/ai-service';
 import type { Message } from '../../domain/chat/types';
+import { mapMessages } from './message-mapper';
 
 export class VercelAIAdapter implements IAIService {
     // ... cache for models ...
@@ -52,7 +53,7 @@ export class VercelAIAdapter implements IAIService {
         console.log('[VercelAIAdapter] streamResponse called (MANUAL LOOP)', { modelId, providerId, merge });
         const model = this.createModel(modelId, providerId);
         const toolsMap = createTools({ merge });
-        const coreMessages = this.mapMessages(messages);
+        const coreMessages = mapMessages(messages);
 
         const MAX_LOOPS = 5;
 
@@ -124,14 +125,12 @@ export class VercelAIAdapter implements IAIService {
                             const toolResultParts: any[] = [];
 
                             for (const tc of accumulatedToolCalls) {
-                                console.log('[VercelAIAdapter] Processing tool call:', JSON.stringify(tc));
                                 const toolName = tc.toolName;
                                 const toolDef = (toolsMap as any)[toolName];
 
                                 let resultString = "Error: Tool not found";
                                 if (toolDef && toolDef.execute) {
                                     try {
-                                        console.log(`[VercelAIAdapter] Executing tool ${toolName}`);
                                         // Ensure args is defined object (check input first per recent detailed logs)
                                         let args = tc.input || tc.args || {};
                                         if (typeof args === 'string') {
@@ -142,11 +141,9 @@ export class VercelAIAdapter implements IAIService {
                                                 args = {};
                                             }
                                         }
-                                        console.log('[VercelAIAdapter] Final execution args:', JSON.stringify(args));
 
                                         const result = await toolDef.execute(args, { messages: currentMessages }); // Pass context if needed
                                         resultString = typeof result === 'string' ? result : JSON.stringify(result);
-                                        console.log(`[VercelAIAdapter] Tool ${toolName} executed. Result length: ${resultString.length}`);
                                     } catch (err: any) {
                                         console.error(`[VercelAIAdapter] Tool ${toolName} execution error:`, err);
                                         resultString = `Error executing tool: ${err.message}`;
@@ -209,154 +206,4 @@ export class VercelAIAdapter implements IAIService {
         });
     }
 
-    private mapMessages(messages: Message[]): any[] {
-        const flatMessages = messages.flatMap(m => { // Use flatMap to allow 1:N mapping
-            if (m.role === 'user') {
-                return [{
-                    role: 'user',
-                    content: [{ type: 'text', text: m.content }]
-                }];
-            }
-
-            if (m.role === 'assistant') {
-                if (m.parts && m.parts.length > 0) {
-                    const resultMessages: any[] = [];
-
-                    let currentAssistantContent: any[] = [];
-                    let currentToolResults: any[] = [];
-
-                    for (const p of m.parts) {
-                        if (p.type === 'tool_call') {
-                            // If we have pending tool results, push them as a Tool message first (unlikely in standard flow but safe)
-                            if (currentToolResults.length > 0) {
-                                resultMessages.push({ role: 'tool', content: [...currentToolResults] });
-                                currentToolResults = [];
-                            }
-
-                            currentAssistantContent.push({
-                                type: 'tool-call',
-                                toolCallId: p.toolCallId || 'unknown',
-                                toolName: p.toolName,
-                                input: p.toolArgs || {} // Renamed args to input per Schema
-                            });
-                        } else if (p.type === 'tool_result') {
-                            // Push pending assistant content if any
-                            if (currentAssistantContent.length > 0) {
-                                resultMessages.push({ role: 'assistant', content: [...currentAssistantContent] });
-                                currentAssistantContent = [];
-                            }
-
-                            const resultVal = typeof p.toolResult === 'object' ? JSON.stringify(p.toolResult) : String(p.toolResult);
-
-                            currentToolResults.push({
-                                type: 'tool-result',
-                                toolCallId: p.toolCallId || 'unknown',
-                                toolName: p.toolName,
-                                output: { // Use strict output structure
-                                    type: 'text',
-                                    value: resultVal
-                                }
-                            });
-                        } else {
-                            // Text or other content
-                            // If we have pending tool results, push them as a Tool message. 
-                            // This signals the end of the tool turn and start of new assistant text.
-                            if (currentToolResults.length > 0) {
-                                resultMessages.push({ role: 'tool', content: [...currentToolResults] });
-                                currentToolResults = [];
-                            }
-
-                            currentAssistantContent.push({
-                                type: 'text',
-                                text: p.text || (p.type === 'content' ? m.content : '')
-                            });
-                        }
-                    }
-
-                    // Flush remainders
-                    if (currentAssistantContent.length > 0) {
-                        resultMessages.push({ role: 'assistant', content: currentAssistantContent });
-                    }
-                    if (currentToolResults.length > 0) {
-                        resultMessages.push({ role: 'tool', content: currentToolResults });
-                    }
-
-                    return resultMessages;
-                }
-                // If message has no content and no parts, skip it
-                const hasTextContent = m.content && m.content.trim().length > 0;
-                const hasParts = m.parts && m.parts.length > 0;
-
-                if (!hasTextContent && !hasParts) {
-                    return [];
-                }
-
-                // If we are here, it means no parts (or empty parts array).
-                // So we only check text content.
-                if (!hasTextContent) {
-                    return [];
-                }
-
-                return [{ role: 'assistant', content: [{ type: 'text', text: m.content }] }];
-            }
-
-            if (m.role === 'tool') {
-                if (m.parts && m.parts.length > 0) {
-                    const content = m.parts.map(p => {
-                        if (p.type === 'tool_result') {
-                            const resultVal = typeof p.toolResult === 'object' ? JSON.stringify(p.toolResult) : String(p.toolResult);
-                            return {
-                                type: 'tool-result',
-                                toolCallId: p.toolCallId || 'unknown',
-                                toolName: p.toolName,
-                                output: { // Use strict output structure
-                                    type: 'text',
-                                    value: resultVal
-                                }
-                            };
-                        }
-                        return null;
-                    }).filter(item => item !== null); // Strict filter
-
-                    if (content.length === 0) return [];
-
-                    return [{ role: 'tool', content }];
-                }
-                return []; // Skip empty tool messages
-            }
-
-            // Fallback for system or other roles
-            if (m.role === 'system') {
-                return [{
-                    role: 'system',
-                    content: m.content || ""
-                }];
-            }
-            // Other roles (e.g. data?)
-            return [{
-                role: m.role,
-                content: [{ type: 'text', text: m.content || "" }]
-            }];
-        });
-
-        // Post-processing to fix sequences if needed (e.g. Tool -> User)
-        const fixedMessages: any[] = [];
-        for (let i = 0; i < flatMessages.length; i++) {
-            const current = flatMessages[i];
-            const next = flatMessages[i + 1];
-
-            fixedMessages.push(current);
-
-            // Inject assistant placeholder if Tool -> User detected
-            if (current.role === 'tool' && next && next.role === 'user') {
-                // console.warn('[VercelAIAdapter] Detected Tool -> User transition. Injecting placeholder.');
-                fixedMessages.push({
-                    role: 'assistant',
-                    content: [{ type: 'text', text: "(Tool execution completed)" }]
-                });
-            }
-        }
-
-        return fixedMessages;
-    }
 }

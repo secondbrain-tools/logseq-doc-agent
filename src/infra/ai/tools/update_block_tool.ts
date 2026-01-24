@@ -2,6 +2,7 @@
 import { z } from 'zod';
 import { tool } from 'ai';
 import { ShortIdService } from '../short-id.service';
+import type { MergeEntity } from '../../../domain/merge/entity';
 
 /**
  * Creates the updateBlock tool with injected context.
@@ -55,7 +56,8 @@ export const createUpdateBlockTool = (context: { merge: boolean }) => tool({
                 }
 
                 // Add new merge property
-                propertyLines.push(`logseq_doc_agent.merge:: ${content}`);
+                const mergeData: MergeEntity = { newContent: content };
+                propertyLines.push(`logseq_doc_agent.merge:: ${JSON.stringify(mergeData)}`);
 
                 // Reconstruct content
                 if (propertyLines.length > 0) {
@@ -63,7 +65,8 @@ export const createUpdateBlockTool = (context: { merge: boolean }) => tool({
                 } else {
                     // This case shouldn't happen if we are ensuring it's a property, 
                     // but if the original block had no properties, we just start with one.
-                    newContent = `logseq_doc_agent.merge:: ${content}\n` + cleanLines.join('\n');
+                    const mergeData: MergeEntity = { newContent: content };
+                    newContent = `logseq_doc_agent.merge:: ${JSON.stringify(mergeData)}\n` + cleanLines.join('\n');
                 }
 
                 // Trim extra newlines if needed, but Logseq usually handles them.

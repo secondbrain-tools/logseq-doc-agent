@@ -64,3 +64,10 @@
     /* Orange-ish */
     background-color: rgba(243, 156, 18, 0.1);
 }
+
+/* Highlight for the block main container */
+.lda-merge-highlight {
+    background-color: rgba(255, 0, 0, 0.05) !important;
+    border-radius: 4px;
+    transition: background-color 0.3s ease;
+}

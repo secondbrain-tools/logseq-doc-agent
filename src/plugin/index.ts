@@ -1,51 +1,57 @@
-
 import { mount } from 'svelte';
 import App from '../App.svelte';
-import { Services, doc } from '../services';
+import { Services } from '../services';
 import { setupSettings } from './settings-manager';
-import logseqCSS from '../app.css?inline';
-import feedbackCSS from '../ui/styles/feedback-components.css?inline';
-import mergeCSS from '../ui/styles/merge-components.css?inline';
-import chatCSS from '../ui/styles/chat.css?inline';
+import '@logseq/libs';
+
+// Standard imports to include in the bundle (dist/index.css)
+import '../app.css';
+import '../ui/styles/feedback-components.css';
+import '../ui/styles/merge-components.css';
+import '../ui/styles/modal.css';
+import '../ui/styles/chat.css';
+import '../ui/styles/diff.css';
 
 export const setupPlugin = async () => {
     console.log('[src/plugin/index.ts] setupPlugin() called');
 
+    // Inject CSS via Link tag
+    const doc = parent.document; // Inject into parent document (Logseq UI)
+    if (doc) {
+        const linkId = 'logseq-doc-agent-css-bundle';
+
+        // Remove existing
+        doc.getElementById(linkId)?.remove();
+
+        // Construct path to index.css
+        // import.meta.url points to this script (e.g. .../dist/index.js)
+        const cssUrl = new URL('./index.css', import.meta.url).href;
+
+        // Local Bundle
+        const link = doc.createElement('link');
+        link.id = linkId;
+        link.rel = 'stylesheet';
+        link.href = cssUrl;
+
+        doc.head.appendChild(link);
+
+        logseq.beforeunload(async () => {
+            doc.getElementById(linkId)?.remove();
+        });
+    }
+
+    // Initialize/Get Services
     const services = Services.instance;
 
-    // Initialize Settings
-    setupSettings();
+    // Setup user settings
+    await setupSettings();
 
-    // Create the Svelte app
-    const app = mount(App, {
+    // Create the Svelte app (Iframe UI)
+    mount(App, {
         target: document.body,
         props: {
             message: 'Hello from Logseq Plugin!'
         }
-    });
-
-    // Inject CSS into Logseq main window
-    setTimeout(() => {
-        try {
-            if (doc.head) {
-                // Remove existing if any (for HMR/reload safety)
-                doc.getElementById('logseq-doc-agent-css')?.remove();
-
-                const key = 'logseq-doc-agent-css';
-                const cssContent = `${logseqCSS}\n${feedbackCSS}\n${chatCSS}\n${mergeCSS}`;
-                const styleHtml = `<style id="${key}">${cssContent}</style>`;
-
-                doc.head.insertAdjacentHTML('beforeend', styleHtml);
-                console.log('[src/plugin/index.ts] Injected Inline CSS');
-            }
-        } catch (e) {
-            console.error('[src/plugin/index.ts] Failed to inject CSS', e);
-        }
-    }, 100);
-
-    // Register cleanup
-    logseq.beforeunload(async () => {
-        doc.getElementById('logseq-doc-agent-css')?.remove();
     });
 
     // Register Toolbar Chat Button
@@ -64,7 +70,7 @@ export const setupPlugin = async () => {
         try {
             const currentPage = await logseq.Editor.getCurrentPage();
             if (currentPage && currentPage.uuid) {
-                // Logic was empty in main.ts, keeping it empty or just logging
+                console.log('Current page:', currentPage);
             } else {
                 await logseq.UI.showMsg('No current page found', 'error');
             }

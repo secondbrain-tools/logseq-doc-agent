@@ -34,7 +34,7 @@ export class InjectMergesUseCase {
 
                     // Fetch the property content to confirm validity and get data
                     // Note: 'logseq_doc_agent.merge' property name
-                    const rawContent = await this.logseqApi.Editor.getBlockPropertyContent(blockId, 'logseq_doc_agent.merge');
+                    const rawContent = await this.logseqApi.Editor.getBlockPropertyContent(blockId, 'logseq-doc-agent.merge');
 
                     if (rawContent) {
                         let mergeData: MergeEntity;

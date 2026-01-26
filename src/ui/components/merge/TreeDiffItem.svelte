@@ -1,12 +1,15 @@
 <script lang="ts">
     import type { MergeTreeItem } from "../../../application/services/merge-tree.service";
-    import ThreeWayDiff from "./ThreeWayDiff.svelte";
+    import SideBySideDiff from "./SideBySideDiff.svelte";
+    import InlineDiff from "./InlineDiff.svelte";
 
     let {
         item,
+        viewMode = "edit",
         onContentChange,
     }: {
         item: MergeTreeItem;
+        viewMode: "split" | "inline" | "edit" | "output";
         onContentChange: (uuid: string, newContent: string) => void;
     } = $props();
 
@@ -28,6 +31,8 @@
             <div
                 class="diff-header"
                 onclick={() => (isExpanded = !isExpanded)}
+                onkeydown={(e) =>
+                    e.key === "Enter" && (isExpanded = !isExpanded)}
                 role="button"
                 tabindex="0"
             >
@@ -39,12 +44,49 @@
             </div>
 
             {#if isExpanded}
-                <div class="diff-content">
-                    <ThreeWayDiff
-                        originalContent={item.mergeData.originalContent}
-                        newContent={item.mergeData.newContent}
-                        bind:currentContent={editContent}
-                    />
+                <div class="diff-content {viewMode}">
+                    {#if viewMode === "edit"}
+                        <!-- Side-by-Side: Input (Diff) | Output (Editor) -->
+                        <div class="smart-row">
+                            <div class="smart-col smart-input">
+                                <!-- Show Inline Diff of Original vs New -->
+                                <div class="diff-wrapper">
+                                    <InlineDiff
+                                        originalContent={item.mergeData
+                                            .originalContent}
+                                        modifiedContent={item.mergeData
+                                            .newContent}
+                                    />
+                                </div>
+                            </div>
+                            <div class="smart-col smart-output">
+                                <textarea
+                                    class="result-editor"
+                                    bind:value={editContent}
+                                    placeholder="Final content..."
+                                ></textarea>
+                            </div>
+                        </div>
+                    {:else if viewMode === "output"}
+                        <!-- Output Only: Just the Editor -->
+                        <div class="smart-col smart-output">
+                            <textarea
+                                class="result-editor"
+                                bind:value={editContent}
+                                placeholder="Final content..."
+                            ></textarea>
+                        </div>
+                    {:else if viewMode === "split"}
+                        <SideBySideDiff
+                            originalContent={item.mergeData.originalContent}
+                            modifiedContent={item.mergeData.newContent}
+                        />
+                    {:else if viewMode === "inline"}
+                        <InlineDiff
+                            originalContent={item.mergeData.originalContent}
+                            modifiedContent={item.mergeData.newContent}
+                        />
+                    {/if}
                 </div>
             {/if}
         </div>
@@ -59,51 +101,87 @@
 
 <style>
     .tree-diff-item {
-        margin-bottom: 12px;
+        margin-bottom: 0; /* Remove bottom margin to tightly pack rows */
         border-left: 2px solid var(--ls-guideline-color);
-        padding-left: 8px;
+        border-bottom: 1px solid var(--ls-border-color); /* Row separator */
+        padding-left: 0; /* Indentation handled by margin-left */
     }
 
     .diff-block {
-        border: 1px solid var(--ls-border-color);
-        border-radius: 4px;
         background: var(--ls-primary-background-color);
+        /* Remove borders as we use row separator */
     }
 
     .diff-header {
-        padding: 8px;
+        padding: 4px 8px; /* Compact header */
         background: var(--ls-secondary-background-color);
         cursor: pointer;
         display: flex;
         align-items: center;
         gap: 8px;
-        font-size: 0.9em;
+        font-size: 0.85em;
         user-select: none;
+        color: var(--ls-secondary-text-color);
     }
 
     .diff-content {
-        padding: 12px;
-        height: 400px; /* Fixed height for diff view inside tree? Or auto? */
-        /* ThreeWayDiff is flex:1, so we need height */
+        padding: 0; /* No padding around diffs for seamless look */
+    }
+
+    /* Smart Edit Layout */
+    .smart-row {
+        display: flex;
+        width: 100%;
+        min-height: 100px; /* Min height */
+    }
+
+    .smart-col {
+        flex: 1;
+        border-right: 1px solid var(--ls-border-color);
+        overflow: hidden;
         display: flex;
         flex-direction: column;
     }
 
+    .smart-col:last-child {
+        border-right: none;
+    }
+
+    .diff-wrapper {
+        padding: 8px;
+        flex: 1;
+        overflow-x: auto;
+    }
+
+    textarea.result-editor {
+        width: 100%;
+        height: 100%;
+        flex: 1;
+        border: none;
+        resize: vertical;
+        padding: 8px;
+        background: var(--ls-primary-background-color);
+        color: var(--ls-primary-text-color);
+        font-family: monospace;
+        min-height: 100px;
+    }
+
     .context-block {
-        padding: 4px 8px;
+        padding: 8px;
         color: var(--ls-secondary-text-color);
         font-size: 0.9em;
         display: flex;
         align-items: flex-start;
         gap: 6px;
+        border-bottom: 1px dashed var(--ls-border-color);
     }
 
     .badge-merge {
         background: var(--ls-link-text-color);
         color: white;
-        padding: 2px 6px;
+        padding: 1px 4px;
         border-radius: 4px;
-        font-size: 0.75em;
+        font-size: 0.7em;
     }
 
     .toggle-icon {

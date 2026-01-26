@@ -21,8 +21,9 @@
     const dispatch = createEventDispatcher();
 
     // View Mode State
-    // 'split' | 'inline' | 'edit' | 'tree'
-    let viewMode: "split" | "inline" | "edit" | "tree" = $state("split");
+    // 'split' | 'inline' | 'edit' | 'tree' (legacy) | 'split_edit'
+    let viewMode: "split" | "inline" | "edit" | "tree" | "split_edit" =
+        $state("split");
 
     // Content state for single-block edit
     let editContent = $state("");
@@ -33,18 +34,64 @@
     // Normalized tree for rendering
     let activeTree: MergeTreeItem[] = $state([]);
 
+    // Sync References
+    let topPane: HTMLElement;
+    let bottomPane: HTMLElement;
+    let isSyncing = false;
+
+    // Sync Logic: Align by Block Index
+    function handleScrollSync(source: HTMLElement, target: HTMLElement) {
+        if (isSyncing || !source || !target) return;
+        isSyncing = true;
+
+        requestAnimationFrame(() => {
+            // Find first visible element in source
+            const items = source.querySelectorAll(".tree-diff-item");
+            if (items.length === 0) {
+                isSyncing = false;
+                return;
+            }
+
+            const containerRect = source.getBoundingClientRect();
+            let topIndex = 0;
+
+            for (let i = 0; i < items.length; i++) {
+                const rect = items[i].getBoundingClientRect();
+                // If top of item is typically visible (e.g., bottom > top edge)
+                // We want the item that is currently "at the top" of the view
+                if (rect.bottom > containerRect.top) {
+                    topIndex = i;
+                    break;
+                }
+            }
+
+            // Scroll target to same index
+            const targetItems = target.querySelectorAll(".tree-diff-item");
+            if (targetItems[topIndex]) {
+                targetItems[topIndex].scrollIntoView({
+                    behavior: "auto",
+                    block: "start",
+                });
+            }
+
+            // Debounce simple flag
+            setTimeout(() => (isSyncing = false), 50);
+        });
+    }
+
     // Initialize content when data arrives (effect)
     $effect(() => {
         if (isOpen) {
             if (mergeTree && mergeTree.length > 0) {
                 activeTree = mergeTree;
-                viewMode = "tree";
+                // Default view mode. Stick to Smart for now unless persisted?
+                // Let's keep it 'edit' (Smart) as default.
+                viewMode = "edit";
 
                 // Initialize edits map
                 const edits: Record<string, string> = {};
                 for (const item of activeTree) {
                     if (item.mergeData) {
-                        // Use confirmed edit content if previously set? No, reset on open.
                         edits[item.uuid] =
                             item.mergeData.currentContent ||
                             item.mergeData.newContent ||
@@ -57,12 +104,6 @@
             } else if (mergeData) {
                 // Single block fallback
                 activeTree = [];
-                // Default to edit (smart) view as requested/refined previously?
-                // Or keep split default. Let's stick to Edit Smart as it's the newest feature.
-                // Actually, keep 'split' default to match previous behavior unless changed.
-                // User liked the "Edit Smart", so maybe make it default?
-                // Let's stick to "edit" (Smart) as default for consistency with "advanced" usage.
-                // Or maybe check if `mergeData` implies conflict?
                 viewMode = "edit";
                 editContent =
                     mergeData.currentContent || mergeData.newContent || "";
@@ -71,7 +112,7 @@
     });
 
     function handleAccept() {
-        if (viewMode === "tree") {
+        if (activeTree.length > 0) {
             // Dispatch map of all changes
             dispatch("accept", { treeEdits });
         } else {
@@ -119,33 +160,35 @@
         <!-- View Toggle -->
         <div class="lda-view-toggle">
             <div class="lda-toggle-group">
-                {#if activeTree.length === 0}
+                <button
+                    class="lda-toggle-btn {viewMode === 'split'
+                        ? 'active'
+                        : ''}"
+                    use:genericClick={() => (viewMode = "split")}
+                    type="button">Split</button
+                >
+                <button
+                    class="lda-toggle-btn {viewMode === 'inline'
+                        ? 'active'
+                        : ''}"
+                    use:genericClick={() => (viewMode = "inline")}
+                    type="button">Inline</button
+                >
+                <button
+                    class="lda-toggle-btn {viewMode === 'edit' ? 'active' : ''}"
+                    use:genericClick={() => (viewMode = "edit")}
+                    type="button">Edit (Smart)</button
+                >
+                {#if activeTree.length > 0}
                     <button
-                        class="lda-toggle-btn {viewMode === 'split'
+                        class="lda-toggle-btn {viewMode === 'split_edit'
                             ? 'active'
                             : ''}"
-                        use:genericClick={() => (viewMode = "split")}
-                        type="button">Split</button
+                        use:genericClick={() => (viewMode = "split_edit")}
+                        type="button">Edit (Split)</button
                     >
-                    <button
-                        class="lda-toggle-btn {viewMode === 'inline'
-                            ? 'active'
-                            : ''}"
-                        use:genericClick={() => (viewMode = "inline")}
-                        type="button">Inline</button
-                    >
-                    <button
-                        class="lda-toggle-btn {viewMode === 'edit'
-                            ? 'active'
-                            : ''}"
-                        use:genericClick={() => (viewMode = "edit")}
-                        type="button">Edit (Smart)</button
-                    >
-                {:else}
-                    <!-- In Tree Mode, we mainly show Tree, but maybe allow switching view per block? -->
-                    <!-- For now, just a label -->
                     <span class="lda-toggle-label"
-                        >Reviewing {activeTree.length} blocks</span
+                        >({activeTree.length} blocks)</span
                     >
                 {/if}
             </div>
@@ -154,15 +197,65 @@
         <!-- Diff Viewer -->
         <div class="lda-diff-editor-wrapper">
             {#if isOpen}
-                {#if viewMode === "tree" && activeTree.length > 0}
-                    <div class="tree-diff-container">
-                        {#each activeTree as item}
-                            <TreeDiffItem
-                                {item}
-                                onContentChange={handleTreeChange}
-                            />
-                        {/each}
-                    </div>
+                {#if activeTree.length > 0}
+                    {#if viewMode === "split_edit"}
+                        <!-- Vertical Split Layout -->
+                        <div class="split-edit-container">
+                            <div
+                                class="pane-top"
+                                bind:this={topPane}
+                                onscroll={() =>
+                                    handleScrollSync(topPane, bottomPane)}
+                            >
+                                <div class="pane-header">Diff View</div>
+                                {#each activeTree as item}
+                                    <TreeDiffItem
+                                        {item}
+                                        viewMode="split"
+                                        onContentChange={handleTreeChange}
+                                    />
+                                {/each}
+                            </div>
+                            <!-- Separator visualization -->
+                            <div class="split-separator"></div>
+                            <div
+                                class="pane-bottom"
+                                bind:this={bottomPane}
+                                onscroll={() =>
+                                    handleScrollSync(bottomPane, topPane)}
+                            >
+                                <div class="pane-header">Result Editor</div>
+                                {#each activeTree as item}
+                                    <TreeDiffItem
+                                        {item}
+                                        viewMode="output"
+                                        onContentChange={handleTreeChange}
+                                    />
+                                {/each}
+                            </div>
+                        </div>
+                    {:else}
+                        <!-- Standard Layouts -->
+                        <div class="tree-diff-container">
+                            <!-- Header Row for Edit Mode -->
+                            {#if viewMode === "edit"}
+                                <div class="tree-header-row">
+                                    <div class="col-input">
+                                        Proposed Changes
+                                    </div>
+                                    <div class="col-output">Final Result</div>
+                                </div>
+                            {/if}
+
+                            {#each activeTree as item}
+                                <TreeDiffItem
+                                    {item}
+                                    {viewMode}
+                                    onContentChange={handleTreeChange}
+                                />
+                            {/each}
+                        </div>
+                    {/if}
                 {:else if mergeData}
                     <!-- Single Block Modes -->
                     {#if viewMode === "split"}
@@ -222,5 +315,60 @@
         height: 100%;
         overflow-y: auto;
         padding-right: 8px; /* For scrollbar */
+    }
+
+    .tree-header-row {
+        display: flex;
+        gap: 1rem;
+        padding: 8px 16px;
+        background: var(--ls-tertiary-background-color);
+        border-bottom: 1px solid var(--ls-border-color);
+        font-weight: 600;
+        font-size: 0.9em;
+        color: var(--ls-secondary-text-color);
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+
+    .col-input,
+    .col-output {
+        flex: 1;
+    }
+
+    /* Split Edit Layout */
+    .split-edit-container {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+    }
+
+    .pane-top,
+    .pane-bottom {
+        flex: 1;
+        overflow-y: auto;
+        padding-right: 8px;
+        border: 1px solid var(--ls-border-color); /* Add border to define panes */
+    }
+
+    .split-separator {
+        height: 8px;
+        background: var(--ls-tertiary-background-color);
+        border-top: 1px solid var(--ls-border-color);
+        border-bottom: 1px solid var(--ls-border-color);
+        cursor: row-resize; /* In future could be resizable */
+    }
+
+    .pane-header {
+        position: sticky;
+        top: 0;
+        background: var(--ls-tertiary-background-color);
+        padding: 4px 8px;
+        font-weight: 600;
+        font-size: 0.8em;
+        text-transform: uppercase;
+        color: var(--ls-secondary-text-color);
+        border-bottom: 1px solid var(--ls-border-color);
+        z-index: 5;
     }
 </style>

@@ -1,7 +1,12 @@
 :root {
     --ls-primary-text-color: #37352f;
     --ls-secondary-text-color: #585858;
+    --ls-tertiary-text-color: #bfbfbf;
     --ls-bg-color: #ffffff;
+    --ls-primary-background-color: #ffffff;
+    --ls-secondary-background-color: #f7f7f7;
+    --ls-tertiary-background-color: #ededed;
+    --ls-quaternary-background-color: #e3e3e3;
     --ls-menu-hover-color: #efefef;
     --ls-border-color: #d3d3d3;
     --ls-link-text-color: #106ba3;
@@ -18,7 +23,12 @@
 [data-theme="dark"] {
     --ls-primary-text-color: #e2e2e2;
     --ls-secondary-text-color: #a4a4a4;
+    --ls-tertiary-text-color: #666;
     --ls-bg-color: #1a1a1a;
+    --ls-primary-background-color: #1a1a1a;
+    --ls-secondary-background-color: #262626;
+    --ls-tertiary-background-color: #333;
+    --ls-quaternary-background-color: #3a3a3a;
     --ls-menu-hover-color: #2a2a2a;
     --ls-border-color: #444;
     --ls-link-text-color: #7ad1ff;

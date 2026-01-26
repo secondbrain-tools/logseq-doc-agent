@@ -4,6 +4,7 @@
     import type { MergeEntity } from "../../../domain/merge/entity";
     import SideBySideDiff from "./SideBySideDiff.svelte";
     import InlineDiff from "./InlineDiff.svelte";
+    import ThreeWayDiff from "./ThreeWayDiff.svelte";
 
     let { isOpen, mergeData }: { isOpen: boolean; mergeData: MergeEntity } =
         $props();
@@ -11,10 +12,23 @@
     const dispatch = createEventDispatcher();
 
     // View Mode State
-    let viewMode: "split" | "inline" = $state("split");
+    let viewMode: "split" | "inline" | "edit" = $state("split");
+
+    // Content state for the Edit mode
+    let editContent = $state("");
+
+    // Initialize content when data arrives (effect)
+    $effect(() => {
+        if (isOpen && mergeData) {
+            // Default to current live content if available (preserves user manual edits),
+            // otherwise AI proposal.
+            editContent =
+                mergeData.currentContent || mergeData.newContent || "";
+        }
+    });
 
     function handleAccept() {
-        dispatch("accept");
+        dispatch("accept", { content: editContent });
     }
 
     function handleRevert() {
@@ -35,7 +49,6 @@
 
         node.addEventListener("click", handler);
         node.addEventListener("mousedown", stop);
-        // Also prevent pointer events just in case
         node.addEventListener("pointerdown", stop);
 
         return {
@@ -67,6 +80,11 @@
                     use:genericClick={() => (viewMode = "inline")}
                     type="button">Inline</button
                 >
+                <button
+                    class="lda-toggle-btn {viewMode === 'edit' ? 'active' : ''}"
+                    use:genericClick={() => (viewMode = "edit")}
+                    type="button">Edit (Smart)</button
+                >
             </div>
         </div>
 
@@ -78,24 +96,36 @@
                         originalContent={mergeData.originalContent || ""}
                         modifiedContent={mergeData.newContent || ""}
                     />
-                {:else}
+                {:else if viewMode === "inline"}
                     <InlineDiff
                         originalContent={mergeData.originalContent || ""}
                         modifiedContent={mergeData.newContent || ""}
+                    />
+                {:else if viewMode === "edit"}
+                    <ThreeWayDiff
+                        originalContent={mergeData.originalContent || ""}
+                        newContent={mergeData.newContent || ""}
+                        bind:currentContent={editContent}
                     />
                 {/if}
             {/if}
         </div>
 
         <div class="lda-diff-actions">
-            <button class="lda-btn lda-btn-secondary" onclick={handleClose}
-                >Cancel</button
+            <button
+                class="lda-btn lda-btn-secondary"
+                use:genericClick={handleClose}
+                type="button">Cancel</button
             >
-            <button class="lda-btn lda-btn-danger" onclick={handleRevert}
-                >Revert (Keep Original)</button
+            <button
+                class="lda-btn lda-btn-danger"
+                use:genericClick={handleRevert}
+                type="button">Revert (Keep Original)</button
             >
-            <button class="lda-btn lda-btn-primary" onclick={handleAccept}
-                >Accept Merge</button
+            <button
+                class="lda-btn lda-btn-primary"
+                use:genericClick={handleAccept}
+                type="button">Accept Merge</button
             >
         </div>
     </div>

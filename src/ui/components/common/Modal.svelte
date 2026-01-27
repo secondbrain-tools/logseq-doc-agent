@@ -9,17 +9,19 @@
         width = "600px",
         children,
         toolbar,
+        initialMaximized,
     }: {
         title?: string;
         isOpen?: boolean;
         width?: string;
         children: Snippet;
         toolbar?: Snippet;
+        initialMaximized?: boolean;
     } = $props();
 
     const dispatch = createEventDispatcher();
     let modalContainer: HTMLElement | undefined = $state();
-    let isMaximized = $state(false);
+    let isMaximized = $state(initialMaximized ?? false);
 
     function close() {
         dispatch("close");

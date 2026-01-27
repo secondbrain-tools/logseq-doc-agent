@@ -6,10 +6,16 @@
         originalContent = "",
         modifiedContent = "",
         showHeaders = true,
+        canToggle = false,
+        isExpanded = true,
+        onToggle = () => {},
     }: {
         originalContent?: string;
         modifiedContent?: string;
         showHeaders?: boolean;
+        canToggle?: boolean;
+        isExpanded?: boolean;
+        onToggle?: () => void;
     } = $props();
 
     type DiffLine = {
@@ -82,6 +88,19 @@
     onMount(() => {
         calculateDiff();
     });
+    function manualClick(node: HTMLElement, fn: () => void) {
+        const handler = (e: MouseEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            fn();
+        };
+        node.addEventListener("click", handler);
+        return {
+            destroy() {
+                node.removeEventListener("click", handler);
+            },
+        };
+    }
 </script>
 
 <div class="diff-viewer">
@@ -93,15 +112,29 @@
     {/if}
     <div class="diff-body">
         <div class="diff-column left-column">
-            {#each leftLines as line, i}
+            {#each isExpanded ? leftLines : leftLines.slice(0, 1) as line, i}
                 <div class="diff-line type-{line.type}">
-                    <span class="line-number">{i + 1}</span>
+                    <span class="line-number">
+                        {#if i === 0 && canToggle}
+                            <!-- svelte-ignore a11y_click_events_have_key_events -->
+                            <!-- svelte-ignore a11y_no_static_element_interactions -->
+                            <div
+                                class="toggle-btn"
+                                use:manualClick={onToggle}
+                                role="button"
+                                tabindex="0"
+                            >
+                                {isExpanded ? "▼" : "▶"}
+                            </div>
+                        {/if}
+                        {i + 1}
+                    </span>
                     <span class="line-content">{line.content || "\u00A0"}</span>
                 </div>
             {/each}
         </div>
         <div class="diff-column right-column">
-            {#each rightLines as line, i}
+            {#each isExpanded ? rightLines : rightLines.slice(0, 1) as line, i}
                 <div class="diff-line type-{line.type}">
                     <span class="line-number">{i + 1}</span>
                     <span class="line-content">{line.content || "\u00A0"}</span>
@@ -177,6 +210,26 @@
         background: var(--ls-secondary-background-color);
         border-right: 1px solid var(--ls-border-color);
         font-size: 11px;
+        position: relative; /* For toggle button */
+    }
+
+    .toggle-btn {
+        position: absolute;
+        left: 2px;
+        top: 0;
+        bottom: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        color: var(--ls-secondary-text-color);
+        font-size: 10px;
+        width: 16px;
+        z-index: 10;
+    }
+    .toggle-btn:hover {
+        color: var(--ls-primary-text-color);
+        font-weight: bold;
     }
 
     .line-content {

@@ -115,8 +115,10 @@
                     // Initialize edits map & toggle state
                     const edits: Record<string, string> = {};
                     for (const item of activeTree) {
-                        // Expand all by default
-                        expandedIds.add(item.uuid);
+                        // Expand only blocks with conflicts by default
+                        if (item.mergeData) {
+                            expandedIds.add(item.uuid);
+                        }
 
                         if (item.mergeData) {
                             edits[item.uuid] =
@@ -162,6 +164,7 @@
     }
 
     function handleToggle(uuid: string) {
+        console.log("[DiffModal] handleToggle called for:", uuid);
         // Create new set to trigger reactivity if needed, though Svelte 5 Set should be fine.
         // But re-assigning is safer for deep reactivity in some cases.
         if (expandedIds.has(uuid)) {
@@ -287,7 +290,13 @@
     }
 </script>
 
-<Modal {isOpen} title="Merge Diff" width="90vw" on:close={handleClose}>
+<Modal
+    {isOpen}
+    title="Merge Diff"
+    width="90vw"
+    initialMaximized={true}
+    on:close={handleClose}
+>
     {#snippet toolbar()}
         <div class="lda-view-toggle">
             <div class="lda-toggle-group">
@@ -518,6 +527,7 @@
         display: flex;
         flex-direction: column;
         height: 100%;
+        min-height: 60vh; /* Ensure visibility when absolute positioned children are used */
         overflow: hidden;
     }
 

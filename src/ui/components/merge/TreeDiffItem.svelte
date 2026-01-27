@@ -70,104 +70,115 @@
     style="margin-left: {item.level * 20}px"
     data-block-uuid={item.uuid}
 >
-    {#if item.mergeData}
-        <div class="diff-block">
-            <div
-                class="diff-header"
-                use:genericClick={() => {
-                    handleInteraction();
-                }}
-                onkeydown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        handleInteraction();
-                    }
-                }}
-                role="button"
-                tabindex="0"
-                bind:this={headerRef}
-            >
-                <span class="toggle-icon">{isExpanded ? "▼" : "▶"}</span>
-                <span class="block-id">Block {item.uuid.slice(0, 6)}...</span>
-                {#if item.mergeData.newContent}
-                    <span class="badge badge-merge">Merge Conflict</span>
-                {/if}
-            </div>
+    <!-- Unified rendering for both Merge and Context blocks -->
+    <div class="diff-block">
+        <!-- No Header - Toggle is now inside the Diff Component -->
 
-            {#if isExpanded}
-                <!-- svelte-ignore a11y_click_events_have_key_events -->
-                <!-- svelte-ignore a11y_no_static_element_interactions -->
-                <div
-                    class="diff-content {viewMode}"
-                    onclick={(e) => {
-                        // Allow text selection / interaction with inputs, but scroll if bg clicked?
-                        // Actually, user wants "click into the text should scroll".
-                        // So checking selection is handled in genericClick logic or here.
-                        if (!window.getSelection()?.toString()) {
-                            scrollToView();
-                        }
-                    }}
-                >
-                    {#if viewMode === "edit"}
-                        <!-- Side-by-Side: Input (Diff) | Output (Editor) -->
-                        <div class="smart-row">
-                            <div class="smart-col smart-input">
-                                <!-- Show Inline Diff of Original vs New -->
-                                <div class="diff-wrapper">
-                                    <InlineDiff
-                                        originalContent={item.mergeData
-                                            .originalContent}
-                                        modifiedContent={item.mergeData
-                                            .newContent}
-                                    />
-                                </div>
-                            </div>
-                            <div class="smart-col smart-output">
-                                <textarea
-                                    class="result-editor"
-                                    bind:value={editContent}
-                                    placeholder="Final content..."
-                                    onfocus={() => onFocus?.(item.uuid)}
-                                ></textarea>
-                            </div>
+        <!-- svelte-ignore a11y_click_events_have_key_events -->
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div
+            class="diff-content {viewMode}"
+            bind:this={headerRef}
+            onclick={(e) => {
+                if (!window.getSelection()?.toString()) {
+                    scrollToView();
+                }
+            }}
+        >
+            {#if viewMode === "edit" && item.mergeData}
+                <!-- Smart Edit Layout (Only for Merge Blocks) -->
+                <div class="smart-row">
+                    <div class="smart-col smart-input">
+                        <!-- Show Inline Diff of Original vs New -->
+                        <div class="diff-wrapper">
+                            <InlineDiff
+                                originalContent={item.mergeData.originalContent}
+                                modifiedContent={item.mergeData.newContent}
+                                canToggle={true}
+                                {isExpanded}
+                                onToggle={() => handleInteraction()}
+                            />
                         </div>
-                    {:else if viewMode === "output"}
-                        <div class="smart-col smart-output">
+                    </div>
+                    <div class="smart-col smart-output">
+                        <!-- Output editor should probably not be collapsed? 
+                             Or maybe the whole row collapses?
+                             If collapsed, maybe just show the diff preview?
+                             User said: "when toggled the first column with the first text line should be still visible."
+                             If we are in 'edit', we have two columns. 
+                             If collapsed, we can hide the editor and just show the collapsed diff? 
+                         -->
+                        {#if isExpanded}
                             <textarea
                                 class="result-editor"
                                 bind:value={editContent}
                                 placeholder="Final content..."
                                 onfocus={() => onFocus?.(item.uuid)}
                             ></textarea>
+                        {:else}
+                            <!-- Placeholder or empty when collapsed? 
+                                  If the row stays, we need to match height.
+                                  Let's just hide the editor content or show a summary?
+                                  Simple approach: Hide editor when collapsed.
+                              -->
+                            <div
+                                class="collapsed-placeholder"
+                                onclick={() => handleInteraction()}
+                            >
+                                ...
+                            </div>
+                        {/if}
+                    </div>
+                </div>
+            {:else if viewMode === "output" && item.mergeData}
+                <!-- Output Only Mode -->
+                <div class="smart-col smart-output">
+                    {#if isExpanded}
+                        <textarea
+                            class="result-editor"
+                            bind:value={editContent}
+                            placeholder="Final content..."
+                            onfocus={() => onFocus?.(item.uuid)}
+                        ></textarea>
+                    {:else}
+                        <div
+                            class="collapsed-placeholder"
+                            onclick={() => handleInteraction()}
+                        >
+                            ...
                         </div>
-                    {:else if viewMode === "split"}
-                        <SideBySideDiff
-                            originalContent={item.mergeData.originalContent}
-                            modifiedContent={item.mergeData.newContent}
-                            showHeaders={false}
-                        />
-                    {:else if viewMode === "inline"}
-                        <InlineDiff
-                            originalContent={item.mergeData.originalContent}
-                            modifiedContent={item.mergeData.newContent}
-                        />
                     {/if}
                 </div>
+            {:else if viewMode === "split"}
+                <!-- Side by Side -->
+                <SideBySideDiff
+                    originalContent={item.mergeData
+                        ? item.mergeData.originalContent
+                        : item.content}
+                    modifiedContent={item.mergeData
+                        ? item.mergeData.newContent
+                        : item.content}
+                    showHeaders={false}
+                    canToggle={true}
+                    {isExpanded}
+                    onToggle={() => handleInteraction()}
+                />
+            {:else}
+                <!-- Inline (Default for others) -->
+                <InlineDiff
+                    originalContent={item.mergeData
+                        ? item.mergeData.originalContent
+                        : item.content}
+                    modifiedContent={item.mergeData
+                        ? item.mergeData.newContent
+                        : item.content}
+                    canToggle={true}
+                    {isExpanded}
+                    onToggle={() => handleInteraction()}
+                />
             {/if}
         </div>
-    {:else}
-        <!-- Read Only Context Node -->
-        <!-- svelte-ignore a11y_click_events_have_key_events -->
-        <!-- svelte-ignore a11y_no_static_element_interactions -->
-        <div
-            class="context-block"
-            onclick={() => scrollToView()}
-            bind:this={headerRef}
-        >
-            <span class="bullet">•</span>
-            <span class="context-text">{item.content || "(Empty)"}</span>
-        </div>
-    {/if}
+    </div>
 </div>
 
 <style>
@@ -181,18 +192,6 @@
     .diff-block {
         background: var(--ls-primary-background-color);
         /* Remove borders as we use row separator */
-    }
-
-    .diff-header {
-        padding: 4px 8px; /* Compact header */
-        background: var(--ls-secondary-background-color);
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-size: 0.85em;
-        user-select: none;
-        color: var(--ls-secondary-text-color);
     }
 
     .diff-content {
@@ -237,26 +236,19 @@
         min-height: 100px;
     }
 
-    .context-block {
+    .collapsed-placeholder {
         padding: 8px;
-        color: var(--ls-secondary-text-color);
+        color: var(--ls-tertiary-text-color);
         font-size: 0.9em;
+        cursor: pointer;
         display: flex;
-        align-items: flex-start;
-        gap: 6px;
-        border-bottom: 1px dashed var(--ls-border-color);
+        align-items: center;
+        justify-content: center;
+        background: var(--ls-secondary-background-color);
+        height: 100%;
+        min-height: 30px;
     }
-
-    .badge-merge {
-        background: var(--ls-link-text-color);
-        color: white;
-        padding: 1px 4px;
-        border-radius: 4px;
-        font-size: 0.7em;
-    }
-
-    .toggle-icon {
-        font-size: 0.8em;
-        width: 12px;
+    .collapsed-placeholder:hover {
+        background: var(--ls-tertiary-background-color);
     }
 </style>

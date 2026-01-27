@@ -5,7 +5,16 @@
     let {
         originalContent = "",
         modifiedContent = "",
-    }: { originalContent?: string; modifiedContent?: string } = $props();
+        canToggle = false,
+        isExpanded = true,
+        onToggle = () => {},
+    }: {
+        originalContent?: string;
+        modifiedContent?: string;
+        canToggle?: boolean;
+        isExpanded?: boolean;
+        onToggle?: () => void;
+    } = $props();
 
     type DiffLine = {
         content: string;
@@ -80,13 +89,39 @@
     onMount(() => {
         calculateDiff();
     });
+    function manualClick(node: HTMLElement, fn: () => void) {
+        const handler = (e: MouseEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log("[InlineDiff] Toggle clicked via manual handler");
+            fn();
+        };
+        node.addEventListener("click", handler);
+        return {
+            destroy() {
+                node.removeEventListener("click", handler);
+            },
+        };
+    }
 </script>
 
 <div class="diff-viewer">
     <div class="diff-body">
-        {#each diffLines as line}
+        {#each isExpanded ? diffLines : diffLines.slice(0, 1) as line, i}
             <div class="diff-line type-{line.type}">
                 <div class="gutter">
+                    {#if i === 0 && canToggle}
+                        <!-- svelte-ignore a11y_click_events_have_key_events -->
+                        <!-- svelte-ignore a11y_no_static_element_interactions -->
+                        <div
+                            class="toggle-btn"
+                            use:manualClick={onToggle}
+                            role="button"
+                            tabindex="0"
+                        >
+                            {isExpanded ? "▼" : "▶"}
+                        </div>
+                    {/if}
                     <span class="line-num old"
                         >{line.originalLineNumber || ""}</span
                     >
@@ -141,6 +176,26 @@
         color: var(--ls-tertiary-text-color);
         user-select: none;
         flex-shrink: 0;
+        position: relative; /* For toggle positioning */
+    }
+
+    .toggle-btn {
+        position: absolute;
+        left: 2px;
+        top: 0;
+        bottom: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        color: var(--ls-secondary-text-color);
+        font-size: 10px;
+        width: 16px; /* Space for click */
+        z-index: 10;
+    }
+    .toggle-btn:hover {
+        color: var(--ls-primary-text-color);
+        font-weight: bold;
     }
 
     .line-num {

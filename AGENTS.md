@@ -117,3 +117,9 @@ We use **Session-based Short IDs** (e.g., `#a1b2`) for stable, concise block ref
 *   Implemented by `ShortIdService` (`src/infra/ai/short-id.service.ts`).
 *   IDs are ephemeral (session-only), 4-char alphanumeric, and lazily mapped 1:1 to UUIDs.
 *   Tools like `get_logseq_document` append these IDs (e.g., `[1.2 #a1b2]`) for the Agent to use in subsequent operations.
+
+# Known Nuances
+
+### Svelte 5 Event Binding (Simulation)
+*   **Issue**: Standard `onclick` template handlers may fail silently in the `logseq-sim` environment due to compilation/hydration interactions with complex components.
+*   **Workaround**: Use Svelte Actions (`use:actionName`) to manually attach `node.addEventListener('click', handler)`. This bypasses the template event delegation layer and ensures reliable event capture.

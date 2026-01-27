@@ -10,17 +10,37 @@
         onContentChange,
         onToggle,
         onFocus,
+        onReplaceRequest,
+        currentContent,
     }: {
         item: MergeTreeItem;
+        currentContent?: string;
         viewMode: "split" | "inline" | "edit" | "output" | "tree";
         isExpanded?: boolean;
         onContentChange: (uuid: string, newContent: string) => void;
         onToggle: (uuid: string) => void;
         onFocus?: (uuid: string) => void;
+        onReplaceRequest?: (
+            uuid: string,
+            source: "original" | "new",
+            subtree: boolean,
+        ) => void;
     } = $props();
 
-    let editContent = $state(item.mergeData?.currentContent || item.content);
+    let editContent = $state(
+        currentContent ?? item.mergeData?.currentContent ?? item.content,
+    );
     let headerRef: HTMLElement | undefined = $state();
+
+    $effect(() => {
+        if (currentContent !== undefined && currentContent !== editContent) {
+            editContent = currentContent;
+        }
+    });
+
+    function handleEditorInput() {
+        onContentChange(item.uuid, editContent);
+    }
 
     function scrollToView() {
         if (headerRef) {
@@ -63,6 +83,34 @@
             },
         };
     }
+
+    function originalClickAction(node: HTMLButtonElement) {
+        const handler = (e: MouseEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onReplaceRequest?.(item.uuid, "original", e.shiftKey);
+        };
+        node.addEventListener("click", handler);
+        return {
+            destroy() {
+                node.removeEventListener("click", handler);
+            },
+        };
+    }
+
+    function incomingClickAction(node: HTMLButtonElement) {
+        const handler = (e: MouseEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onReplaceRequest?.(item.uuid, "new", e.shiftKey);
+        };
+        node.addEventListener("click", handler);
+        return {
+            destroy() {
+                node.removeEventListener("click", handler);
+            },
+        };
+    }
 </script>
 
 <div
@@ -88,7 +136,7 @@
             {#if viewMode === "edit" && item.mergeData}
                 <!-- Smart Edit Layout (Only for Merge Blocks) -->
                 <div class="smart-row">
-                    <div class="smart-col smart-input">
+                    <div class="smart-col smart-input input-with-tools">
                         <!-- Show Inline Diff of Original vs New -->
                         <div class="diff-wrapper">
                             <InlineDiff
@@ -99,21 +147,31 @@
                                 onToggle={() => handleInteraction()}
                             />
                         </div>
+                        <div class="mini-tools">
+                            <button
+                                class="tool-btn"
+                                use:originalClickAction
+                                title="Use Original (Shift+Click for subtree)"
+                            >
+                                ↺
+                            </button>
+                            <button
+                                class="tool-btn"
+                                use:incomingClickAction
+                                title="Use Incoming (Shift+Click for subtree)"
+                            >
+                                ⇨
+                            </button>
+                        </div>
                     </div>
                     <div class="smart-col smart-output">
-                        <!-- Output editor should probably not be collapsed? 
-                             Or maybe the whole row collapses?
-                             If collapsed, maybe just show the diff preview?
-                             User said: "when toggled the first column with the first text line should be still visible."
-                             If we are in 'edit', we have two columns. 
-                             If collapsed, we can hide the editor and just show the collapsed diff? 
-                         -->
                         {#if isExpanded}
                             <textarea
                                 class="result-editor"
                                 bind:value={editContent}
                                 placeholder="Final content..."
                                 onfocus={() => onFocus?.(item.uuid)}
+                                oninput={handleEditorInput}
                             ></textarea>
                         {:else}
                             <!-- Placeholder or empty when collapsed? 
@@ -139,6 +197,7 @@
                             bind:value={editContent}
                             placeholder="Final content..."
                             onfocus={() => onFocus?.(item.uuid)}
+                            oninput={handleEditorInput}
                         ></textarea>
                     {:else}
                         <div
@@ -224,7 +283,7 @@
     }
 
     textarea.result-editor {
-        width: 100%;
+        /* width: 100%; removed to allow flex sibling */
         height: 100%;
         flex: 1;
         border: none;
@@ -234,6 +293,7 @@
         color: var(--ls-primary-text-color);
         font-family: monospace;
         min-height: 100px;
+        min-width: 0; /* Important for flex */
     }
 
     .collapsed-placeholder {
@@ -250,5 +310,53 @@
     }
     .collapsed-placeholder:hover {
         background: var(--ls-tertiary-background-color);
+    }
+
+    .collapsed-placeholder:hover {
+        background: var(--ls-tertiary-background-color);
+    }
+
+    .input-with-tools {
+        flex-direction: row !important;
+    }
+
+    .mini-tools {
+        display: flex;
+        flex-direction: column;
+        width: 28px;
+        flex-shrink: 0;
+        background: var(--ls-secondary-background-color);
+        border-left: 1px solid var(--ls-border-color);
+        z-index: 2; /* Ensure on top of scrollbars if any */
+    }
+
+    .tool-btn {
+        width: 100%;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: transparent;
+        border: none;
+        border-bottom: 1px solid var(--ls-border-color);
+        cursor: pointer;
+        color: var(--ls-tertiary-text-color);
+        transition: all 0.2s;
+        font-size: 14px;
+        padding: 0;
+    }
+
+    .tool-btn:last-child {
+        border-bottom: none;
+    }
+
+    .tool-btn:hover {
+        background: var(--ls-quaternary-background-color);
+        color: var(--ls-primary-text-color);
+    }
+
+    .tool-btn:active {
+        background: var(--ls-link-text-color);
+        color: white;
     }
 </style>

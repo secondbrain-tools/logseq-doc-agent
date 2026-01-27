@@ -207,7 +207,6 @@
         }
     }
 
-    // Robust click handler to prevent event swallowing
     function genericClick(node: HTMLElement, fn: () => void) {
         const handler = (e: MouseEvent) => {
             e.stopPropagation();
@@ -226,6 +225,46 @@
                 node.removeEventListener("pointerdown", stop);
             },
         };
+    }
+
+    function handleReplaceRequest(
+        uuid: string,
+        source: "original" | "new",
+        subtree: boolean,
+    ) {
+        console.log(
+            `[DiffModal] Replace Request: uuid=${uuid}, source=${source}, subtree=${subtree}`,
+        );
+
+        const startIndex = activeTree.findIndex((i) => i.uuid === uuid);
+        if (startIndex === -1) return;
+
+        const startItem = activeTree[startIndex];
+
+        const getContent = (item: MergeTreeItem) => {
+            if (source === "original") {
+                return item.mergeData?.originalContent || item.content || "";
+            } else {
+                return item.mergeData?.newContent || item.content || "";
+            }
+        };
+
+        // 1. Update the clicked item
+        treeEdits[uuid] = getContent(startItem);
+
+        // 2. If subtree, continue
+        if (subtree) {
+            for (let i = startIndex + 1; i < activeTree.length; i++) {
+                const current = activeTree[i];
+                // If level is greater than start level, it is a descendant
+                if (current.level > startItem.level) {
+                    treeEdits[current.uuid] = getContent(current);
+                } else {
+                    // Not a descendant anymore
+                    break;
+                }
+            }
+        }
     }
 
     // Resizing Logic - Draggable action for the separator
@@ -393,11 +432,13 @@
                                 {#each activeTree as item (item.uuid)}
                                     <TreeDiffItem
                                         {item}
+                                        currentContent={treeEdits[item.uuid]}
                                         viewMode="output"
                                         isExpanded={expandedIds.has(item.uuid)}
                                         onToggle={handleToggle}
                                         onContentChange={handleTreeChange}
                                         onFocus={handleFocus}
+                                        onReplaceRequest={handleReplaceRequest}
                                     />
                                 {/each}
                             </div>
@@ -424,9 +465,11 @@
                                 <TreeDiffItem
                                     {item}
                                     {viewMode}
+                                    currentContent={treeEdits[item.uuid]}
                                     isExpanded={expandedIds.has(item.uuid)}
                                     onToggle={handleToggle}
                                     onContentChange={handleTreeChange}
+                                    onReplaceRequest={handleReplaceRequest}
                                 />
                             {/each}
                         </div>

@@ -1,12 +1,13 @@
 <script lang="ts">
     import Modal from "../common/Modal.svelte";
-    import { createEventDispatcher } from "svelte";
+    import { createEventDispatcher, untrack } from "svelte";
     import type { MergeEntity } from "../../../domain/merge/entity";
     import type { MergeTreeItem } from "../../../application/services/merge-tree.service";
     import SideBySideDiff from "./SideBySideDiff.svelte";
     import InlineDiff from "./InlineDiff.svelte";
     import ThreeWayDiff from "./ThreeWayDiff.svelte";
     import TreeDiffItem from "./TreeDiffItem.svelte";
+    import { SvelteSet } from "svelte/reactivity";
 
     let {
         isOpen,
@@ -34,13 +35,27 @@
     // Normalized tree for rendering
     let activeTree: MergeTreeItem[] = $state([]);
 
+    // Expanded Blocks State (Sync across panes)
+    let expandedIds = $state(new SvelteSet<string>());
+
+    // Track initialization to prevent reset on re-renders
+    let initializedTree: MergeTreeItem[] | undefined = $state();
+
     // Sync References
-    let topPane: HTMLElement;
-    let bottomPane: HTMLElement;
+    let topPane: HTMLElement | undefined = $state();
+    let bottomPane: HTMLElement | undefined = $state();
     let isSyncing = false;
 
+    // Resizing State
+    let topPaneHeightPercent = $state(50);
+    let isResizing = $state(false);
+    let modalBodyRef: HTMLElement | undefined = $state();
+
     // Sync Logic: Align by Block Index
-    function handleScrollSync(source: HTMLElement, target: HTMLElement) {
+    function handleScrollSync(
+        source: HTMLElement | undefined,
+        target: HTMLElement | undefined,
+    ) {
         if (isSyncing || !source || !target) return;
         isSyncing = true;
 
@@ -57,8 +72,6 @@
 
             for (let i = 0; i < items.length; i++) {
                 const rect = items[i].getBoundingClientRect();
-                // If top of item is typically visible (e.g., bottom > top edge)
-                // We want the item that is currently "at the top" of the view
                 if (rect.bottom > containerRect.top) {
                     topIndex = i;
                     break;
@@ -79,44 +92,59 @@
         });
     }
 
+    // Track if modal was previously open to trigger init only on open
+    let wasOpen = false;
+
     // Initialize content when data arrives (effect)
     $effect(() => {
         if (isOpen) {
-            if (mergeTree && mergeTree.length > 0) {
-                activeTree = mergeTree;
-                // Default view mode. Stick to Smart for now unless persisted?
-                // Let's keep it 'edit' (Smart) as default.
-                viewMode = "edit";
+            const isFreshOpen = !wasOpen;
+            wasOpen = true;
 
-                // Initialize edits map
-                const edits: Record<string, string> = {};
-                for (const item of activeTree) {
-                    if (item.mergeData) {
-                        edits[item.uuid] =
-                            item.mergeData.currentContent ||
-                            item.mergeData.newContent ||
-                            "";
-                    } else {
-                        edits[item.uuid] = item.content;
+            // Initialize on rising edge OR if we have data now but didn't before
+            // (Just in case data comes late, though MergeControls awaits it)
+            if (
+                isFreshOpen ||
+                (activeTree.length === 0 && mergeTree && mergeTree.length > 0)
+            ) {
+                if (mergeTree && mergeTree.length > 0) {
+                    activeTree = mergeTree;
+                    // Default to edit only on fresh load/data arrival
+                    viewMode = "edit";
+
+                    // Initialize edits map & toggle state
+                    const edits: Record<string, string> = {};
+                    for (const item of activeTree) {
+                        // Expand all by default
+                        expandedIds.add(item.uuid);
+
+                        if (item.mergeData) {
+                            edits[item.uuid] =
+                                item.mergeData.currentContent ||
+                                item.mergeData.newContent ||
+                                "";
+                        } else {
+                            edits[item.uuid] = item.content;
+                        }
                     }
+                    treeEdits = edits;
+                } else if (mergeData) {
+                    // Single block fallback
+                    activeTree = [];
+                    viewMode = "edit";
+                    editContent =
+                        mergeData.currentContent || mergeData.newContent || "";
                 }
-                treeEdits = edits;
-            } else if (mergeData) {
-                // Single block fallback
-                activeTree = [];
-                viewMode = "edit";
-                editContent =
-                    mergeData.currentContent || mergeData.newContent || "";
             }
+        } else {
+            wasOpen = false;
         }
     });
 
     function handleAccept() {
         if (activeTree.length > 0) {
-            // Dispatch map of all changes
             dispatch("accept", { treeEdits });
         } else {
-            // Single block
             dispatch("accept", { content: editContent });
         }
     }
@@ -131,6 +159,49 @@
 
     function handleTreeChange(uuid: string, newContent: string) {
         treeEdits[uuid] = newContent;
+    }
+
+    function handleToggle(uuid: string) {
+        // Create new set to trigger reactivity if needed, though Svelte 5 Set should be fine.
+        // But re-assigning is safer for deep reactivity in some cases.
+        if (expandedIds.has(uuid)) {
+            expandedIds.delete(uuid);
+        } else {
+            expandedIds.add(uuid);
+        }
+        // Force update just in case
+        expandedIds = new SvelteSet(expandedIds);
+
+        // Sync scroll to the toggled block in both panes
+        syncScrollToBlock(uuid);
+    }
+
+    function syncScrollToBlock(uuid: string) {
+        requestAnimationFrame(() => {
+            const scrollToInPane = (pane: HTMLElement | undefined) => {
+                if (!pane) return;
+                const item = pane.querySelector(`[data-block-uuid="${uuid}"]`);
+                if (item) {
+                    item.scrollIntoView({
+                        behavior: "smooth",
+                        block: "nearest",
+                    });
+                }
+            };
+
+            scrollToInPane(topPane);
+            scrollToInPane(bottomPane);
+        });
+    }
+
+    function handleFocus(uuid: string) {
+        // Scroll top pane to show corresponding block
+        if (topPane) {
+            const item = topPane.querySelector(`[data-block-uuid="${uuid}"]`);
+            if (item) {
+                item.scrollIntoView({ behavior: "smooth", block: "nearest" });
+            }
+        }
     }
 
     // Robust click handler to prevent event swallowing
@@ -153,11 +224,71 @@
             },
         };
     }
+
+    // Resizing Logic - Draggable action for the separator
+    // Note: Modal is portaled to window.parent.document.body, so events must be attached there
+    function getTargetDocument(): Document {
+        return window.parent?.document || document;
+    }
+
+    function makeDraggable(node: HTMLElement) {
+        const handleMouseDown = (e: MouseEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            isResizing = true;
+            const targetDoc = getTargetDocument();
+            targetDoc.addEventListener("mousemove", handleWindowMouseMove);
+            targetDoc.addEventListener("mouseup", handleWindowMouseUp);
+            targetDoc.body.style.cursor = "row-resize";
+        };
+
+        node.addEventListener("mousedown", handleMouseDown);
+
+        return {
+            destroy() {
+                node.removeEventListener("mousedown", handleMouseDown);
+            },
+        };
+    }
+
+    function handleWindowMouseMove(e: MouseEvent) {
+        if (!isResizing || !modalBodyRef) return;
+
+        const rect = modalBodyRef.getBoundingClientRect();
+        const offsetY = e.clientY - rect.top;
+        const totalHeight = rect.height;
+
+        // Calculate percentage
+        let percent = (offsetY / totalHeight) * 100;
+
+        // Clamp
+        if (percent < 10) percent = 10;
+        if (percent > 90) percent = 90;
+
+        topPaneHeightPercent = percent;
+    }
+
+    function handleWindowMouseUp() {
+        isResizing = false;
+        const targetDoc = getTargetDocument();
+        targetDoc.removeEventListener("mousemove", handleWindowMouseMove);
+        targetDoc.removeEventListener("mouseup", handleWindowMouseUp);
+        targetDoc.body.style.cursor = "";
+    }
+
+    function handleSeparatorKeyDown(e: KeyboardEvent) {
+        if (e.key === "ArrowUp") {
+            e.preventDefault();
+            topPaneHeightPercent = Math.max(10, topPaneHeightPercent - 5);
+        } else if (e.key === "ArrowDown") {
+            e.preventDefault();
+            topPaneHeightPercent = Math.min(90, topPaneHeightPercent + 5);
+        }
+    }
 </script>
 
 <Modal {isOpen} title="Merge Diff" width="90vw" on:close={handleClose}>
-    <div class="lda-diff-container">
-        <!-- View Toggle -->
+    {#snippet toolbar()}
         <div class="lda-view-toggle">
             <div class="lda-toggle-group">
                 <button
@@ -193,43 +324,71 @@
                 {/if}
             </div>
         </div>
+    {/snippet}
 
+    <div class="lda-diff-container">
         <!-- Diff Viewer -->
         <div class="lda-diff-editor-wrapper">
             {#if isOpen}
                 {#if activeTree.length > 0}
                     {#if viewMode === "split_edit"}
                         <!-- Vertical Split Layout -->
-                        <div class="split-edit-container">
+                        <div
+                            class="split-edit-container"
+                            bind:this={modalBodyRef}
+                        >
                             <div
                                 class="pane-top"
                                 bind:this={topPane}
+                                style="height: {topPaneHeightPercent}%; flex-shrink: 0;"
                                 onscroll={() =>
                                     handleScrollSync(topPane, bottomPane)}
                             >
-                                <div class="pane-header">Diff View</div>
-                                {#each activeTree as item}
+                                <!-- Global Header for Diff View -->
+                                <div class="tree-header-row">
+                                    <div class="col-input">Original Text</div>
+                                    <div class="col-output">New Text</div>
+                                </div>
+
+                                {#each activeTree as item (item.uuid)}
                                     <TreeDiffItem
                                         {item}
                                         viewMode="split"
+                                        isExpanded={expandedIds.has(item.uuid)}
+                                        onToggle={handleToggle}
                                         onContentChange={handleTreeChange}
                                     />
                                 {/each}
                             </div>
                             <!-- Separator visualization -->
-                            <div class="split-separator"></div>
+                            <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+                            <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+                            <div
+                                class="split-separator"
+                                role="separator"
+                                aria-valuenow={topPaneHeightPercent}
+                                tabindex="0"
+                                use:makeDraggable
+                                onkeydown={handleSeparatorKeyDown}
+                            >
+                                <div class="handle-bar"></div>
+                            </div>
                             <div
                                 class="pane-bottom"
                                 bind:this={bottomPane}
+                                style="flex: 1 1 0%; min-height: 0;"
                                 onscroll={() =>
                                     handleScrollSync(bottomPane, topPane)}
                             >
                                 <div class="pane-header">Result Editor</div>
-                                {#each activeTree as item}
+                                {#each activeTree as item (item.uuid)}
                                     <TreeDiffItem
                                         {item}
                                         viewMode="output"
+                                        isExpanded={expandedIds.has(item.uuid)}
+                                        onToggle={handleToggle}
                                         onContentChange={handleTreeChange}
+                                        onFocus={handleFocus}
                                     />
                                 {/each}
                             </div>
@@ -237,7 +396,7 @@
                     {:else}
                         <!-- Standard Layouts -->
                         <div class="tree-diff-container">
-                            <!-- Header Row for Edit Mode -->
+                            <!-- Global Headers -->
                             {#if viewMode === "edit"}
                                 <div class="tree-header-row">
                                     <div class="col-input">
@@ -245,12 +404,19 @@
                                     </div>
                                     <div class="col-output">Final Result</div>
                                 </div>
+                            {:else if viewMode === "split"}
+                                <div class="tree-header-row">
+                                    <div class="col-input">Original Text</div>
+                                    <div class="col-output">New Text</div>
+                                </div>
                             {/if}
 
-                            {#each activeTree as item}
+                            {#each activeTree as item (item.uuid)}
                                 <TreeDiffItem
                                     {item}
                                     {viewMode}
+                                    isExpanded={expandedIds.has(item.uuid)}
+                                    onToggle={handleToggle}
                                     onContentChange={handleTreeChange}
                                 />
                             {/each}
@@ -301,11 +467,66 @@
 </Modal>
 
 <style>
-    .lda-toggle-label {
-        font-size: 0.9em;
-        font-weight: 500;
+    .lda-view-toggle {
+        display: flex;
+        justify-content: center;
+    }
+
+    .lda-toggle-group {
+        display: flex;
+        align-items: center;
+        background: var(--ls-tertiary-background-color);
+        border-radius: 4px;
+        padding: 2px;
+        border: 1px solid var(--ls-border-color);
+    }
+
+    .lda-toggle-btn {
+        background: transparent;
+        border: none;
+        padding: 4px 12px;
+        font-size: 0.85em;
+        cursor: pointer;
+        border-radius: 3px;
         color: var(--ls-secondary-text-color);
-        padding: 4px 8px;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+
+    .lda-toggle-btn:hover {
+        background: var(--ls-quaternary-background-color);
+        color: var(--ls-primary-text-color);
+    }
+
+    .lda-toggle-btn.active {
+        background: var(--ls-primary-background-color);
+        color: var(--ls-link-text-color);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        font-weight: 600;
+    }
+
+    .lda-toggle-label {
+        font-size: 0.85em;
+        font-weight: 500;
+        color: var(--ls-tertiary-text-color);
+        padding: 0 8px;
+        border-left: 1px solid var(--ls-border-color);
+        margin-left: 4px;
+    }
+
+    .lda-diff-container {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        overflow: hidden;
+    }
+
+    .lda-diff-editor-wrapper {
+        flex: 1;
+        overflow: hidden; /* Important for inner scroll */
+        position: relative;
+        min-height: 0; /* Critical: Allow flex item to shrink below content size */
+        height: 100%; /* Give children a reference for percentage heights */
     }
 
     .tree-diff-container {
@@ -329,26 +550,49 @@
         position: sticky;
         top: 0;
         z-index: 10;
+        min-height: 36px;
     }
 
     .col-input,
     .col-output {
         flex: 1;
+        text-align: center;
+        text-transform: uppercase;
+        font-size: 0.85em;
+        letter-spacing: 0.5px;
     }
 
     /* Split Edit Layout */
     .split-edit-container {
         display: flex;
         flex-direction: column;
-        height: 100%;
+        /* Use absolute positioning to fill the parent wrapper exactly */
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        overflow: hidden; /* Fix global scroll */
     }
 
     .pane-top,
     .pane-bottom {
-        flex: 1;
-        overflow-y: auto;
+        overflow: auto; /* Enable both scrollbars */
         padding-right: 8px;
-        border: 1px solid var(--ls-border-color); /* Add border to define panes */
+        border: 1px solid var(--ls-border-color);
+        display: flex;
+        flex-direction: column;
+        min-height: 0; /* Critical: Allow flex item to shrink */
+        min-width: 0; /* Allow flex shrink/horizontal scroll */
+    }
+
+    .pane-top {
+        /* Height is set inline via style binding */
+        flex-shrink: 0;
+    }
+
+    .pane-bottom {
+        flex: 1 1 0%; /* Grow to fill remaining space */
     }
 
     .split-separator {
@@ -356,19 +600,37 @@
         background: var(--ls-tertiary-background-color);
         border-top: 1px solid var(--ls-border-color);
         border-bottom: 1px solid var(--ls-border-color);
-        cursor: row-resize; /* In future could be resizable */
+        cursor: row-resize;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.2s;
+    }
+
+    .split-separator:hover {
+        background: var(--ls-quaternary-background-color);
+    }
+
+    .handle-bar {
+        width: 30px;
+        height: 2px;
+        background: var(--ls-tertiary-text-color);
+        border-radius: 1px;
     }
 
     .pane-header {
         position: sticky;
         top: 0;
         background: var(--ls-tertiary-background-color);
-        padding: 4px 8px;
+        padding: 8px 16px;
         font-weight: 600;
-        font-size: 0.8em;
+        font-size: 0.85em;
         text-transform: uppercase;
         color: var(--ls-secondary-text-color);
         border-bottom: 1px solid var(--ls-border-color);
         z-index: 5;
+        text-align: center;
+        flex-shrink: 0;
     }
 </style>

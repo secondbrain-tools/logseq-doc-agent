@@ -25,12 +25,19 @@ Embracing Imperfection Guide
   * Perfectionism can be overcome by practicing self-compassion and focusing on progress, not perfection.
 * Merge Example
   logseq-doc-agent.merge:: {"originalContent": "First page, a breath between two worlds,\nA quiet hinge that swings to light.\nBlank margins tremble, ready to hold\nThe small confessions of the night.\nWords arrive like birds at dawn,\nFeathers of thought, soft and plain.\nWrite one line and watch it grow—\nThe first step home, begun again.", "newContent": "First page, a breath between two worlds,\nA quiet hinge that opens to the day.\nBlank margins hold the hush of evening,\nSmall confessions folded into light.\nWords arrive like sparrows at dawn,\nFeathers of thought, bright and plain.\nWrite a single line and watch the house grow—\nThe patient path that brings you home.\n\nGerman translation:\nErste Seite, ein Atem zwischen zwei Welten,\nEin ruhiges Scharnier, das zum Tag sich öffnet.\nLeere Ränder halten das Flüstern des Abends,\nKleine Geständnisse, gefaltet ins Licht.\nWorte kommen wie Sperlinge bei Morgengrauen,\nFederspuren des Denkens, schlicht und klar.\nSchreib eine Zeile und sieh das Haus wachsen—\nDer geduldige Weg, der dich nach Hause führt."}
-* Nested Merge Example
-  logseq-doc-agent.merge:: {"originalContent": "Root block of the tree.\nIt has a general description.", "newContent": "Root block of the tree.\nIt has a REVISED general description."}
-  * Child 1: Concept
+* Root block of the tree. It has a general description.
+  logseq-doc-agent.merge:: {"originalContent": "Root block of the tree.It has a general description.", "newContent": "Root block of the tree.\nIt has a REVISED general description."}
+  * Concept A is defined as...
     logseq-doc-agent.merge:: {"originalContent": "Concept A is defined as...", "newContent": "Concept A is better defined as..."}
-    * Grandchild 1.1: Detail
+    * Detail 1.1 goes here.
       logseq-doc-agent.merge:: {"originalContent": "Detail 1.1 goes here.", "newContent": "Detail 1.1 is now more detailed."}
   * Child 2: Context (No Merge)
-    * Grandchild 2.1: Merge Deep
+    * Deep nested merge.
       logseq-doc-agent.merge:: {"originalContent": "Deep nested merge.", "newContent": "Deep nested merge [UPDATED]."}
+    * Deep nested merge 2.
+      logseq-doc-agent.merge:: {"originalContent": "Deep nested merge 2.", "newContent": "Deep nested merge 2 [UPDATED]."}
+  * Child 3 Context (No Merge)
+    * Deep nested merge.
+      logseq-doc-agent.merge:: {"originalContent": "Deep nested merge.", "newContent": "Deep nested merge [UPDATED]."}
+    * Deep nested merge 2.
+      logseq-doc-agent.merge:: {"originalContent": "Deep nested merge 2.", "newContent": "Deep nested merge 2 [UPDATED]."}

@@ -5,7 +5,12 @@
     let {
         originalContent = "",
         modifiedContent = "",
-    }: { originalContent?: string; modifiedContent?: string } = $props();
+        showHeaders = true,
+    }: {
+        originalContent?: string;
+        modifiedContent?: string;
+        showHeaders?: boolean;
+    } = $props();
 
     type DiffLine = {
         content: string;
@@ -80,10 +85,12 @@
 </script>
 
 <div class="diff-viewer">
-    <div class="diff-header">
-        <div class="header-panel">Original Text</div>
-        <div class="header-panel">New Text</div>
-    </div>
+    {#if showHeaders}
+        <div class="diff-header">
+            <div class="header-panel">Original Text</div>
+            <div class="header-panel">New Text</div>
+        </div>
+    {/if}
     <div class="diff-body">
         <div class="diff-column left-column">
             {#each leftLines as line, i}

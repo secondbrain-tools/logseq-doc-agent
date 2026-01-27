@@ -6,35 +6,86 @@
     let {
         item,
         viewMode = "edit",
+        isExpanded = true,
         onContentChange,
+        onToggle,
+        onFocus,
     }: {
         item: MergeTreeItem;
-        viewMode: "split" | "inline" | "edit" | "output";
+        viewMode: "split" | "inline" | "edit" | "output" | "tree";
+        isExpanded?: boolean;
         onContentChange: (uuid: string, newContent: string) => void;
+        onToggle: (uuid: string) => void;
+        onFocus?: (uuid: string) => void;
     } = $props();
 
-    let isExpanded = $state(true);
     let editContent = $state(item.mergeData?.currentContent || item.content);
+    let headerRef: HTMLElement | undefined = $state();
 
-    // Sync external changes if needed?
-    $effect(() => {
-        // When editContent changes, notify up?
-        // Or just let the ThreeWayDiff bind?
-        // We pass the change back via callback
-        onContentChange(item.uuid, editContent);
-    });
+    function scrollToView() {
+        if (headerRef) {
+            // Use a small timeout to let any expansion animation/render start if needed.
+            setTimeout(() => {
+                headerRef?.scrollIntoView({
+                    behavior: "smooth",
+                    block: "nearest",
+                    inline: "nearest",
+                });
+            }, 50);
+        }
+    }
+
+    function handleInteraction() {
+        onToggle(item.uuid);
+        scrollToView();
+    }
+
+    // Robust click handler
+    function genericClick(node: HTMLElement, fn: () => void) {
+        const handler = (e: MouseEvent) => {
+            // Check if we are selecting text? If selection exists, don't trigger.
+            if (window.getSelection()?.toString()) return;
+
+            e.stopPropagation();
+            fn();
+        };
+        const stop = (e: MouseEvent) => e.stopPropagation();
+
+        node.addEventListener("click", handler);
+        node.addEventListener("mousedown", stop);
+        node.addEventListener("pointerdown", stop);
+
+        return {
+            destroy() {
+                node.removeEventListener("click", handler);
+                node.removeEventListener("mousedown", stop);
+                node.removeEventListener("pointerdown", stop);
+            },
+        };
+    }
 </script>
 
-<div class="tree-diff-item" style="margin-left: {item.level * 20}px">
+<div
+    class="tree-diff-item"
+    style="margin-left: {item.level * 20}px"
+    data-block-uuid={item.uuid}
+>
     {#if item.mergeData}
         <div class="diff-block">
             <div
                 class="diff-header"
-                onclick={() => (isExpanded = !isExpanded)}
-                onkeydown={(e) =>
-                    e.key === "Enter" && (isExpanded = !isExpanded)}
+                use:genericClick={() => {
+                    handleInteraction();
+                }}
+                onkeydown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        handleInteraction();
+                    }
+                }}
                 role="button"
                 tabindex="0"
+                bind:this={headerRef}
             >
                 <span class="toggle-icon">{isExpanded ? "▼" : "▶"}</span>
                 <span class="block-id">Block {item.uuid.slice(0, 6)}...</span>
@@ -44,7 +95,19 @@
             </div>
 
             {#if isExpanded}
-                <div class="diff-content {viewMode}">
+                <!-- svelte-ignore a11y_click_events_have_key_events -->
+                <!-- svelte-ignore a11y_no_static_element_interactions -->
+                <div
+                    class="diff-content {viewMode}"
+                    onclick={(e) => {
+                        // Allow text selection / interaction with inputs, but scroll if bg clicked?
+                        // Actually, user wants "click into the text should scroll".
+                        // So checking selection is handled in genericClick logic or here.
+                        if (!window.getSelection()?.toString()) {
+                            scrollToView();
+                        }
+                    }}
+                >
                     {#if viewMode === "edit"}
                         <!-- Side-by-Side: Input (Diff) | Output (Editor) -->
                         <div class="smart-row">
@@ -64,22 +127,24 @@
                                     class="result-editor"
                                     bind:value={editContent}
                                     placeholder="Final content..."
+                                    onfocus={() => onFocus?.(item.uuid)}
                                 ></textarea>
                             </div>
                         </div>
                     {:else if viewMode === "output"}
-                        <!-- Output Only: Just the Editor -->
                         <div class="smart-col smart-output">
                             <textarea
                                 class="result-editor"
                                 bind:value={editContent}
                                 placeholder="Final content..."
+                                onfocus={() => onFocus?.(item.uuid)}
                             ></textarea>
                         </div>
                     {:else if viewMode === "split"}
                         <SideBySideDiff
                             originalContent={item.mergeData.originalContent}
                             modifiedContent={item.mergeData.newContent}
+                            showHeaders={false}
                         />
                     {:else if viewMode === "inline"}
                         <InlineDiff
@@ -92,7 +157,13 @@
         </div>
     {:else}
         <!-- Read Only Context Node -->
-        <div class="context-block">
+        <!-- svelte-ignore a11y_click_events_have_key_events -->
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div
+            class="context-block"
+            onclick={() => scrollToView()}
+            bind:this={headerRef}
+        >
             <span class="bullet">•</span>
             <span class="context-text">{item.content || "(Empty)"}</span>
         </div>

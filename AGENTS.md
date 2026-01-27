@@ -120,6 +120,27 @@ We use **Session-based Short IDs** (e.g., `#a1b2`) for stable, concise block ref
 
 # Known Nuances
 
-### Svelte 5 Event Binding (Simulation)
-*   **Issue**: Standard `onclick` template handlers may fail silently in the `logseq-sim` environment due to compilation/hydration interactions with complex components.
-*   **Workaround**: Use Svelte Actions (`use:actionName`) to manually attach `node.addEventListener('click', handler)`. This bypasses the template event delegation layer and ensures reliable event capture.
+### Svelte 5 Event Binding in Logseq
+*   **Issue**: Svelte 5's inline event handlers (`onclick={...}`) may fail silently in both the Logseq plugin environment and `logseq-sim`. This typically occurs with:
+    -   Elements rendered dynamically in `{#each}` loops
+    -   Components inside portals or modals
+    -   Deeply nested interactive elements
+*   **Symptoms**: Clicks reach the DOM element but no handler executes; no console errors.
+*   **Solution**: Use Svelte Actions to attach event listeners directly:
+    ```svelte
+    <script>
+      function clickAction(node: HTMLElement, fn: () => void) {
+        const handler = (e: MouseEvent) => {
+          e.preventDefault();
+          e.stopPropagation();
+          fn();
+        };
+        node.addEventListener('click', handler);
+        return { destroy: () => node.removeEventListener('click', handler) };
+      }
+    </script>
+    
+    <!-- Instead of onclick={...}, use: -->
+    <button use:clickAction={() => doSomething()}>Click</button>
+    ```
+*   **When to use**: Prefer actions for interactive elements in dynamic lists, modals, or any component where standard `onclick` fails silently.

@@ -18,7 +18,7 @@
         viewMode: "split" | "inline" | "edit" | "output" | "tree";
         isExpanded?: boolean;
         onContentChange: (uuid: string, newContent: string) => void;
-        onToggle: (uuid: string) => void;
+        onToggle: (uuid: string, recursive: boolean) => void;
         onFocus?: (uuid: string) => void;
         onReplaceRequest?: (
             uuid: string,
@@ -54,34 +54,18 @@
             }, 50);
         }
     }
-
-    function handleInteraction() {
-        onToggle(item.uuid);
+    function handleInteraction(recursive: boolean = false) {
+        onToggle(item.uuid, recursive);
         scrollToView();
     }
 
-    // Robust click handler
-    function genericClick(node: HTMLElement, fn: () => void) {
-        const handler = (e: MouseEvent) => {
-            // Check if we are selecting text? If selection exists, don't trigger.
-            if (window.getSelection()?.toString()) return;
-
-            e.stopPropagation();
-            fn();
-        };
-        const stop = (e: MouseEvent) => e.stopPropagation();
-
-        node.addEventListener("click", handler);
-        node.addEventListener("mousedown", stop);
-        node.addEventListener("pointerdown", stop);
-
-        return {
-            destroy() {
-                node.removeEventListener("click", handler);
-                node.removeEventListener("mousedown", stop);
-                node.removeEventListener("pointerdown", stop);
-            },
-        };
+    function handleLineMerge(content: string) {
+        console.log("[TreeDiffItem] handleLineMerge called", content);
+        if (editContent && !editContent.endsWith("\n")) {
+            editContent += "\n";
+        }
+        editContent += content;
+        onContentChange(item.uuid, editContent);
     }
 
     function originalClickAction(node: HTMLButtonElement) {
@@ -144,9 +128,13 @@
                                 modifiedContent={item.mergeData.newContent}
                                 canToggle={true}
                                 {isExpanded}
-                                onToggle={() => handleInteraction()}
+                                onToggle={(recursive) =>
+                                    handleInteraction(recursive)}
+                                onLineMerge={(content) =>
+                                    handleLineMerge(content)}
                             />
                         </div>
+
                         <div class="mini-tools">
                             <button
                                 class="tool-btn"

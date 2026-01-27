@@ -7,13 +7,15 @@
         modifiedContent = "",
         canToggle = false,
         isExpanded = true,
-        onToggle = () => {},
+        onToggle = (recursive: boolean) => {},
+        onLineMerge = (content: string, type: "added" | "removed") => {},
     }: {
         originalContent?: string;
         modifiedContent?: string;
         canToggle?: boolean;
         isExpanded?: boolean;
-        onToggle?: () => void;
+        onToggle?: (recursive: boolean) => void;
+        onLineMerge?: (content: string, type: "added" | "removed") => void;
     } = $props();
 
     type DiffLine = {
@@ -22,7 +24,6 @@
         originalLineNumber?: number;
         newLineNumber?: number;
     };
-
     let diffLines: DiffLine[] = $state([]);
 
     function calculateDiff() {
@@ -89,11 +90,28 @@
     onMount(() => {
         calculateDiff();
     });
-    function manualClick(node: HTMLElement, fn: () => void) {
+
+    function manualClick(node: HTMLElement, fn: (recursive: boolean) => void) {
         const handler = (e: MouseEvent) => {
             e.preventDefault();
             e.stopPropagation();
             console.log("[InlineDiff] Toggle clicked via manual handler");
+            fn(e.shiftKey);
+        };
+        node.addEventListener("click", handler);
+        return {
+            destroy() {
+                node.removeEventListener("click", handler);
+            },
+        };
+    }
+
+    function lineActionClick(node: HTMLElement, fn: () => void) {
+        console.log("[InlineDiff] lineActionClick action bounds");
+        const handler = (e: MouseEvent) => {
+            console.log("[InlineDiff] Button clicked!", e);
+            e.preventDefault();
+            e.stopPropagation();
             fn();
         };
         node.addEventListener("click", handler);
@@ -135,7 +153,26 @@
                               ? "-"
                               : "\u00A0"}
                     </span>
-                    {line.content}
+                    <span class="text">{line.content}</span>
+                    {#if line.type !== "common"}
+                        <button
+                            class="line-btn"
+                            title={line.type === "added"
+                                ? "Add Line"
+                                : "Restore Line"}
+                            use:lineActionClick={() => {
+                                console.log(
+                                    "[InlineDiff] Click caught via action",
+                                );
+                                onLineMerge?.(
+                                    line.content,
+                                    line.type as "added" | "removed",
+                                );
+                            }}
+                        >
+                            {line.type === "added" ? "+" : "\u21A9"}
+                        </button>
+                    {/if}
                 </div>
             </div>
         {/each}
@@ -143,6 +180,7 @@
 </div>
 
 <style>
+    /* ... [Previous Styles] ... */
     .diff-viewer {
         display: flex;
         flex-direction: column;
@@ -215,6 +253,41 @@
         word-break: break-all;
         color: var(--ls-primary-text-color);
         display: flex;
+        user-select: text; /* Ensure text is selectable */
+        align-items: center; /* Align button/marker/text */
+    }
+
+    .text {
+        flex: 1;
+        margin-right: 8px;
+    }
+
+    .line-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 16px;
+        height: 16px;
+        font-size: 12px;
+        line-height: 1;
+        border: 1px solid var(--ls-border-color);
+        background: var(--ls-secondary-background-color);
+        color: var(--ls-secondary-text-color);
+        cursor: pointer;
+        /* No margin-right needed if on right side */
+        border-radius: 2px;
+        padding: 0;
+        flex-shrink: 0;
+    }
+
+    .line-btn:hover {
+        background: var(--ls-tertiary-background-color);
+        color: var(--ls-primary-text-color);
+    }
+
+    .line-btn:active {
+        background: var(--ls-link-text-color);
+        color: white;
     }
 
     .marker {
@@ -225,8 +298,7 @@
         user-select: none;
         margin-right: 4px;
     }
-
-    /* Colors */
+    /* Colors ... */
     .type-added {
         background-color: rgba(0, 255, 0, 0.15);
     }

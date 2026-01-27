@@ -163,15 +163,41 @@
         treeEdits[uuid] = newContent;
     }
 
-    function handleToggle(uuid: string) {
-        console.log("[DiffModal] handleToggle called for:", uuid);
-        // Create new set to trigger reactivity if needed, though Svelte 5 Set should be fine.
-        // But re-assigning is safer for deep reactivity in some cases.
-        if (expandedIds.has(uuid)) {
-            expandedIds.delete(uuid);
-        } else {
+    function handleToggle(uuid: string, recursive: boolean = false) {
+        console.log(
+            "[DiffModal] handleToggle called for:",
+            uuid,
+            "recursive:",
+            recursive,
+        );
+
+        const isExpanding = !expandedIds.has(uuid);
+
+        if (isExpanding) {
             expandedIds.add(uuid);
+        } else {
+            expandedIds.delete(uuid);
         }
+
+        if (recursive) {
+            const startIndex = activeTree.findIndex((i) => i.uuid === uuid);
+            if (startIndex !== -1) {
+                const startItem = activeTree[startIndex];
+                for (let i = startIndex + 1; i < activeTree.length; i++) {
+                    const current = activeTree[i];
+                    if (current.level > startItem.level) {
+                        if (isExpanding) {
+                            expandedIds.add(current.uuid);
+                        } else {
+                            expandedIds.delete(current.uuid);
+                        }
+                    } else {
+                        break;
+                    }
+                }
+            }
+        }
+
         // Force update just in case
         expandedIds = new SvelteSet(expandedIds);
 

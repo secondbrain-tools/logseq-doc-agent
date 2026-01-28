@@ -1,4 +1,4 @@
-import type { Prompt, FeedbackPrompt } from '../../domain/entities';
+import type { Prompt, FeedbackPrompt } from '../../domain/logseq';
 import type { PromptRepository } from '../../application/ports/prompt-repo';
 import type { LogseqApi } from '../../application/ports/logseq-ports';
 

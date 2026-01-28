@@ -10,6 +10,8 @@
         component: any;
         componentProps?: any;
         onClose?: () => void;
+        headerActions?: any;
+        headerActionsProps?: any;
     }
 
     let {
@@ -18,7 +20,17 @@
         component: Component,
         componentProps = {},
         onClose = undefined,
+        headerActions = undefined,
+        headerActionsProps = undefined,
     }: Props = $props();
+
+    // Extract header actions from componentProps if passed there (for SidebarInjector compatibility)
+    let EffectiveHeaderActions = $derived(
+        headerActions || componentProps?.headerActions,
+    );
+    let effectiveHeaderActionsProps = $derived(
+        headerActionsProps || componentProps?.headerActionsProps || {},
+    );
 
     // State
     let isCollapsed = $state(false);
@@ -53,7 +65,7 @@
         >
             <!-- Left: Toggle & Title -->
             <button
-                class="flex flex-row p-2 items-center w-full overflow-hidden"
+                class="flex flex-row p-2 items-center flex-1 overflow-hidden"
                 onclick={toggleCollapse}
                 aria-expanded={!isCollapsed}
                 type="button"
@@ -94,6 +106,10 @@
 
             <!-- Right: Actions -->
             <div class="item-actions flex items-center">
+                {#if EffectiveHeaderActions}
+                    <EffectiveHeaderActions {...effectiveHeaderActionsProps} />
+                {/if}
+
                 <!-- Menu (Non-functional placeholder for native look) -->
                 <button
                     class="ui__button inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm gap-1 font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 select-none h-10 py-2 px-3"

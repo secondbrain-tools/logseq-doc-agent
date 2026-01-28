@@ -14,10 +14,19 @@ Project Structure
 │ │ │ └ types.ts                   # Internal usecase types (e.g. RatingResponse, ReasoningResponse)
 │ │ └ ports/                       # Boundary contracts (try to separte into different files according to library / or even use case)
 │ ├ domain/                        # DDD core (framework-agnostic)
-│ │ ├ group_entities.ts                  # Pure domain entities (try to separate by groups e.g. feedback, or chat)
-│ │ └ group_value-objects.ts             # Domain value objects (e.g. try to separate by groups e.g. feedback, or chat)
+│ │ ├ settings.ts                    # Settings domain and provider definitions
+│ │ ├ group_entities.ts              # Pure domain entities (try to separate by groups e.g. feedback, or chat)
+│ │ └ group_value-objects.ts         # Domain value objects (e.g. try to separate by groups e.g. feedback, or chat)
 │ ├ infra/                         # Concrete communication interfaces (e.g. for rest clients)
-├ localtests/                      # Simulation environment for UI testing
+│ │ ├ ai/                          # AI service adapters and tools
+│ │ │ ├ tools/                     # AI tools definitions (impl. of ai-sdk tools)
+│ │ │ └ vercel-ai-adapter.ts       # Adapter for Vercel AI SDK
+│ ├ plugin/                        # Logseq integration layer
+│ │ ├ index.ts                       # Plugin entry point & registration
+│ │ └ settings-manager.ts            # Logseq settings handling logic
+│ ├ services.ts                    # DI Container & Global Services Registry
+├ services.ts                    # DI Container & Global Services Registry
+├ tests/                           # Integration tests & Simulation environment
 │ ├ logseq-sim*                   # Logseq UI simulator with a mock Logseq API implementation
 ├ public/                            # Public assets
 ├ svelte.config.js                   # experimental.remoteFunctions + compiler experimental.async
@@ -28,28 +37,36 @@ Project Structure
 
 
 # Styling
+    
+### 1. Naming Convention
+*   **Prefix**: All CSS classes MUST use the `.lda-` prefix (e.g., `.lda-popover`, `.lda-btn`).
+*   **Scope**: This ensures styles do not conflict with Logseq's native UI or other plugins.
 
-use a lda- prefix for all styles, to prevent conflicts
+### 2. File Organization
+*   Place CSS files in `src/ui/styles/` (e.g., `chat.css`, `feedback-components.css`).
+*   **Do not** use `<style>` blocks inside Svelte components for styles that need to be injected into Logseq (popovers, sidebars).
 
-### Global CSS Pattern for Injected Components
+### 3. Logseq Integration (Injection)
+Styles must be manually injected into the main Logseq document to work in the Sidebar or Main UI.
 
-For Logseq plugins that inject components into the main document:
+1.  **Import as Inline**: In `src/plugin/index.ts`:
+    ```typescript
+    import chatCSS from '../ui/styles/chat.css?inline';
+    ```
+2.  **Inject**:
+    ```typescript
+    const cssContent = `${logseqCSS}\n${chatCSS}`;
+    // Inject logic typically in setupPlugin() or style-injector utility
+    doc.head.insertAdjacentHTML('beforeend', `<style id="logseq-doc-agent-css">${cssContent}</style>`);
+    ```
 
-1. **Global CSS file**: Create in `src/styles/` with all component styles
-2. **Dual imports**:
-   - `import './styles/component.css'` in main.ts (for bundling)
-   - `import cssContent from '../styles/component.css?raw'` in domUtils.ts (for injection)
-3. **Injection pattern**:
-   ```typescript
-   function injectStyles(): void {
-     const mainDocument = window.parent?.document || window.top?.document;
-     const styleElement = mainDocument.createElement('style');
-     styleElement.id = 'unique-id';
-     styleElement.textContent = cssContent;
-     mainDocument.head.appendChild(styleElement);
-   }
-   ```
-4. **Components**: Remove local `<style>` blocks, use global classes only
+### 4. Theming
+*   Use Logseq's native CSS variables to support Light/Dark modes automatically.
+*   Examples:
+    *   `var(--ls-primary-background-color)`
+    *   `var(--ls-primary-text-color)`
+    *   `var(--ls-border-color)`
+    *   `var(--ls-link-text-color)`
 
 # Building / Checking
 
@@ -58,16 +75,45 @@ use `ǹpm run build` for building and `npm run check` for checking
 
 # Plugin UI-Testing
 
-The `localtests` directory facilitates rapid UI development and testing outside of the full Logseq environment.
+The `tests` directory facilitates rapid UI development and testing outside of the full Logseq environment.
 
 ### Logseq Simulation (`logseq-sim`)
 
-The user should have `npm run dev` running on port 9000. If not ask the user to start the server. reach it under http://localhost:9000/localtests/logseq-sim.html
+The user should have `npm run dev` running on port 9000. If not ask the user to start the server. reach it under http://localhost:9000/tests/logseq-sim.html
 
-`localtests/logseq-sim.html` is a standalone simulation page that:
+`tests/logseq-sim.html` is a standalone simulation page that:
 
 1.  **Mimics Logseq UI**: Replicates the DOM structure and CSS variables (including themes) of Logseq, allowing you to style and test components as if they were injected into the real app.
 2.  **Mocks the API**: Uses `logseq-mock-api.js` to implement the `LogseqApi` interface. This allows testing plugin features that rely on `window.logseq` (like `Editor.getBlock` or `UI.showMsg`) in isolation, with controllable state.
 3.  **Isolates State**: Provides a clean environment to verify parser logic (`logseq-sim-lib.js`) and interaction flows without the overhead of reloading Logseq.
 
 Use this environment to iterate on component designs and verify interactions before integrating them into the main plugin.
+
+
+
+# Automated Testing
+
+We use **Vitest** for automated testing, configured with `jsdom` for browser simulation.
+
+### 1. Unit Strategy (Colocation)
+*   **Unit tests** should be colocated with the file they check, using the `*.test.ts` naming convention.
+*   **Domain & Infra**: Test pure logic (parsers, calculators, entities) in isolation.
+*   **Components**: Test Svelte components using `@testing-library/svelte` to verify rendering and behavior.
+
+### 2. Integration Tests (`tests/`)
+*   The `tests/` directory at the root is reserved for higher-level integration tests, simulation scripts (moved from `localtests`), and manual verification pages.
+*   These tests may verify end-to-end flows or complex interactions that span multiple layers.
+
+### 3. Running Tests
+*   `npm test`: Runs all tests in watch mode.
+*   `npm run test:run`: Runs all tests once (CI mode).
+*   `npm run test:ui`: Opens Vitest UI.
+
+# AI Agent Tools & Conventions
+
+### Short ID Addressing
+We use **Session-based Short IDs** (e.g., `#a1b2`) for stable, concise block references without graph pollution.
+
+*   Implemented by `ShortIdService` (`src/infra/ai/short-id.service.ts`).
+*   IDs are ephemeral (session-only), 4-char alphanumeric, and lazily mapped 1:1 to UUIDs.
+*   Tools like `get_logseq_document` append these IDs (e.g., `[1.2 #a1b2]`) for the Agent to use in subsequent operations.

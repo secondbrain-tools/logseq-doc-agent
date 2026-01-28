@@ -1,8 +1,8 @@
 import type { ComponentInjector, LogseqApi, StyleInjector } from '../ports';
-import { InjectionPosition } from '../../domain/value-objects';
-import { FeedbackParser } from '../../domain/feedback-parser';
-import type { FeedbackRating } from '../../domain/entities';
-import FeedbackRatingComponent from '../../ui/components/FeedbackRating.svelte';
+import { InjectionPosition } from '../../domain/logseq';
+import { FeedbackParser } from '../../domain/rating';
+import type { FeedbackRating } from '../../domain/rating';
+import FeedbackRatingComponent from '../../ui/components/rating/FeedbackRating.svelte';
 import cssContent from '../../ui/styles/feedback-components.css?raw';
 
 /**

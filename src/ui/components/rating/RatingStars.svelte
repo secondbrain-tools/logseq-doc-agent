@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { RatingValue } from "../../domain/value-objects";
+    import { RatingValue } from "../../../domain/rating";
 
     let {
         rating = 0,
@@ -37,9 +37,22 @@
         if (value >= index - 0.5) return "half";
         return "empty";
     }
+
+    // Unique ID for gradients to prevent collisions between multiple instances
+    const uid = Math.random().toString(36).slice(2);
 </script>
 
-<div class="lda-rating-stars" style="color: {ratingObj.getColor()};">
+<div
+    class="lda-rating-stars {ratingObj.getSeverity() === 'bad'
+        ? 'lda-text-bad'
+        : ratingObj.getSeverity() === 'warning'
+          ? 'lda-text-warning'
+          : ratingObj.getSeverity() === 'good'
+            ? 'lda-text-good'
+            : ratingObj.getSeverity() === 'excellent'
+              ? 'lda-text-excellent'
+              : 'lda-text-muted'}"
+>
     {#if ratingObj.isNotApplicable()}
         <span style="font-size: {iconSize}px; line-height: 1;">○</span>
     {:else}
@@ -58,20 +71,20 @@
                         d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
                     />
                 {:else if starType === "half"}
-                    <!-- Partial fill using defs or path logic. Or just a standard half-star path -->
+                    <!-- Partial fill using unique gradient ID -->
                     <defs>
-                        <linearGradient id="half-grad-{i}">
+                        <linearGradient id="half-grad-{i}-{uid}">
                             <stop offset="50%" stop-color="currentColor" />
                             <stop
                                 offset="50%"
-                                stop-color="transparent"
+                                stop-color="currentColor"
                                 stop-opacity="0.3"
                             />
                             <!-- Using opacity for empty part to show it exists but dim -->
                         </linearGradient>
                     </defs>
                     <path
-                        fill="url(#half-grad-{i})"
+                        fill="url(#half-grad-{i}-{uid})"
                         d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
                     />
                     <!-- Fallback/Overlay stroke could be nice but keeping it simple for now -->
@@ -95,24 +108,3 @@
         </span>
     {/if}
 </div>
-
-<style>
-    .lda-rating-stars {
-        display: inline-flex;
-        flex-direction: row; /* Force row layout */
-        flex-wrap: nowrap; /* Prevent wrapping */
-        align-items: center;
-        gap: 2px;
-        font-weight: 600;
-    }
-
-    .lda-rating-text {
-        margin-left: 6px;
-        opacity: 0.9;
-    }
-
-    /* Ensure SVGs don't shrink */
-    .lda-star-icon {
-        flex-shrink: 0;
-    }
-</style>

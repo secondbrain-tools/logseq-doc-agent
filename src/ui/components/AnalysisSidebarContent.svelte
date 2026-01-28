@@ -1,13 +1,13 @@
 <script lang="ts">
     import { createEventDispatcher } from "svelte";
-    import { RatingValue } from "../../domain/value-objects";
+    import { RatingValue } from "../../domain/rating";
     import type {
         FeedbackRating,
         CategoryRating,
         CriterionRating,
-    } from "../../domain/entities";
+    } from "../../domain/rating";
     import { fade, slide } from "svelte/transition";
-    import RatingStars from "./RatingStars.svelte";
+    import RatingStars from "./rating/RatingStars.svelte";
 
     let {
         feedbackData,
@@ -70,9 +70,8 @@
 
     // --- Helpers ---
 
-    function getStarColor(ratingValue: number): string {
-        return RatingValue.fromNumber(ratingValue).getColor();
-    }
+    // getStarColor helper removed in favor of CSS classes
+    // .lda-bg-{severity} and .lda-text-{severity}
 
     function getApplicableCount(criteria: CriterionRating[]) {
         return criteria.filter((c) => c.rating > 0).length;
@@ -118,8 +117,9 @@
             <h3>Analysis Report</h3>
             {#if feedbackData}
                 <div
-                    class="lda-overall-score"
-                    style="color: {getStarColor(feedbackData.overallRating)}"
+                    class="lda-overall-score lda-text-{RatingValue.fromNumber(
+                        feedbackData.overallRating,
+                    ).getSeverity()}"
                 >
                     {feedbackData.overallRating}/5
                 </div>
@@ -175,10 +175,9 @@
                                 >{category.category}</span
                             >
                             <span
-                                class="lda-category-avg"
-                                style="color: {getStarColor(
+                                class="lda-category-avg lda-text-{RatingValue.fromNumber(
                                     category.overallRating,
-                                )}"
+                                ).getSeverity()}"
                             >
                                 Avg {category.overallRating}
                             </span>
@@ -189,15 +188,15 @@
                         <!-- Progress Bar -->
                         <div class="lda-dist-bar">
                             <div
-                                class="lda-dist-segment"
-                                style="width: {ratingObj.getPercentage()}%; background: {ratingObj.getColor()};"
+                                class="lda-dist-segment lda-bg-{ratingObj.getSeverity()}"
+                                style="width: {ratingObj.getPercentage()}%;"
                             ></div>
                         </div>
                     </button>
 
                     {#if expandedCategories[category.category]}
                         <div
-                            class="lda-accordion-content"
+                            class="lda-accordion-content-panel"
                             transition:slide|local
                         >
                             {#each category.criteriaRatings as criterion (criterion.criterion)}

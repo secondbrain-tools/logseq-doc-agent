@@ -1,20 +1,20 @@
 <script lang="ts">
   import { createEventDispatcher } from "svelte";
   import { slide } from "svelte/transition";
-  import { RatingValue } from "../../domain/value-objects";
+  import { RatingValue } from "../../../domain/rating";
   import type {
     FeedbackRating,
     CategoryRating,
     CriterionRating,
-  } from "../../domain/entities";
-  import { AddToSidebarUseCase } from "../../application/usecases/add-to-sidebar.usecase";
-  import { FrontendSidebarInjector } from "../../infra/frontend";
+  } from "../../../domain/rating";
+  import { AddToSidebarUseCase } from "../../../application/usecases/add-to-sidebar.usecase";
+  import { FrontendSidebarInjector } from "../../../infra/frontend";
   import RatingStars from "./RatingStars.svelte";
 
   let {
     detailedRatings = [],
     feedbackData,
-    categoryRatings = [],
+    categoryRatings,
     showPopover = false,
   }: {
     detailedRatings?: Array<{ category: string; rating: number }>;
@@ -34,40 +34,27 @@
     chevronRight: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>`,
   };
 
-  // Get star color based on rating value
-  function getStarColor(ratingValue: number): string {
-    const rating = RatingValue.fromNumber(ratingValue);
-    return rating.getColor();
-  }
-
-  // Generate star display based on rating
-  function getStarDisplay(ratingValue: number): string {
-    const rating = RatingValue.fromNumber(ratingValue);
-    return rating.toStars();
-  }
-
   function toggleCategory(categoryName: string) {
+    console.log("[LDA Debug] Toggle Category:", categoryName);
     expandedCategories[categoryName] = !expandedCategories[categoryName];
+    expandedCategories = { ...expandedCategories }; // Force reactivity if object proxy isn't deep enough
   }
 
   // Use provided category ratings or fall back to detailedRatings
+  // Fixed logic to handle empty array default properly
   const categories = $derived(
-    categoryRatings ||
-      detailedRatings?.map((item) => ({
-        category: item.category,
-        overallRating: item.rating,
-        criteriaRatings: [],
-      })) ||
-      [],
+    categoryRatings && categoryRatings.length > 0
+      ? categoryRatings
+      : detailedRatings?.map((item) => ({
+          category: item.category,
+          overallRating: item.rating,
+          criteriaRatings: [],
+        })) || [],
   );
 
-  $inspect("feedbackData", feedbackData, showPopover);
-  $inspect("categoryRatings", categoryRatings, showPopover);
-
   const hasDetailedFeedback = $derived(
-    categoryRatings &&
-      categoryRatings.length > 0 &&
-      categoryRatings.some(
+    categories.length > 0 &&
+      categories.some(
         (cat) => cat.criteriaRatings && cat.criteriaRatings.length > 0,
       ),
   );
@@ -86,23 +73,19 @@
     }
   }
 
-  function nativeClick(node: HTMLElement) {
-    function onClick(e: MouseEvent) {
-      console.log("[LDA Debug] Native click action detected");
-      openInSidebar(e);
-    }
-    function onMouseDown(e: MouseEvent) {
-      console.log("[LDA Debug] Native mousedown action detected");
+  function genericClick(node: HTMLElement, fn: () => void) {
+    const handler = (e: MouseEvent) => {
       e.stopPropagation();
-    }
-
-    node.addEventListener("click", onClick);
-    node.addEventListener("mousedown", onMouseDown);
-
+      fn();
+    };
+    node.addEventListener("click", handler);
+    // Prevent popover close on click inside
+    const stop = (e: Event) => e.stopPropagation();
+    node.addEventListener("mousedown", stop);
     return {
       destroy() {
-        node.removeEventListener("click", onClick);
-        node.removeEventListener("mousedown", onMouseDown);
+        node.removeEventListener("click", handler);
+        node.removeEventListener("mousedown", stop);
       },
     };
   }
@@ -110,10 +93,8 @@
 
 <div class="lda-rating-popover">
   <div class="lda-popover-header">
-    <div
-      style="display: flex; justify-content: space-between; align-items: center;"
-    >
-      <h4 id="lda-popover-title" style="margin: 0;">
+    <div class="lda-popover-header-row">
+      <h4 id="lda-popover-title" class="lda-popover-title">
         {hasDetailedFeedback ? "Detailed Feedback" : "Detailed Ratings"}
         {#if feedbackData}
           <div style="display: inline-block; margin-left: 8px;">
@@ -126,9 +107,10 @@
         {/if}
       </h4>
       <button
-        use:nativeClick
+        use:genericClick={() => openInSidebar(new Event("click"))}
         class="lda-sidebar-trigger"
         title="Open in Sidebar"
+        type="button"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -151,10 +133,11 @@
       {#each categories as category}
         {@const ratingObj = RatingValue.fromNumber(category.overallRating)}
 
-        <div class="lda-accordion-item" style="margin-bottom: 8px;">
+        <div class="lda-accordion-item">
           <button
+            type="button"
             class="lda-accordion-header"
-            onclick={() => toggleCategory(category.category)}
+            use:genericClick={() => toggleCategory(category.category)}
           >
             <div class="lda-accordion-title-row">
               <span class="lda-accordion-icon">
@@ -172,28 +155,24 @@
             <!-- Progress Bar -->
             <div class="lda-dist-bar">
               <div
-                class="lda-dist-segment"
-                style="width: {ratingObj.getPercentage()}%; background: {ratingObj.getColor()};"
+                style="width: {ratingObj.getPercentage()}%;"
+                class="lda-dist-segment lda-bg-{ratingObj.getSeverity()}"
               ></div>
             </div>
           </button>
 
           {#if expandedCategories[category.category]}
-            <div class="lda-accordion-content" transition:slide|local>
+            <!-- Removed transition:slide temporarily to debug visibility issues -->
+            <div class="lda-accordion-content-panel">
               {#if category.criteriaRatings && category.criteriaRatings.length > 0}
                 <div class="lda-criteria-list">
                   {#each category.criteriaRatings as criterion}
-                    <div
-                      class="lda-criterion-item"
-                      style="border-left: none; padding: 4px 8px; background: transparent;"
-                    >
+                    <div class="lda-criterion-item">
                       <div class="lda-criterion-header">
                         <div
                           style="display: flex; align-items: center; justify-content: space-between; width: 100%;"
                         >
-                          <span
-                            class="lda-criterion-name"
-                            style="margin-right: 8px;"
+                          <span class="lda-criterion-name"
                             >{criterion.criterion}</span
                           >
                           <RatingStars
@@ -203,7 +182,6 @@
                           />
                         </div>
                       </div>
-                      <!-- No text feedback here as requested -->
                     </div>
                   {/each}
                 </div>

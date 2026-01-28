@@ -147,8 +147,14 @@ export const logseq = {
             }, 10000);
         }
     },
+    beforeunload: (callback) => {
+        console.log(`[MockLogseq] beforeunload registered`);
+        // We could store it to call on window unload if we wanted to be fancy
+        logseq._beforeunloadCallback = callback;
+    },
     provideModel: (model) => {
         console.log(`[MockLogseq] provideModel`, model);
+        logseq._model = model;
     },
     ready: (callback) => {
         console.log(`[MockLogseq] ready() called`);
@@ -160,6 +166,23 @@ export const logseq = {
             }, 100);
         }
         return Promise.resolve();
+    },
+    useSettingsSchema: (schema) => {
+        console.log(`[MockLogseq] useSettingsSchema:`, schema);
+        logseq._settingsSchema = schema;
+    },
+    onSettingsChanged: (callback) => {
+        console.log(`[MockLogseq] onSettingsChanged registered`);
+        logseq._onSettingsChangedCallback = callback;
+    },
+    updateSettings: (newSettingsParts) => {
+        const oldSettings = { ...logseq.settings };
+        const newSettings = { ...logseq.settings, ...newSettingsParts };
+        logseq.settings = newSettings;
+        console.log(`[MockLogseq] updateSettings:`, newSettings);
+        if (logseq._onSettingsChangedCallback) {
+            logseq._onSettingsChangedCallback(newSettings, oldSettings);
+        }
     },
     settings: {}, // Mock settings object
     baseInfo: {
@@ -184,18 +207,23 @@ Object.defineProperty(window, 'logseq', {
 // Update registerUIItem to render visually
 logseq.App.registerUIItem = (location, config) => {
     console.log(`[MockLogseq] registerUIItem: ${location}`, config);
-    if (location === 'pagebar') {
-        const pagebar = document.getElementById('sim-pagebar');
-        if (pagebar) {
+
+    const tryInject = (retries = 20) => {
+        let container = null;
+        if (location === 'pagebar') {
+            container = document.getElementById('sim-pagebar');
+        } else if (location === 'toolbar') {
+            container = document.getElementById('sim-toolbar');
+        }
+
+        if (container) {
             const btnContainer = document.createElement('div');
             btnContainer.innerHTML = config.template;
-            // Attach click handler if data-on-click is present (Logseq style)
             const btn = btnContainer.firstElementChild;
             if (btn && btn.getAttribute('data-on-click')) {
                 const handlerName = btn.getAttribute('data-on-click');
                 btn.onclick = () => {
                     console.log(`[MockLogseq] Clicked UI item invoking: ${handlerName}`);
-                    // Trigger the model function if it exists
                     if (logseq._model && logseq._model[handlerName]) {
                         logseq._model[handlerName]();
                     } else {
@@ -203,13 +231,23 @@ logseq.App.registerUIItem = (location, config) => {
                     }
                 };
             }
-            pagebar.appendChild(btnContainer);
+            container.appendChild(btnContainer);
+            console.log(`[MockLogseq] Injected item into ${location}`);
+        } else {
+            console.log(`[MockLogseq] Container for ${location} not found, retrying... (${retries})`);
+            if (retries > 0) {
+                setTimeout(() => tryInject(retries - 1), 100);
+            } else {
+                console.warn(`[MockLogseq] Failed to find container for ${location} after retries.`);
+            }
         }
-    }
+    };
+
+    tryInject();
 };
 
 // Store model for event handlers
 logseq.provideModel = (model) => {
     console.log(`[MockLogseq] provideModel received`, model);
-    logseq._model = model;
+    logseq._model = { ...logseq._model, ...model };
 };

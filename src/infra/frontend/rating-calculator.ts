@@ -1,5 +1,5 @@
 import type { RatingCalculator } from '../../application/ports';
-import type { FeedbackRating, CategoryRating, DetailedRating } from '../../domain/entities';
+import type { FeedbackRating, CategoryRating, DetailedRating } from '../../domain/rating';
 
 /**
  * Concrete implementation of RatingCalculator for frontend applications
@@ -29,7 +29,7 @@ export class FrontendRatingCalculator implements RatingCalculator {
     }, 0);
 
     const totalWeight = weights.reduce((acc, weight) => acc + weight, 0);
-    
+
     if (totalWeight === 0) {
       return this.calculateOverallRating(ratings);
     }
@@ -70,7 +70,7 @@ export class FrontendRatingCalculator implements RatingCalculator {
     }
 
     const allCriteriaRatings: number[] = [];
-    
+
     for (const category of categoryRatings) {
       for (const criterion of category.criteriaRatings) {
         allCriteriaRatings.push(criterion.rating);

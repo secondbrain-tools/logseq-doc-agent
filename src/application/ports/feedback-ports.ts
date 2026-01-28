@@ -2,7 +2,7 @@
  * Ports for feedback-related operations
  */
 
-import type { FeedbackRating, CategoryRating, DetailedRating } from '../../domain/entities';
+import type { FeedbackRating, CategoryRating, DetailedRating } from '../../domain/rating';
 
 export interface FeedbackRepository {
   saveRating(rating: FeedbackRating): Promise<FeedbackRating>;
@@ -19,12 +19,12 @@ export interface FeedbackTargetRepository {
 export interface RatingCalculator {
   calculateOverallRating(detailedRatings: any[]): number;
   calculateWeightedRating(ratings: any[], weights: number[]): number;
-  
+
   // New methods for the enhanced feedback structure
   calculateOverallRatingFromFeedback(feedbackRating: FeedbackRating): number;
   calculateCategoryRating(categoryRating: CategoryRating): number;
   calculateOverallRatingFromCategories(categoryRatings: CategoryRating[]): number;
-  
+
   // Legacy method for backward compatibility
   calculateOverallRatingFromLegacy(detailedRatings: DetailedRating[]): number;
 }

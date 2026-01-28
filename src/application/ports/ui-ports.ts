@@ -13,14 +13,14 @@ export interface ComponentInjector {
   injectComponent(target: HTMLElement, component: any, props?: any): void;
   removeComponent(container: HTMLElement): void;
   findInjectionTargets(): HTMLElement[];
-  
+
   // New methods for enhanced injection functionality
   findBlockElementsWithProperty(property: string): HTMLElement[];
   getBlockIdFromElement(element: HTMLElement): string | null;
   injectComponentWithPosition(
     target: HTMLElement,
     component: any,
-    position?: import('../../domain/value-objects').InjectionPosition,
+    position?: import('../../domain/logseq').InjectionPosition,
     props?: any
   ): HTMLElement;
 }

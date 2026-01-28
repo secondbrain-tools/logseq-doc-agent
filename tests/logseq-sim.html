@@ -8,12 +8,15 @@
     <link rel="stylesheet" href="logseq-sim.css" />
     <link rel="stylesheet" href="styles/ui.css" />
     <link rel="stylesheet" href="styles/style.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 </head>
 
 <body>
     <div id="app">Loading...</div>
 
     <!-- Sample Content -->
+
+
     <!-- App Logic -->
     <script type="module">
         import { mountApp } from "./logseq-sim-lib.js";
@@ -27,20 +30,21 @@
             .then(([defaultContent, promptsContent]) => {
                 const combinedContent = defaultContent.trim() + "\n" + promptsContent.trim();
                 mountApp("app", combinedContent);
+
+                console.log("[Sim] App mounted, loading plugin...");
+                // Load the plugin code dynamically AFTER app is mounted
+                import("../dist/main.js")
+                    .then(() =>
+                        console.log("[Sim] Plugin script loaded successfully"),
+                    )
+                    .catch((e) =>
+                        console.error("[Sim] Failed to load plugin script:", e),
+                    );
             })
             .catch((e) => {
                 console.error("[Sim] Failed to load content:", e);
                 mountApp("app", "* Error loading content");
             });
-
-        // Load the plugin code dynamically to catch errors and ensure ordering
-        import("../dist/main.js")
-            .then(() =>
-                console.log("[Sim] Plugin script loaded successfully"),
-            )
-            .catch((e) =>
-                console.error("[Sim] Failed to load plugin script:", e),
-            );
     </script>
 </body>
 

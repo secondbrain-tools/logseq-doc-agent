@@ -1,3 +1,4 @@
+/// <reference types="vitest" />
 import { defineConfig } from 'vite'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
 
@@ -17,5 +18,16 @@ export default defineConfig({
       }
     }
   },
-  base: './'
+  base: './',
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['./src/test/setup.ts'],
+    deps: {
+      optimizer: {
+        web: {
+          include: ['@logseq/libs']
+        }
+      }
+    }
+  }
 })

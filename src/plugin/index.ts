@@ -12,6 +12,8 @@ import '../ui/styles/modal.css';
 import '../ui/styles/chat.css';
 import '../ui/styles/diff.css';
 
+import { InitDataService } from '../application/services/init-data.service';
+
 export const setupPlugin = async () => {
     console.log('[src/plugin/index.ts] setupPlugin() called');
 
@@ -43,8 +45,26 @@ export const setupPlugin = async () => {
     // Initialize/Get Services
     const services = Services.instance;
 
+    // Instantiate InitDataService locally
+    const initDataService = new InitDataService(services.logseqApi);
+
     // Setup user settings
     await setupSettings();
+
+    // Initialize Plugin Data (Pages/Defaults)
+    await initDataService.initialize();
+
+
+    // Re-run initialization if storageRoot changes
+    logseq.onSettingsChanged(async (newSettings, oldSettings) => {
+        const newRoot = newSettings['storageRoot'];
+        const oldRoot = oldSettings['storageRoot'];
+        if (newRoot !== oldRoot) {
+            console.log(`[Plugin] Storage root changed from ${oldRoot} to ${newRoot}`);
+            await initDataService.migrateStorageRoot(oldRoot, newRoot);
+        }
+    });
+
 
     // Create the Svelte app (Iframe UI)
     mount(App, {

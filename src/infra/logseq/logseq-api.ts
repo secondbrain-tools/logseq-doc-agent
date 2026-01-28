@@ -26,8 +26,20 @@ export class LogseqApiImpl implements LogseqApi {
     return this.api.Editor.getCurrentPage();
   }
 
-  async appendBlockInPage(pageId: string, content: string): Promise<any> {
+  appendBlockInPage(pageId: string, content: string): Promise<any> {
     return this.api.Editor.appendBlockInPage(pageId, content);
+  }
+
+  async getPage(name: string): Promise<any> {
+    return this.api.Editor.getPage(name);
+  }
+
+  async createPage(name: string, properties?: any, options?: any): Promise<any> {
+    return this.api.Editor.createPage(name, properties, options);
+  }
+
+  async renamePage(oldName: string, newName: string): Promise<any> {
+    return this.api.Editor.renamePage(oldName, newName);
   }
 
   registerSlashCommand(name: string, callback: Function): void {

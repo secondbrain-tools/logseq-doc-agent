@@ -8,6 +8,9 @@ export interface LogseqApi {
   getCurrentGraph(): Promise<any>;
   getCurrentPage(): Promise<any>;
   appendBlockInPage(pageId: string, content: string): Promise<any>;
+  getPage(name: string): Promise<any>;
+  createPage(name: string, properties?: any, options?: any): Promise<any>;
+  renamePage(oldName: string, newName: string): Promise<any>;
   registerSlashCommand(name: string, callback: Function): void;
   registerBlockContextMenuItem(name: string, callback: Function): void;
   registerUIItem(location: string, config: any): void;

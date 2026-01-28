@@ -45,22 +45,101 @@ export const logseq = {
             registerContextMenuItem({ label: name, callback });
         },
         getBlock: async (uuid, opts) => {
-            // console.log(`[MockLogseq] getBlock: ${uuid}`);
+            // console.log(`[MockLogseq] getBlock: ${uuid}`, opts);
             const state = blockState.value;
             const block = state[uuid];
 
             if (block) {
                 // Return a simplified BlockEntity structure
-                return {
+                const result = {
                     uuid: block.uuid,
                     content: block.content,
                     properties: block.properties,
-                    // mock other fields if needed
+                    children: [] // Default empty
                 };
+
+                // Simple child fetching if requested
+                if (opts && opts.includeChildren && block.children && block.children.length > 0) {
+                    // In the sim signal structure, `children` are fully nested objects (from parseOrg).
+                    // But `blockState` is flat map.
+                    // The `block` object in `blockState` implies it HAS `children` array of nodes?
+                    // Let's check `logseq-sim-lib.js`:
+                    //  `newBlockState[node.uuid] = node;`
+                    //  `node` has `children: []` which contains CHILD NODES (objects).
+                    // So we can just map them recursively?
+                    // BUT, strictly, `getBlock` returns `children` as mixed based on depth loading.
+                    // For Sim, let's just return the nested structure since it's already in memory.
+
+                    // Helper to map children recursively
+                    const mapChildren = (nodes) => {
+                        return nodes.map(n => ({
+                            uuid: n.uuid,
+                            content: n.content,
+                            properties: n.properties,
+                            children: mapChildren(n.children || [])
+                        }));
+                    };
+                    result.children = mapChildren(block.children);
+                }
+
+                return result;
             } else {
                 console.warn(`[MockLogseq] getBlock: Block not found for uuid: ${uuid}`);
             }
             return null;
+        },
+        updateBlock: async (uuid, newContent) => {
+            console.log(`[MockLogseq] updateBlock: ${uuid}`);
+            const state = blockState.value;
+            const block = state[uuid];
+            if (block) {
+                // Update in memory
+                // Note: Sim uses Preact signals. 
+                // Updating the object property directly might not trigger deep reactive update in UI 
+                // unless we trigger the signal.
+                // The `blockState` is a signal of the map.
+                // But the values inside are objects.
+                // `logseq-sim-lib.js` re-parses everything from `sourceText`.
+                // So the strictly correct way to update Sim is to update `sourceText`.
+                // BUT that is hard because we need to find WHERE in text to replace.
+                // Shortcuts:
+                // 1. Update the `block.content` directly. The UI might reflect if components read `block.content`.
+                //    Components read `node.content`.
+                //    Wait, `logseq-sim-lib.js` generates blocks FROM sourceText.
+                //    If we update `block.content`, it updates the VIEW temporarily.
+                //    But `sourceText` remains stale.
+                //    That's fine for "Accept" feedback in simpler Sim.
+                //    Or we can try to find and replace in `sourceText`.
+
+                block.content = newContent;
+                // Force signal update?
+                // blockState.value = { ...state }; 
+
+                // Better: Try to update Source Text to make it permanent in Sim?
+                // Let's assume updating the in-memory block object is enough for now to avoid complexity of regenerating Org files.
+                // We'll update the block object so UI components (which hold reference to node) update.
+                // And we trigger a signal update if possible.
+                // Actually `blockState.value = { ...state }` might trigger generic re-render.
+
+                return;
+            } else {
+                console.warn(`[MockLogseq] updateBlock: Block not found ${uuid}`);
+            }
+        },
+        removeBlockProperty: async (uuid, propName) => {
+            console.log(`[MockLogseq] removeBlockProperty: ${uuid}, ${propName}`);
+            // Mock removing property
+            // Just update content to remove the property line?
+            // Since we don't have perfect source text mapping, let's just ignore or clean content in memory.
+            // We can strip it from `block.content` if present.
+            const state = blockState.value;
+            const block = state[uuid];
+            if (block && block.content) {
+                // Naive strip
+                const lines = block.content.split('\n');
+                const newLines = lines.filter(l => !l.includes(propName));
+                block.content = newLines.join('\n');
+            }
         },
     },
     DB: {

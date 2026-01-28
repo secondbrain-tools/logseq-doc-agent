@@ -8,9 +8,6 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     rollupOptions: {
-      input: {
-        main: './src/main.ts'
-      },
       output: {
         entryFileNames: '[name].js',
         chunkFileNames: '[name].js',

@@ -117,3 +117,30 @@ We use **Session-based Short IDs** (e.g., `#a1b2`) for stable, concise block ref
 *   Implemented by `ShortIdService` (`src/infra/ai/short-id.service.ts`).
 *   IDs are ephemeral (session-only), 4-char alphanumeric, and lazily mapped 1:1 to UUIDs.
 *   Tools like `get_logseq_document` append these IDs (e.g., `[1.2 #a1b2]`) for the Agent to use in subsequent operations.
+
+# Known Nuances
+
+### Svelte 5 Event Binding in Logseq
+*   **Issue**: Svelte 5's inline event handlers (`onclick={...}`) may fail silently in both the Logseq plugin environment and `logseq-sim`. This typically occurs with:
+    -   Elements rendered dynamically in `{#each}` loops
+    -   Components inside portals or modals
+    -   Deeply nested interactive elements
+*   **Symptoms**: Clicks reach the DOM element but no handler executes; no console errors.
+*   **Solution**: Use Svelte Actions to attach event listeners directly:
+    ```svelte
+    <script>
+      function clickAction(node: HTMLElement, fn: () => void) {
+        const handler = (e: MouseEvent) => {
+          e.preventDefault();
+          e.stopPropagation();
+          fn();
+        };
+        node.addEventListener('click', handler);
+        return { destroy: () => node.removeEventListener('click', handler) };
+      }
+    </script>
+    
+    <!-- Instead of onclick={...}, use: -->
+    <button use:clickAction={() => doSomething()}>Click</button>
+    ```
+*   **When to use**: Prefer actions for interactive elements in dynamic lists, modals, or any component where standard `onclick` fails silently.

@@ -34,7 +34,7 @@
     "icon": "icon.png",
     "author": "Logseq Developer",
     "repo": "https://github.com/yourusername/logseq-hello-world",
-    "main": "dist/main.js"
+    "main": "dist/index.html"
   },
   "dependencies": {
     "@ai-sdk/amazon-bedrock": "^4.0.19",
@@ -45,7 +45,9 @@
     "@ai-sdk/mistral": "^3.0.9",
     "@ai-sdk/openai": "^3.0.12",
     "@logseq/libs": "^0.0.17",
+    "@types/diff": "^7.0.2",
     "ai": "^6.0.39",
+    "diff": "^8.0.3",
     "marked": "^17.0.1",
     "ollama-ai-provider": "^1.2.0"
   }

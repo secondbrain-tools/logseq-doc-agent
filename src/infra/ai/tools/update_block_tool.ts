@@ -2,6 +2,7 @@
 import { z } from 'zod';
 import { tool } from 'ai';
 import { ShortIdService } from '../short-id.service';
+import type { MergeEntity } from '../../../domain/merge/entity';
 
 /**
  * Creates the updateBlock tool with injected context.
@@ -28,20 +29,23 @@ export const createUpdateBlockTool = (context: { merge: boolean }) => tool({
             let newContent = "";
 
             if (context.merge) {
-                // Merge logic:
-                // 1. Remove existing logseq_doc_agent.merge property if present
-                // 2. Add new logseq_doc_agent.merge property at the end of property list
+                // Optimistic Merge Logic:
+                // 1. Parse current content to separate properties and body
+                // 2. Filter out old logseq-doc-agent properties to avoid accumulation
+                // 3. Backup original body content into 'logseq-doc-agent.merge' property
+                // 4. Overwrite block content with NEW content immediately
+
                 const lines = currentContent.split('\n');
-                const cleanLines: string[] = [];
+                const cleanLines: string[] = []; // This will be the original body
                 const propertyLines: string[] = [];
                 let inProperties = true;
                 const propertyRegex = /^.+::/;
 
-                // First pass: separate properties and body, filter out old merge param
                 for (const line of lines) {
                     if (inProperties) {
                         if (propertyRegex.test(line)) {
-                            if (!line.startsWith('logseq_doc_agent.merge::')) {
+                            // Filter out our own agent properties
+                            if (!line.startsWith('logseq-doc-agent.') && !line.startsWith('logseq_doc_agent.')) {
                                 propertyLines.push(line);
                             }
                         } else {
@@ -54,19 +58,24 @@ export const createUpdateBlockTool = (context: { merge: boolean }) => tool({
                     }
                 }
 
-                // Add new merge property
-                propertyLines.push(`logseq_doc_agent.merge:: ${content}`);
+                const originalBody = cleanLines.join('\n').trim();
 
-                // Reconstruct content
+                // Create merge entity with original content as backup
+                const mergeData: MergeEntity = {
+                    newContent: content, // Storing new content for reference/diffing
+                    originalContent: originalBody
+                };
+
+                // Add the merge property
+                propertyLines.push(`logseq-doc-agent.merge:: ${JSON.stringify(mergeData)}`);
+
+                // Construct final content: preserved properties + new merge property + NEW content body
                 if (propertyLines.length > 0) {
-                    newContent = propertyLines.join('\n') + '\n' + cleanLines.join('\n');
+                    newContent = propertyLines.join('\n') + '\n' + content;
                 } else {
-                    // This case shouldn't happen if we are ensuring it's a property, 
-                    // but if the original block had no properties, we just start with one.
-                    newContent = `logseq_doc_agent.merge:: ${content}\n` + cleanLines.join('\n');
+                    newContent = `logseq-doc-agent.merge:: ${JSON.stringify(mergeData)}\n` + content;
                 }
-
-                // Trim extra newlines if needed, but Logseq usually handles them.
+                // Trim extra newlines if needed
                 newContent = newContent.trim();
 
             } else {

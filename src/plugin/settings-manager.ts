@@ -143,6 +143,24 @@ export const configureSettings = () => {
         }
     }
 
+    // Merge Settings
+    settings.push({
+        key: 'merge_settings_heading',
+        type: 'heading',
+        title: 'Merge Configuration',
+        description: '',
+        default: null
+    });
+
+    settings.push({
+        key: 'mergeFilterPatterns',
+        type: 'string',
+        title: 'Merge Property Filters (Wildcards allowed)',
+        description: 'Properties matching these patterns will be hidden in the merge editor but preserved on save. One pattern per line.',
+        default: 'logseq-doc-agent.*',
+        inputAs: 'textarea'
+    });
+
     // 2. Active Model Selection
     const modelEnumChoices = enabledModels.map(m => m.value);
 

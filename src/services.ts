@@ -1,5 +1,6 @@
 
 import { InjectRatingsUseCase } from './application/usecases/inject-ratings.usecase';
+import { InjectMergesUseCase } from './application/usecases/inject-merges.usecase';
 import { FrontendComponentInjector, FrontendStyleInjector } from './infra/frontend';
 import { LogseqApiImpl } from './infra/logseq';
 import { ChatSidebarUseCase } from './application/usecases/chat-sidebar.usecase';
@@ -25,6 +26,7 @@ export class Services {
 
     // Use Cases
     public injectRatingsUseCase: InjectRatingsUseCase;
+    public injectMergesUseCase: InjectMergesUseCase;
     public chatUseCase: ChatSidebarUseCase;
 
     // Globals
@@ -41,6 +43,11 @@ export class Services {
         this.injectRatingsUseCase = new InjectRatingsUseCase(
             new FrontendComponentInjector(),
             new FrontendStyleInjector(),
+            this.logseqApi
+        );
+
+        this.injectMergesUseCase = new InjectMergesUseCase(
+            new FrontendComponentInjector(),
             this.logseqApi
         );
 

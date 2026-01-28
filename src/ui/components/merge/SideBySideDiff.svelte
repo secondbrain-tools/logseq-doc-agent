@@ -103,7 +103,12 @@
     }
 </script>
 
-<div class="diff-viewer">
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div
+    class="diff-viewer"
+    draggable="false"
+    ondragstart={(e) => e.preventDefault()}
+>
     {#if showHeaders}
         <div class="diff-header">
             <div class="header-panel">Original Text</div>
@@ -236,6 +241,7 @@
         flex: 1;
         padding: 0 4px;
         color: var(--ls-primary-text-color);
+        cursor: text; /* Show text selection cursor */
     }
 
     /* Diff Types Styles */
@@ -253,5 +259,15 @@
     }
     .right-column .type-empty {
         background-color: rgba(0, 0, 0, 0.05);
+    }
+
+    /* Text selection styles - override parent styles that make selection invisible */
+    .diff-viewer ::selection {
+        background-color: rgba(0, 120, 215, 0.3);
+        color: inherit;
+    }
+    .diff-viewer ::-moz-selection {
+        background-color: rgba(0, 120, 215, 0.3);
+        color: inherit;
     }
 </style>

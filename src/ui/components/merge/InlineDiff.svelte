@@ -123,7 +123,12 @@
     }
 </script>
 
-<div class="diff-viewer">
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div
+    class="diff-viewer"
+    draggable="false"
+    ondragstart={(e) => e.preventDefault()}
+>
     <div class="diff-body">
         {#each isExpanded ? diffLines : diffLines.slice(0, 1) as line, i}
             <div class="diff-line type-{line.type}">
@@ -254,12 +259,14 @@
         color: var(--ls-primary-text-color);
         display: flex;
         user-select: text; /* Ensure text is selectable */
+        cursor: text; /* Show text selection cursor */
         align-items: center; /* Align button/marker/text */
     }
 
     .text {
         flex: 1;
         margin-right: 8px;
+        cursor: text; /* Show text selection cursor */
     }
 
     .line-btn {
@@ -311,5 +318,15 @@
     }
     .type-removed .marker {
         color: red;
+    }
+
+    /* Text selection styles - override parent styles that make selection invisible */
+    .diff-viewer ::selection {
+        background-color: rgba(0, 120, 215, 0.3);
+        color: inherit;
+    }
+    .diff-viewer ::-moz-selection {
+        background-color: rgba(0, 120, 215, 0.3);
+        color: inherit;
     }
 </style>

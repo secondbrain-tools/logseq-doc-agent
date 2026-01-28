@@ -160,7 +160,8 @@
     }
 
     function handleTreeChange(uuid: string, newContent: string) {
-        treeEdits[uuid] = newContent;
+        // Create new object reference to ensure Svelte 5 reactivity triggers properly
+        treeEdits = { ...treeEdits, [uuid]: newContent };
     }
 
     function handleToggle(uuid: string, recursive: boolean = false) {

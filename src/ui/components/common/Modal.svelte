@@ -32,7 +32,14 @@
     }
 
     function handleKeydown(event: KeyboardEvent) {
-        if (event.key === "Escape") {
+        // Only handle Escape, and only if not typing in an input/textarea
+        const target = event.target as HTMLElement;
+        const isInputElement =
+            target.tagName === "INPUT" ||
+            target.tagName === "TEXTAREA" ||
+            target.isContentEditable;
+
+        if (event.key === "Escape" && !isInputElement) {
             close();
         }
     }
@@ -57,12 +64,12 @@
         const handler = (e: Event) => e.stopPropagation();
         node.addEventListener("click", handler);
         node.addEventListener("mousedown", handler);
-        node.addEventListener("keydown", handler);
+        // node.addEventListener("keydown", handler); // Allow keys to bubble for inputs
         return {
             destroy() {
                 node.removeEventListener("click", handler);
                 node.removeEventListener("mousedown", handler);
-                node.removeEventListener("keydown", handler);
+                // node.removeEventListener("keydown", handler);
             },
         };
     }
@@ -83,12 +90,22 @@
             },
         };
     }
+
+    function handleBackdropClick(e: MouseEvent) {
+        // Only close if clicking the backdrop directly
+        if (e.target === e.currentTarget) {
+            e.stopPropagation();
+            close();
+        }
+    }
 </script>
 
 {#if isOpen}
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
         class="lda-modal-overlay"
-        use:manualClick={close}
+        onclick={handleBackdropClick}
         onkeydown={handleKeydown}
         role="button"
         tabindex="0"
@@ -97,7 +114,6 @@
         <div
             class="lda-modal-content {isMaximized ? 'maximized' : ''}"
             style={isMaximized ? "" : `width: ${width};`}
-            use:stopProp
             role="dialog"
             aria-modal="true"
             tabindex="-1"

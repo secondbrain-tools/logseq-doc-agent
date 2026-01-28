@@ -32,8 +32,17 @@
     );
     let headerRef: HTMLElement | undefined = $state();
 
+    // Track the last known external prop value to detect EXTERNAL changes only
+    let lastKnownCurrentContent = $state(currentContent);
+
     $effect(() => {
-        if (currentContent !== undefined && currentContent !== editContent) {
+        // Only sync when currentContent changes from OUTSIDE (parent update)
+        // NOT when it matches what we just sent via onContentChange
+        if (
+            currentContent !== undefined &&
+            currentContent !== lastKnownCurrentContent
+        ) {
+            lastKnownCurrentContent = currentContent;
             editContent = currentContent;
         }
     });
@@ -112,20 +121,31 @@
             class="diff-content {viewMode}"
             bind:this={headerRef}
             onclick={(e) => {
+                // Don't interfere with textarea/input interactions
+                const target = e.target as HTMLElement;
+                if (
+                    target.tagName === "TEXTAREA" ||
+                    target.tagName === "INPUT" ||
+                    target.isContentEditable
+                ) {
+                    return;
+                }
                 if (!window.getSelection()?.toString()) {
                     scrollToView();
                 }
             }}
         >
-            {#if viewMode === "edit" && item.mergeData}
+            {#if viewMode === "edit"}
                 <!-- Smart Edit Layout (Only for Merge Blocks) -->
                 <div class="smart-row">
                     <div class="smart-col smart-input input-with-tools">
                         <!-- Show Inline Diff of Original vs New -->
                         <div class="diff-wrapper">
                             <InlineDiff
-                                originalContent={item.mergeData.originalContent}
-                                modifiedContent={item.mergeData.newContent}
+                                originalContent={item.mergeData
+                                    ?.originalContent ?? item.content}
+                                modifiedContent={item.mergeData?.newContent ??
+                                    item.content}
                                 canToggle={true}
                                 {isExpanded}
                                 onToggle={(recursive) =>
@@ -170,13 +190,14 @@
                             <div
                                 class="collapsed-placeholder"
                                 onclick={() => handleInteraction()}
+                                title="Click to edit"
                             >
-                                ...
+                                {editContent.split("\n")[0] || "..."}
                             </div>
                         {/if}
                     </div>
                 </div>
-            {:else if viewMode === "output" && item.mergeData}
+            {:else if viewMode === "output"}
                 <!-- Output Only Mode -->
                 <div class="smart-col smart-output">
                     {#if isExpanded}
@@ -191,8 +212,9 @@
                         <div
                             class="collapsed-placeholder"
                             onclick={() => handleInteraction()}
+                            title="Click to edit"
                         >
-                            ...
+                            {editContent.split("\n")[0] || "..."}
                         </div>
                     {/if}
                 </div>
@@ -346,5 +368,15 @@
     .tool-btn:active {
         background: var(--ls-link-text-color);
         color: white;
+    }
+
+    /* Text selection styles for visible highlight in textareas */
+    textarea.result-editor::selection {
+        background-color: rgba(0, 120, 215, 0.3);
+        color: inherit;
+    }
+    textarea.result-editor::-moz-selection {
+        background-color: rgba(0, 120, 215, 0.3);
+        color: inherit;
     }
 </style>

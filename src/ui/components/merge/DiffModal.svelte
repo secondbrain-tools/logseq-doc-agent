@@ -530,17 +530,25 @@
                 use:genericClick={handleClose}
                 type="button">Cancel</button
             >
-            <button
-                class="lda-btn lda-btn-danger"
-                use:genericClick={handleRevert}
-                type="button">Revert (Keep Original)</button
-            >
-            <button
-                class="lda-btn lda-btn-primary"
-                use:genericClick={handleAccept}
-                type="button"
-                >Accept {activeTree.length > 0 ? "All" : "Merge"}</button
-            >
+            {#if viewMode === "edit" || viewMode === "split_edit"}
+                <button
+                    class="lda-btn lda-btn-primary"
+                    use:genericClick={handleAccept}
+                    type="button">Save Result</button
+                >
+            {:else}
+                <button
+                    class="lda-btn lda-btn-danger"
+                    use:genericClick={handleRevert}
+                    type="button">Revert (Keep Original)</button
+                >
+                <button
+                    class="lda-btn lda-btn-primary"
+                    use:genericClick={handleAccept}
+                    type="button"
+                    >Accept {activeTree.length > 0 ? "All" : "Merge"}</button
+                >
+            {/if}
         </div>
     </div>
 </Modal>

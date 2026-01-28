@@ -1,4 +1,3 @@
-
 import { getBlocks, blockState, registerContextMenuItem } from './logseq-sim-lib.js';
 
 // Recursive helper to find a block by ID
@@ -7,20 +6,6 @@ function findBlockById(roots, id) {
         if (node.id === id) return node;
         if (node.children) {
             const found = findBlockById(node.children, id);
-            if (found) return found;
-        }
-    }
-    return null;
-}
-
-// Helper: Find parent of a node in the tree
-function findParent(nodes, childUuid) {
-    for (const node of nodes) {
-        if (node.children) {
-            if (node.children.some(c => c.uuid === childUuid)) {
-                return node;
-            }
-            const found = findParent(node.children, childUuid);
             if (found) return found;
         }
     }
@@ -47,122 +32,11 @@ export const logseq = {
             name: 'Logseq Simulation',
             uuid: 'page-uuid-123'
         }),
-
-        insertBlock: async (targetUuid, content, options) => {
-            console.log(`[MockLogseq] insertBlock: target=${targetUuid}`, content, options);
-            const state = blockState.value;
-            const target = state[targetUuid];
-            const roots = getBlocks();
-
-            if (!target) {
-                console.warn(`[MockLogseq] insertBlock: Target not found ${targetUuid}`);
-                return null;
-            }
-
-            const newUuid = 'block-' + Math.random().toString(36).substr(2, 9);
-            const newNode = {
-                uuid: newUuid,
-                content: content,
-                properties: {},
-                children: [],
-                level: target.level + (options?.sibling ? 0 : 1),
-                collapsed: { value: false }
-            };
-
-            // Add to state
-            state[newUuid] = newNode;
-
-            if (options && options.sibling) {
-                // Find parent of target
-                const parent = findParent(roots, targetUuid);
-                const list = parent ? parent.children : roots;
-                const index = list.findIndex(n => n.uuid === targetUuid);
-
-                if (options.before) {
-                    list.splice(index, 0, newNode);
-                } else {
-                    list.splice(index + 1, 0, newNode);
-                }
-            } else {
-                // Child
-                target.children.push(newNode);
-            }
-
-            return newNode;
-        },
-
-        removeBlock: async (uuid) => {
-            console.log(`[MockLogseq] removeBlock: ${uuid}`);
-            const roots = getBlocks();
-            const parent = findParent(roots, uuid);
-            const list = parent ? parent.children : roots;
-
-            const index = list.findIndex(n => n.uuid === uuid);
-            if (index !== -1) {
-                list.splice(index, 1);
-            }
-        },
-
-        moveBlock: async (uuid, targetUuid, options) => {
-            console.log(`[MockLogseq] moveBlock: ${uuid} to ${targetUuid}`, options);
-            const roots = getBlocks();
-
-            // 1. Find and remove
-            const parent = findParent(roots, uuid);
-            const list = parent ? parent.children : roots;
-            const index = list.findIndex(n => n.uuid === uuid);
-            if (index === -1) return;
-
-            const [node] = list.splice(index, 1);
-
-            // 2. Insert at target
-            const targetParent = findParent(roots, targetUuid);
-
-            let targetList;
-            let insertIndex;
-
-            if (options && options.sibling) {
-                // Insert into target's parent list
-                // If targetParent is null, target is root -> targetList is roots
-                targetList = targetParent ? targetParent.children : roots;
-                const targetIndex = targetList.findIndex(n => n.uuid === targetUuid);
-
-                if (options.before) {
-                    insertIndex = targetIndex;
-                } else {
-                    insertIndex = targetIndex + 1;
-                }
-            } else {
-                // Child of target
-                const targetNode = blockState.value[targetUuid];
-                if (!targetNode) {
-                    console.warn("Target for move not found");
-                    return;
-                }
-                targetList = targetNode.children;
-                insertIndex = targetList.length;
-            }
-
-            targetList.splice(insertIndex, 0, node);
-        },
-
         appendBlockInPage: async (pageId, content) => {
             console.log(`[MockLogseq] appendBlockInPage: ${pageId}`, content);
-            const newUuid = 'block-' + Math.random().toString(36).substr(2, 9);
-            const newNode = {
-                uuid: newUuid,
-                content: content,
-                properties: {},
-                children: [],
-                level: 1,
-                collapsed: { value: false }
-            };
-            const roots = getBlocks();
-            roots.push(newNode);
-            blockState.value[newUuid] = newNode;
-            return newNode;
+            // In a real mock, we would append to sourceText signal here
+            return { uuid: 'new-block-uuid' };
         },
-
         registerSlashCommand: (name, callback) => {
             console.log(`[MockLogseq] registerSlashCommand: /${name}`);
         },
@@ -171,29 +45,32 @@ export const logseq = {
             registerContextMenuItem({ label: name, callback });
         },
         getBlock: async (uuid, opts) => {
+            // console.log(`[MockLogseq] getBlock: ${uuid}`, opts);
             const state = blockState.value;
             const block = state[uuid];
 
             if (block) {
-                const roots = getBlocks();
-                const parent = findParent(roots, uuid);
-
+                // Return a simplified BlockEntity structure
                 const result = {
                     uuid: block.uuid,
                     content: block.content,
                     properties: block.properties,
-                    children: [],
-                    parent: parent ? { id: parent.uuid, uuid: parent.uuid } : null,
+                    children: [] // Default empty
                 };
 
-                const list = parent ? parent.children : roots;
-                const index = list.findIndex(n => n.uuid === uuid);
-                if (index > 0) {
-                    const prev = list[index - 1];
-                    result.left = { id: prev.uuid, uuid: prev.uuid };
-                }
-
+                // Simple child fetching if requested
                 if (opts && opts.includeChildren && block.children && block.children.length > 0) {
+                    // In the sim signal structure, `children` are fully nested objects (from parseOrg).
+                    // But `blockState` is flat map.
+                    // The `block` object in `blockState` implies it HAS `children` array of nodes?
+                    // Let's check `logseq-sim-lib.js`:
+                    //  `newBlockState[node.uuid] = node;`
+                    //  `node` has `children: []` which contains CHILD NODES (objects).
+                    // So we can just map them recursively?
+                    // BUT, strictly, `getBlock` returns `children` as mixed based on depth loading.
+                    // For Sim, let's just return the nested structure since it's already in memory.
+
+                    // Helper to map children recursively
                     const mapChildren = (nodes) => {
                         return nodes.map(n => ({
                             uuid: n.uuid,
@@ -216,7 +93,34 @@ export const logseq = {
             const state = blockState.value;
             const block = state[uuid];
             if (block) {
+                // Update in memory
+                // Note: Sim uses Preact signals. 
+                // Updating the object property directly might not trigger deep reactive update in UI 
+                // unless we trigger the signal.
+                // The `blockState` is a signal of the map.
+                // But the values inside are objects.
+                // `logseq-sim-lib.js` re-parses everything from `sourceText`.
+                // So the strictly correct way to update Sim is to update `sourceText`.
+                // BUT that is hard because we need to find WHERE in text to replace.
+                // Shortcuts:
+                // 1. Update the `block.content` directly. The UI might reflect if components read `block.content`.
+                //    Components read `node.content`.
+                //    Wait, `logseq-sim-lib.js` generates blocks FROM sourceText.
+                //    If we update `block.content`, it updates the VIEW temporarily.
+                //    But `sourceText` remains stale.
+                //    That's fine for "Accept" feedback in simpler Sim.
+                //    Or we can try to find and replace in `sourceText`.
+
                 block.content = newContent;
+                // Force signal update?
+                // blockState.value = { ...state }; 
+
+                // Better: Try to update Source Text to make it permanent in Sim?
+                // Let's assume updating the in-memory block object is enough for now to avoid complexity of regenerating Org files.
+                // We'll update the block object so UI components (which hold reference to node) update.
+                // And we trigger a signal update if possible.
+                // Actually `blockState.value = { ...state }` might trigger generic re-render.
+
                 return;
             } else {
                 console.warn(`[MockLogseq] updateBlock: Block not found ${uuid}`);
@@ -224,9 +128,14 @@ export const logseq = {
         },
         removeBlockProperty: async (uuid, propName) => {
             console.log(`[MockLogseq] removeBlockProperty: ${uuid}, ${propName}`);
+            // Mock removing property
+            // Just update content to remove the property line?
+            // Since we don't have perfect source text mapping, let's just ignore or clean content in memory.
+            // We can strip it from `block.content` if present.
             const state = blockState.value;
             const block = state[uuid];
             if (block && block.content) {
+                // Naive strip
                 const lines = block.content.split('\n');
                 const newLines = lines.filter(l => !l.includes(propName));
                 block.content = newLines.join('\n');
@@ -236,19 +145,25 @@ export const logseq = {
     DB: {
         q: async (query) => {
             console.log(`[MockLogseq] DB.q query: ${query}`);
+            // Simple mock: if query is (property :propname), filter blocks having that property
             const propMatch = query.match(/\(property :([\w-]+)\)/);
             if (propMatch) {
                 const propName = propMatch[1];
                 const results = [];
+                // access internal block state from logseq-sim-lib
                 const state = blockState.value;
                 for (const uuid in state) {
                     const block = state[uuid];
+                    // logseq properties are usually camelCased or kept as is? 
+                    // In simulation they are stored as parsing result.
+                    // The simulation parser stores properties in `properties` object.
+                    // keys might be lowercase.
                     if (block.properties && block.properties[propName]) {
                         results.push({
                             uuid: block.uuid,
                             content: block.content,
                             properties: block.properties,
-                            parent: null // simplify
+                            // Add other fields as expected by BlockEntity
                         });
                     }
                 }
@@ -280,6 +195,7 @@ export const logseq = {
             toast.className = `logseq-toast type-${type || 'info'}`;
             toast.innerText = message;
 
+            // Base styles for toast
             toast.style.padding = '12px 16px';
             toast.style.borderRadius = '4px';
             toast.style.background = 'var(--ls-bg-color, #fff)';
@@ -294,11 +210,13 @@ export const logseq = {
 
             container.appendChild(toast);
 
+            // Animate in
             requestAnimationFrame(() => {
                 toast.style.opacity = '1';
                 toast.style.transform = 'translateY(0)';
             });
 
+            // Disappear after 10 seconds
             setTimeout(() => {
                 toast.style.opacity = '0';
                 toast.style.transform = 'translateY(-10px)';
@@ -405,4 +323,10 @@ logseq.App.registerUIItem = (location, config) => {
     };
 
     tryInject();
+};
+
+// Store model for event handlers
+logseq.provideModel = (model) => {
+    console.log(`[MockLogseq] provideModel received`, model);
+    logseq._model = { ...logseq._model, ...model };
 };

@@ -165,7 +165,7 @@ export class ChatSidebarUseCase {
             // Pass current history including the new user message
             // Note: handleUserMessage has already added the user message to the store, so get(this.messages) includes it.
             const currentMessages = get(this.messages);
-            const stream = await this.aiService.streamResponse(currentMessages, modelId, providerId, merge);
+            const stream = await this.aiService.streamAgent(currentMessages, modelId, providerId, merge);
 
             let currentText = "";
             let currentParts: any[] = [];

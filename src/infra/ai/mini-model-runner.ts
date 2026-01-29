@@ -1,29 +1,29 @@
-import { generateText } from 'ai';
-import { ModelFactory } from './model-factory';
 import { PROVIDERS } from '../../domain/settings/index';
+import type { IAIService } from '../../application/ports/ai-service';
+import type { ITitleGenerator } from '../../application/ports/title-generator';
+import type { ISettingsPort } from '../../application/ports/settings-port';
 
 /**
  * Simple AI runner for quick, single-turn tasks using the mini model.
- * No streaming, no tools - just a simple prompt -> response.
+ * Delegates to the shared IAIService for actual generation.
+ * Implements ITitleGenerator for use in domain services.
  */
-export class MiniModelRunner {
-    private modelFactory: ModelFactory;
-
-    constructor() {
-        this.modelFactory = new ModelFactory();
-    }
+export class MiniModelRunner implements ITitleGenerator {
+    constructor(
+        private aiService: IAIService,
+        private settings: ISettingsPort
+    ) { }
 
     /**
      * Get the configured mini model settings
+     * (Kept here as it's specific to the 'Mini Model' concept)
      */
     private getMiniModelSettings(): { modelId: string; providerId: string } {
-        const logseq = (window as any).logseq;
-        const settings = logseq?.settings || {};
-        const miniModel = settings['miniModel'] as string;
+        const miniModel = this.settings.get('miniModel') as string;
 
         if (!miniModel) {
             // Fallback to first available model
-            const defaultModel = settings['model'] as string;
+            const defaultModel = this.settings.get('model') as string;
             if (defaultModel) {
                 const providerId = this.findProviderForModel(defaultModel);
                 return { modelId: defaultModel, providerId };
@@ -47,10 +47,9 @@ export class MiniModelRunner {
         }
 
         // Check custom models
-        const logseq = (window as any).logseq;
-        const settings = logseq?.settings || {};
         try {
-            const customModels = JSON.parse(settings['custom_models'] || '{}');
+            const customModelsJson = this.settings.get('custom_models', '{}');
+            const customModels = JSON.parse(customModelsJson);
             for (const [providerId, models] of Object.entries(customModels)) {
                 if ((models as string[]).includes(modelId)) {
                     return providerId;
@@ -72,15 +71,14 @@ export class MiniModelRunner {
 
         console.log('[MiniModelRunner] Generating with', { modelId, providerId });
 
-        const model = this.modelFactory.getModel(modelId, providerId);
+        // Construct messages for the service
+        const messages: any[] = [];
+        if (systemPrompt) {
+            messages.push({ role: 'system', content: systemPrompt });
+        }
+        messages.push({ role: 'user', content: prompt });
 
-        const result = await generateText({
-            model,
-            system: systemPrompt,
-            prompt,
-        });
-
-        return result.text;
+        return this.aiService.generateText(messages, modelId, providerId);
     }
 
     /**

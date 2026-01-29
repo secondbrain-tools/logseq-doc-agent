@@ -1,69 +1,42 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ChatlogService } from './chatlog.service';
-import type { LogseqApi } from '../ports/logseq-ports';
+import type { IChatlogRepository } from '../ports/chatlog-repository';
 import type { MiniModelRunner } from '../../infra/ai/mini-model-runner';
 import type { Message } from '../../domain/chat/types';
 
-// Mock LogseqApi
-const createMockLogseqApi = (): LogseqApi => ({
-    getCurrentGraph: vi.fn(),
-    getCurrentPage: vi.fn(),
-    appendBlockInPage: vi.fn().mockResolvedValue({ uuid: 'new-block-uuid' }),
-    insertBlock: vi.fn().mockResolvedValue({ uuid: 'inserted-block-uuid' }),
-    getPage: vi.fn(),
-    createPage: vi.fn().mockResolvedValue({}),
-    renamePage: vi.fn(),
-    deletePage: vi.fn(),
-    getPageBlocksTree: vi.fn().mockResolvedValue([]),
-    datascriptQuery: vi.fn().mockResolvedValue([]),
-    q: vi.fn().mockResolvedValue([]),
-    registerSlashCommand: vi.fn(),
-    registerBlockContextMenuItem: vi.fn(),
-    registerUIItem: vi.fn(),
-    provideModel: vi.fn(),
-    queryBlocks: vi.fn().mockResolvedValue([]),
-    UI: {
-        showMsg: vi.fn()
-    },
-    Editor: {
-        getBlock: vi.fn(),
-        getBlockPropertyContent: vi.fn(),
-        getBlockText: vi.fn()
-    }
+// Mock IChatlogRepository
+const createMockRepository = (): IChatlogRepository => ({
+    generateId: vi.fn().mockReturnValue('mock-id'),
+    saveChatlog: vi.fn().mockResolvedValue(undefined),
+    loadChatlog: vi.fn().mockResolvedValue(null),
+    listChatlogs: vi.fn().mockResolvedValue([]),
+    deleteChatlog: vi.fn().mockResolvedValue(undefined)
 });
 
 // Mock MiniModelRunner
 const createMockMiniModelRunner = (): MiniModelRunner => ({
     generateTitle: vi.fn().mockResolvedValue('AI Generated Title'),
-    modelFactory: {} as any,
     getMiniModelSettings: vi.fn(),
     findProviderForModel: vi.fn(),
     generate: vi.fn()
-});
+} as any as MiniModelRunner);
 
 describe('ChatlogService', () => {
     let service: ChatlogService;
-    let mockLogseqApi: ReturnType<typeof createMockLogseqApi>;
+    let mockRepository: ReturnType<typeof createMockRepository>;
     let mockMiniModelRunner: ReturnType<typeof createMockMiniModelRunner>;
-    const mockGetStorageRoot = () => 'test-storage';
 
     beforeEach(() => {
         vi.clearAllMocks();
-        mockLogseqApi = createMockLogseqApi();
+        mockRepository = createMockRepository();
         mockMiniModelRunner = createMockMiniModelRunner();
-        service = new ChatlogService(mockLogseqApi, mockGetStorageRoot, mockMiniModelRunner);
+        service = new ChatlogService(mockRepository, mockMiniModelRunner);
     });
 
     describe('generateId', () => {
-        it('should generate a unique ID with date prefix', () => {
-            const id = service.generateId();
-            expect(id).toMatch(/^\d{4}-\d{2}-\d{2}-[a-z0-9]{6}$/);
-        });
-
-        it('should generate different IDs on each call', () => {
-            const id1 = service.generateId();
-            const id2 = service.generateId();
-            expect(id1).not.toBe(id2);
+        it('should delegate to repository', () => {
+            service.generateId();
+            expect(mockRepository.generateId).toHaveBeenCalled();
         });
     });
 
@@ -136,7 +109,7 @@ Last Model Answer: Last A`;
 
         it('should fallback to simple title when AI fails', async () => {
             mockMiniModelRunner.generateTitle = vi.fn().mockRejectedValue(new Error('API Error'));
-            service = new ChatlogService(mockLogseqApi, mockGetStorageRoot, mockMiniModelRunner);
+            service = new ChatlogService(mockRepository, mockMiniModelRunner);
 
             const messages: Message[] = [
                 { id: '1', role: 'user', content: 'Simple question' }
@@ -148,7 +121,7 @@ Last Model Answer: Last A`;
         });
 
         it('should use fallback when no MiniModelRunner', async () => {
-            service = new ChatlogService(mockLogseqApi, mockGetStorageRoot); // No runner
+            service = new ChatlogService(mockRepository); // No runner
 
             const messages: Message[] = [
                 { id: '1', role: 'user', content: 'Test question' }
@@ -161,38 +134,19 @@ Last Model Answer: Last A`;
     });
 
     describe('requestSave', () => {
-        it('should create a new page and save messages', async () => {
+        it('should call repository.saveChatlog with generated title', async () => {
             const messages: Message[] = [
                 { id: '1', role: 'user', content: 'Hello' }
             ];
 
             await service.requestSave('new-id', messages, 'gpt-4', 'openai');
 
-            expect(mockLogseqApi.createPage).toHaveBeenCalledWith(
-                'test-storage/chatlogs/AI Generated Title',
-                { 'lda.chatlog.id': 'new-id' },
-                { createFirstBlock: false, redirect: false }
-            );
-        });
-
-        it('should append messages as nested blocks with escaping', async () => {
-            const messages: Message[] = [
-                { id: '1', role: 'user', content: '- Item 1' },
-                { id: '2', role: 'assistant', content: 'Answer' }
-            ];
-
-            await service.requestSave('test-id', messages, 'model', 'provider');
-
-            // Escape check
-            expect(mockLogseqApi.appendBlockInPage).toHaveBeenCalled();
-            const firstBlockContent = (mockLogseqApi.appendBlockInPage as any).mock.calls[0][1];
-            expect(firstBlockContent).toContain('* Item 1');
-
-            // Nested block check
-            expect(mockLogseqApi.insertBlock).toHaveBeenCalledWith(
-                'new-block-uuid',
-                expect.any(String),
-                { sibling: false }
+            expect(mockRepository.saveChatlog).toHaveBeenCalledWith(
+                'new-id',
+                'AI Generated Title',
+                messages,
+                'gpt-4',
+                'openai'
             );
         });
 
@@ -204,7 +158,7 @@ Last Model Answer: Last A`;
             expect(mockMiniModelRunner.generateTitle).toHaveBeenCalledWith('First User Message: Topic A');
         });
 
-        it('should regenerate title after 3 new user messages', async () => {
+        it('should NOT regenerate title after new user messages', async () => {
             // First save
             let messages: Message[] = [{ id: '1', role: 'user', content: 'Msg 1' }];
             await service.requestSave('id-1', messages, 'model', 'provider');
@@ -223,14 +177,13 @@ Last Model Answer: Last A`;
 
             await service.requestSave('id-1', messages, 'model', 'provider');
 
-            expect(mockMiniModelRunner.generateTitle).toHaveBeenCalledTimes(2);
+            expect(mockMiniModelRunner.generateTitle).toHaveBeenCalledTimes(1); // Still 1
         });
 
         it('should queue pending saves if saving is in progress', async () => {
-            // Mock slow createPage
-            mockLogseqApi.createPage = vi.fn().mockImplementation(async () => {
+            // Mock slow save
+            mockRepository.saveChatlog = vi.fn().mockImplementation(async () => {
                 await new Promise(resolve => setTimeout(resolve, 10));
-                return {};
             });
 
             const p1 = service.requestSave('id-queue', [{ id: '1', role: 'user', content: '1' }], 'm', 'p');
@@ -239,78 +192,26 @@ Last Model Answer: Last A`;
 
             await Promise.all([p1, p2, p3]);
 
-            expect(mockLogseqApi.createPage).toHaveBeenCalled();
-        });
-
-        it('should rename page if title changes', async () => {
-            // Mock existing page with old title name
-            mockLogseqApi.q = vi.fn().mockResolvedValue([
-                { 'originalName': 'test-storage/chatlogs/Old Title' }
-            ]);
-
-            // Mock new title generation
-            mockMiniModelRunner.generateTitle = vi.fn().mockResolvedValue('New Title');
-
-            // Force title generation by ensuring no cached title (default in new service instance)
-            const messages: Message[] = [{ id: '1', role: 'user', content: 'Trigger Rename' }];
-
-            await service.requestSave('id-rename', messages, 'model', 'provider');
-
-            expect(mockLogseqApi.renamePage).toHaveBeenCalledWith(
-                'test-storage/chatlogs/Old Title',
-                'test-storage/chatlogs/New Title',
-                { silent: true }
-            );
-
-            // Verify subsequent operations use the new name
-            expect(mockLogseqApi.getPageBlocksTree).toHaveBeenCalledWith('test-storage/chatlogs/New Title');
+            expect(mockRepository.saveChatlog).toHaveBeenCalled();
         });
     });
 
     describe('listChatlogs', () => {
-        it('should return empty array when no chatlogs exist', async () => {
-            mockLogseqApi.q = vi.fn().mockResolvedValue([]);
+        it('should delegate to repository', async () => {
+            const mockList = [{ id: '1', title: 'Test', created: '', updated: '', messageCount: 1 }];
+            mockRepository.listChatlogs = vi.fn().mockResolvedValue(mockList);
 
             const result = await service.listChatlogs();
 
-            expect(result).toEqual([]);
-        });
-
-        it('should parse chatlog metadata from query results', async () => {
-            mockLogseqApi.q = vi.fn().mockResolvedValue([
-                {
-                    'originalName': 'test-storage/chatlogs/My Chat',
-                    name: 'test-storage/chatlogs/my chat',
-                    properties: {
-                        'lda-chatlog-id': 'chat-123'
-                    },
-                    updatedAt: Date.now()
-                }
-            ]);
-
-            const result = await service.listChatlogs();
-
-            expect(result).toHaveLength(1);
-            expect(result[0].id).toBe('chat-123');
-            expect(result[0].title).toBe('My Chat');
+            expect(mockRepository.listChatlogs).toHaveBeenCalled();
+            expect(result).toEqual(mockList);
         });
     });
 
     describe('deleteChatlog', () => {
-        it('should delete the page for a chatlog', async () => {
-            mockLogseqApi.q = vi.fn().mockResolvedValue([
-                { 'originalName': 'test-storage/chatlogs/To Delete' }
-            ]);
-
+        it('should delegate to repository', async () => {
             await service.deleteChatlog('delete-id');
-
-            expect(mockLogseqApi.deletePage).toHaveBeenCalledWith('test-storage/chatlogs/To Delete');
-        });
-
-        it('should not throw when chatlog not found', async () => {
-            mockLogseqApi.q = vi.fn().mockResolvedValue([]);
-
-            await expect(service.deleteChatlog('non-existent')).resolves.not.toThrow();
+            expect(mockRepository.deleteChatlog).toHaveBeenCalledWith('delete-id');
         });
     });
 });

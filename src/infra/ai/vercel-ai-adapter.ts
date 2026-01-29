@@ -1,4 +1,5 @@
 import { createTools } from './tools/index';
+import { generateText } from 'ai';
 import type { IAIService } from '../../application/ports/ai-service';
 import type { Message } from '../../domain/chat/types';
 import { mapMessages } from './message-mapper';
@@ -12,8 +13,8 @@ export class VercelAIAdapter implements IAIService {
         this.modelFactory = new ModelFactory();
     }
 
-    async streamResponse(messages: Message[], modelId: string, providerId: string, merge: boolean = true): Promise<ReadableStream<any>> {
-        console.log('[VercelAIAdapter] streamResponse called', { modelId, providerId, merge });
+    async streamAgent(messages: Message[], modelId: string, providerId: string, merge: boolean = true): Promise<ReadableStream<any>> {
+        console.log('[VercelAIAdapter] streamAgent called', { modelId, providerId, merge });
 
         const disableStreaming = this.modelFactory.isStreamingDisabled(modelId, providerId);
         const model = this.modelFactory.getModel(modelId, providerId);
@@ -22,5 +23,19 @@ export class VercelAIAdapter implements IAIService {
 
         const runner = new AgentRunner(model, toolsMap, coreMessages, disableStreaming);
         return runner.run();
+    }
+
+    async generateText(messages: Message[], modelId: string, providerId: string): Promise<string> {
+        console.log('[VercelAIAdapter] generateText called', { modelId, providerId });
+
+        const model = this.modelFactory.getModel(modelId, providerId);
+        const coreMessages = mapMessages(messages);
+
+        const result = await generateText({
+            model,
+            messages: coreMessages,
+        });
+
+        return result.text;
     }
 }

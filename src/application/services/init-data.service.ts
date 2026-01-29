@@ -1,7 +1,11 @@
 import type { LogseqApi } from '../ports/logseq-ports';
+import type { ISettingsPort } from '../ports/settings-port';
 
 export class InitDataService {
-    constructor(private logseqApi: LogseqApi) { }
+    constructor(
+        private logseqApi: LogseqApi,
+        private settings: ISettingsPort
+    ) { }
 
     async initialize() {
         console.log('[InitDataService] Waiting 20s for Logseq to settle before initializing data...');
@@ -10,8 +14,7 @@ export class InitDataService {
         console.log('[InitDataService] Initializing plugin data...');
 
         // 1. Get Storage Root from settings
-        const settings = (logseq.settings as any) || {};
-        const storageRoot = settings['storageRoot'] || 'logseq-doc-agent';
+        const storageRoot = this.settings.get('storageRoot', 'logseq-doc-agent');
 
         console.log(`[InitDataService] Storage Root: ${storageRoot}`);
 

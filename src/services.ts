@@ -10,6 +10,8 @@ import { LogseqPromptRepository } from './infra/logseq/prompt-repo';
 import { VercelAIAdapter } from './infra/ai/vercel-ai-adapter';
 import { MiniModelRunner } from './infra/ai/mini-model-runner';
 import { ChatlogService } from './application/services/chatlog.service';
+import { LogseqChatlogRepository } from './infra/logseq/chatlog-repository';
+import { LogseqSettingsAdapter } from './infra/logseq/settings-adapter';
 
 // Globals from previous implementation
 // We use 'parent.document' because the plugin runs in an iframe
@@ -41,11 +43,17 @@ export class Services {
         this.logseqApi = new LogseqApiImpl();
         this.sidebarInjector = new FrontendSidebarInjector();
         this.toolbarInjector = new FrontendToolbarInjector();
+        const aiAdapter = new VercelAIAdapter();
+        const settingsAdapter = new LogseqSettingsAdapter();
         this.promptRepo = new LogseqPromptRepository(this.logseqApi);
-        this.miniModelRunner = new MiniModelRunner();
-        this.chatlogService = new ChatlogService(
+        this.miniModelRunner = new MiniModelRunner(aiAdapter, settingsAdapter);
+        const chatlogRepo = new LogseqChatlogRepository(
             this.logseqApi,
-            () => ((window as any).logseq?.settings?.storageRoot as string) || 'logseq-doc-agent',
+            () => ((window as any).logseq?.settings?.storageRoot as string) || 'logseq-doc-agent'
+        );
+
+        this.chatlogService = new ChatlogService(
+            chatlogRepo,
             this.miniModelRunner
         );
 
@@ -63,7 +71,7 @@ export class Services {
 
         this.chatUseCase = new ChatSidebarUseCase(
             this.sidebarInjector,
-            new VercelAIAdapter(),
+            aiAdapter,
             this.chatlogService
         );
 

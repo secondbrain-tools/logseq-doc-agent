@@ -2,6 +2,7 @@ import { mount } from 'svelte';
 import App from '../App.svelte';
 import { Services } from '../services';
 import { setupSettings } from './settings-manager';
+import { LogseqSettingsAdapter } from '../infra/logseq/settings-adapter';
 import '@logseq/libs';
 
 // Standard imports to include in the bundle (dist/index.css)
@@ -46,7 +47,8 @@ export const setupPlugin = async () => {
     const services = Services.instance;
 
     // Instantiate InitDataService locally
-    const initDataService = new InitDataService(services.logseqApi);
+    const settingsAdapter = new LogseqSettingsAdapter();
+    const initDataService = new InitDataService(services.logseqApi, settingsAdapter);
 
     // Setup user settings
     await setupSettings();

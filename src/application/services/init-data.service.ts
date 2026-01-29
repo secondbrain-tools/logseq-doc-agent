@@ -5,7 +5,7 @@ export class InitDataService {
 
     async initialize() {
         console.log('[InitDataService] Waiting 20s for Logseq to settle before initializing data...');
-        await new Promise(resolve => setTimeout(resolve, 20000));
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
         console.log('[InitDataService] Initializing plugin data...');
 

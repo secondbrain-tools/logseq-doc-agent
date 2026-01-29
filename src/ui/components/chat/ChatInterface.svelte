@@ -5,24 +5,41 @@
 
     import { PROVIDERS } from "../../../domain/settings/index";
     import ModelSelector, { type ProviderGroup } from "./ModelSelector.svelte";
+    import ChatHistoryModal from "./ChatHistoryModal.svelte";
 
     // --- Types ---
     import type { Message, MessagePart } from "../../../domain/chat/types";
+    import type { ChatlogMetadata } from "../../../domain/chatlog/types";
 
     interface Props {
         messages: Writable<Message[]>;
         isLoading: Writable<boolean>;
+        currentChatlogId?: Writable<string | null>;
+        historyModalOpen?: Writable<boolean>;
         onSendMessage: (
             text: string,
             modelId: string,
             providerId: string,
             merge: boolean,
         ) => void;
-        onClose: () => void; // Added onClose prop which was missing in original define but used in usecase
+        onClose: () => void;
         onReset: () => void;
+        onNewChat?: () => void;
+        onLoadChatlog?: (id: string) => void;
+        onListChatlogs?: () => Promise<ChatlogMetadata[]>;
+        onDeleteChatlog?: (id: string) => void;
     }
 
-    let { messages, isLoading, onSendMessage }: Props = $props();
+    let {
+        messages,
+        isLoading,
+        historyModalOpen,
+        onSendMessage,
+        onNewChat,
+        onLoadChatlog,
+        onListChatlogs,
+        onDeleteChatlog,
+    }: Props = $props();
 
     // --- Context ---
     const settingsStore = getContext<Writable<any>>("settings");
@@ -492,3 +509,23 @@
         </div>
     </div>
 </div>
+
+<!-- History Modal -->
+{#if onListChatlogs && historyModalOpen}
+    <ChatHistoryModal
+        isOpen={$historyModalOpen}
+        onClose={() => historyModalOpen?.set(false)}
+        onNewChat={() => {
+            if (onNewChat) onNewChat();
+            historyModalOpen?.set(false);
+        }}
+        onLoadChatlog={(id) => {
+            if (onLoadChatlog) onLoadChatlog(id);
+            historyModalOpen?.set(false);
+        }}
+        onDeleteChatlog={(id) => {
+            if (onDeleteChatlog) onDeleteChatlog(id);
+        }}
+        {onListChatlogs}
+    />
+{/if}

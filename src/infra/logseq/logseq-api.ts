@@ -26,8 +26,93 @@ export class LogseqApiImpl implements LogseqApi {
     return this.api.Editor.getCurrentPage();
   }
 
-  async appendBlockInPage(pageId: string, content: string): Promise<any> {
+  appendBlockInPage(pageId: string, content: string): Promise<any> {
     return this.api.Editor.appendBlockInPage(pageId, content);
+  }
+
+  async insertBlock(srcBlock: string, content: string, options?: { sibling?: boolean; before?: boolean }): Promise<BlockEntity | null> {
+    return this.api.Editor.insertBlock(srcBlock, content, options);
+  }
+
+  async getPage(name: string): Promise<any> {
+    return this.api.Editor.getPage(name);
+  }
+
+  async createPage(name: string, properties?: any, options?: any): Promise<any> {
+    return this.api.Editor.createPage(name, properties, options);
+  }
+
+  async renamePage(oldName: string, newName: string, options?: { silent?: boolean }): Promise<any> {
+    if (options?.silent) {
+      try {
+        const page = await this.getPage(oldName);
+        if (page) {
+          // Use DB transaction to rename silently (prevents navigation)
+          return await this.api.DB.transact([{
+            'db/id': page.id,
+            'block/name': newName.toLowerCase(),
+            'block/original-name': newName
+          }]);
+        }
+      } catch (e) {
+        console.error('Error in silent rename:', e);
+      }
+    }
+    return this.api.Editor.renamePage(oldName, newName);
+  }
+
+  async deletePage(name: string): Promise<void> {
+    return this.api.Editor.deletePage(name);
+  }
+
+  async upsertPageProperty(pageName: string, key: string, value: string): Promise<void> {
+    try {
+      const blocks = await this.getPageBlocksTree(pageName);
+      if (blocks && blocks.length > 0) {
+        // Update property on the first block (standard Logseq behavior for page properties)
+        await this.api.Editor.upsertBlockProperty(blocks[0].uuid, key, value);
+      } else {
+        // Page is empty, append a block with the property
+        await this.appendBlockInPage(pageName, `${key}:: ${value}`);
+      }
+    } catch (e) {
+      console.error(`Error upserting page property ${key} for page ${pageName}:`, e);
+    }
+  }
+
+  async getPageBlocksTree(pageName: string): Promise<BlockEntity[]> {
+    try {
+      return await this.api.Editor.getPageBlocksTree(pageName) || [];
+    } catch (error) {
+      console.error('Error getting page blocks tree:', error);
+      return [];
+    }
+  }
+
+  async datascriptQuery(query: string): Promise<any[]> {
+    try {
+      if (!this.api.DB) {
+        console.warn('Logseq DB API not available');
+        return [];
+      }
+      return this.api.DB.datascriptQuery(query) || [];
+    } catch (error) {
+      console.error('Error executing datascript query:', error);
+      return [];
+    }
+  }
+
+  async q(query: string): Promise<any[]> {
+    try {
+      if (!this.api.DB) {
+        console.warn('Logseq DB API not available');
+        return [];
+      }
+      return await this.api.DB.q(query) || [];
+    } catch (error) {
+      console.error('Error executing simple query:', error);
+      return [];
+    }
   }
 
   registerSlashCommand(name: string, callback: Function): void {

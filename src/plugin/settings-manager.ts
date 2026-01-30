@@ -204,6 +204,23 @@ export const configureSettings = () => {
         });
     }
 
+    // 3. Storage Settings
+    settings.push({
+        key: 'heading_storage',
+        type: 'heading',
+        title: 'Storage Settings',
+        description: '',
+        default: null
+    });
+
+    settings.push({
+        key: 'storageRoot',
+        type: 'string',
+        title: 'Storage Root Page',
+        description: 'The root page name for storing plugin data (chatlogs, prompts, etc.). Default: "logseq-doc-agent"',
+        default: 'logseq-doc-agent',
+    });
+
     logseq.useSettingsSchema(settings as any);
 };
 

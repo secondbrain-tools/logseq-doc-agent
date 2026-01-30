@@ -35,7 +35,39 @@ export const logseq = {
         appendBlockInPage: async (pageId, content) => {
             console.log(`[MockLogseq] appendBlockInPage: ${pageId}`, content);
             // In a real mock, we would append to sourceText signal here
-            return { uuid: 'new-block-uuid' };
+            return { uuid: 'new-block-uuid-' + Date.now() };
+        },
+        insertBlock: async (srcBlock, content, options) => {
+            console.log(`[MockLogseq] insertBlock: ${srcBlock}`, content);
+            // Naive implementation: Appends to the same page as the srcBlock
+            // 1. Find the page containing srcBlock
+            let targetPage = null;
+            for (const p of logseq._pages) {
+                if (p.blocks && p.blocks.find(b => b.uuid === srcBlock)) {
+                    targetPage = p;
+                    break;
+                }
+            }
+
+            // If not found, try to use the last active page or just fail gracefully
+            if (!targetPage) {
+                // Fallback: If we just created a block in appendBlockInPage, maybe we can assume it's the last page in _pages?
+                if (logseq._pages.length > 0) {
+                    targetPage = logseq._pages[logseq._pages.length - 1];
+                }
+            }
+
+            if (targetPage) {
+                const newBlock = {
+                    uuid: 'mock-block-' + Math.random().toString(36).substr(2, 5),
+                    content: content
+                };
+                if (!targetPage.blocks) targetPage.blocks = [];
+                targetPage.blocks.push(newBlock);
+                return newBlock;
+            }
+
+            return { uuid: 'new-block-uuid-' + Date.now() };
         },
         registerSlashCommand: (name, callback) => {
             console.log(`[MockLogseq] registerSlashCommand: /${name}`);
@@ -269,7 +301,166 @@ export const logseq = {
         name: 'Logseq Doc Agent',
         description: 'Mocked description',
         version: '0.0.1'
+    },
+    // Simulation state for pages (chatlogs, storage, etc.)
+    _pages: [
+        {
+            name: 'logseq-doc-agent/chatlogs/Mock Chat 1',
+            originalName: 'logseq-doc-agent/chatlogs/Mock Chat 1',
+            createdAt: new Date(Date.now() - 86400000).getTime(), // 1 day ago
+            updatedAt: new Date(Date.now() - 3600000).getTime(), // 1 hour ago
+            properties: {
+                'lda.chatlog.id': 'mock-chat-1',
+                'lda.chatlog.model': 'gpt-4',
+                'lda.chatlog.provider': 'openai',
+            },
+            blocks: [
+                { uuid: 'b1', content: 'role:: user\ntimestamp:: ...\nHello' },
+                { uuid: 'b2', content: 'role:: assistant\ntimestamp:: ...\nHi there!' }
+            ]
+        },
+        {
+            name: 'logseq-doc-agent/chatlogs/Mock Chat 2',
+            originalName: 'logseq-doc-agent/chatlogs/Mock Chat 2',
+            createdAt: new Date(Date.now() - 172800000).getTime(), // 2 days ago
+            updatedAt: new Date(Date.now() - 86400000).getTime(), // 1 day ago
+            properties: {
+                'lda.chatlog.id': 'mock-chat-2',
+                'lda.chatlog.model': 'claude-3-sonnet',
+                'lda.chatlog.provider': 'anthropic',
+            },
+            blocks: [
+                { uuid: 'b3', content: 'role:: user\ntimestamp:: ...\nTest' },
+                { uuid: 'b4', content: 'role:: assistant\ntimestamp:: ...\nWorking.' }
+            ]
+        }
+    ]
+};
+
+// extend Editor
+logseq.Editor.createPage = async (name, properties, options) => {
+    console.log(`[MockLogseq] createPage: ${name}`, properties);
+    const existing = logseq._pages.find(p => p.name === name || p.originalName === name);
+    if (existing) {
+        return existing;
     }
+
+    const newPage = {
+        name: name,
+        originalName: name,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        properties: properties || {},
+        blocks: []
+    };
+    logseq._pages.push(newPage);
+
+    return newPage;
+};
+
+logseq.Editor.renamePage = async (oldName, newName) => {
+    console.log(`[MockLogseq] renamePage: ${oldName} -> ${newName}`);
+    const page = logseq._pages.find(p => p.name === oldName || p.originalName === oldName);
+    if (page) {
+        page.name = newName;
+        page.originalName = newName;
+        page.updatedAt = Date.now();
+        return page;
+    } else {
+        console.warn(`[MockLogseq] renamePage: Page not found ${oldName}`);
+    }
+};
+
+logseq.Editor.deletePage = async (name) => {
+    console.log(`[MockLogseq] deletePage: ${name}`);
+    const index = logseq._pages.findIndex(p => p.name === name || p.originalName === name);
+    if (index !== -1) {
+        logseq._pages.splice(index, 1);
+        console.log(`[MockLogseq] Deleted page: ${name}`);
+    } else {
+        console.warn(`[MockLogseq] deletePage: Page not found ${name}`);
+    }
+};
+
+logseq.Editor.getPage = async (name) => {
+    // Check _pages first
+    const page = logseq._pages.find(p => p.name === name || p.originalName === name);
+    if (page) {
+        return {
+            name: page.name,
+            originalName: page.originalName,
+            createdAt: page.createdAt,
+            updatedAt: page.updatedAt,
+            properties: page.properties,
+            uuid: 'mock-page-uuid-' + (page.properties['lda.chatlog.id'] || Math.random().toString(36).substr(2, 5))
+        };
+    }
+    return null;
+};
+
+logseq.Editor.getPageBlocksTree = async (name) => {
+    const page = logseq._pages.find(p => p.name === name || p.originalName === name);
+    if (page && page.blocks) {
+        // Return simulated blocks
+        return page.blocks.map(b => ({
+            uuid: b.uuid,
+            content: b.content,
+            properties: {},
+            children: []
+        }));
+    }
+    return [];
+};
+
+// extend Editor.appendBlockInPage to update our mock pages
+const originalAppendBlock = logseq.Editor.appendBlockInPage;
+logseq.Editor.appendBlockInPage = async (pageId, content) => {
+    // Try to find in _pages
+    const page = logseq._pages.find(p => p.name === pageId || p.originalName === pageId || p.uuid === pageId);
+    if (page) {
+        const newBlock = {
+            uuid: 'mock-block-' + Math.random().toString(36).substr(2, 5),
+            content: content
+        };
+        if (!page.blocks) page.blocks = [];
+        page.blocks.push(newBlock);
+        console.log(`[MockLogseq] Appended block to mock page ${page.name}:`, content);
+        return newBlock;
+    }
+    return originalAppendBlock(pageId, content);
+};
+
+// Update DB.q to support chatlog queries
+const originalQ = logseq.DB.q;
+logseq.DB.q = async (query) => {
+    console.log(`[MockLogseq] DB.q query: ${query}`);
+
+    // Chatlog ID property query
+    // Matches (property :lda.chatlog.id) OR (property :lda.chatlog.id "value")
+    const idPropMatch = query.match(/\(property :lda\.chatlog\.id\s*"?([^"]*)"?\)/);
+
+    if (query.includes(':lda.chatlog.id')) {
+        const specificId = idPropMatch ? idPropMatch[1] : null; // capture group 1 might be undefined if just checking existence
+
+        let results = logseq._pages;
+
+        // If specific ID requested
+        if (specificId && specificId.trim() !== '') {
+            results = results.filter(c => c.properties['lda.chatlog.id'] === specificId);
+        }
+
+        return results.map(c => ({
+            name: c.name,
+            originalName: c.originalName,
+            'original-name': c.originalName,
+            createdAt: c.createdAt,
+            updatedAt: c.updatedAt,
+            properties: c.properties,
+            uuid: 'mock-page-uuid-' + c.properties['lda.chatlog.id']
+        }));
+    }
+
+    return originalQ(query);
 };
 
 // Make it available globally as expected by plugins

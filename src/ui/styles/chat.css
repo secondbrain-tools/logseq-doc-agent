@@ -16,6 +16,7 @@
     border: 1px solid var(--ls-border-color, #dddddd);
     font-family: var(--ct-text-font-family, system-ui, sans-serif);
     font-size: 0.95rem;
+    position: relative;
 }
 
 .lda-chat-messages {

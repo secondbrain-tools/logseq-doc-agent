@@ -508,24 +508,24 @@
             </button>
         </div>
     </div>
-</div>
 
-<!-- History Modal -->
-{#if onListChatlogs && historyModalOpen}
-    <ChatHistoryModal
-        isOpen={$historyModalOpen}
-        onClose={() => historyModalOpen?.set(false)}
-        onNewChat={() => {
-            if (onNewChat) onNewChat();
-            historyModalOpen?.set(false);
-        }}
-        onLoadChatlog={(id) => {
-            if (onLoadChatlog) onLoadChatlog(id);
-            historyModalOpen?.set(false);
-        }}
-        onDeleteChatlog={(id) => {
-            if (onDeleteChatlog) onDeleteChatlog(id);
-        }}
-        {onListChatlogs}
-    />
-{/if}
+    <!-- History Modal (As Overlay) -->
+    {#if onListChatlogs && historyModalOpen}
+        <ChatHistoryModal
+            isOpen={$historyModalOpen}
+            onClose={() => historyModalOpen?.set(false)}
+            onNewChat={() => {
+                if (onNewChat) onNewChat();
+                historyModalOpen?.set(false);
+            }}
+            onLoadChatlog={(id) => {
+                if (onLoadChatlog) onLoadChatlog(id);
+                historyModalOpen?.set(false);
+            }}
+            onDeleteChatlog={(id) => {
+                if (onDeleteChatlog) onDeleteChatlog(id);
+            }}
+            {onListChatlogs}
+        />
+    {/if}
+</div>

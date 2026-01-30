@@ -161,7 +161,6 @@ export class LogseqChatlogRepository implements IChatlogRepository {
         const chatlogsPath = this.getChatlogsPath();
 
         // Query for all pages with the chatlog ID property
-        // Using simple query is more reliable than Datalog path matching in this context
         const query = `(property :${CHATLOG_PROPERTIES.ID})`;
 
         try {
@@ -172,44 +171,50 @@ export class LogseqChatlogRepository implements IChatlogRepository {
                 if (!result) continue;
 
                 // Result might be a block (pre-block) or page
-                // We need the page name
                 let pageName = result.originalName || result.name || result['original-name'];
-                let props = result.properties || {};
-                let createdAt = result.createdAt || result['created-at'];
-                let updatedAt = result.updatedAt || result['updated-at'];
 
                 if (result.page) {
                     pageName = result.page.originalName || result.page.name || result.page['original-name'];
-                    // Properties are usually on the block itself for page properties
                 }
 
                 if (!pageName) continue;
 
-                // Title is the page name without the chatlogs/ prefix
-                // If stored elsewhere, just use the last part of the name
-                const title = pageName.split('/').pop() || pageName;
+                try {
+                    // Fetch full page to get correct metadata (createdAt, updatedAt)
+                    // The query result might be a block or incomplete page object
+                    const page = await this.logseqApi.getPage(pageName);
+                    if (!page) continue;
 
-                // ID is stored as a property
-                // Logseq API returns properties in camelCase or original format in the object
-                const id = props[CHATLOG_PROPERTIES.ID] ||
-                    props[CHATLOG_PROPERTIES.ID.replace(/\./g, '-')] ||
-                    props['lda-chatlog-id'] || // Common normalization
-                    pageName;
+                    // Title is the page name without the chatlogs/ prefix
+                    const title = pageName.split('/').pop() || pageName;
 
-                // Get block count for message count
-                // Optimization: If we have blocks in result, use it, otherwise fetch
-                const blocks = await this.logseqApi.getPageBlocksTree(pageName);
+                    // ID is stored as a property
+                    // Helper to get property case-insensitively/normalized
+                    const getProp = (obj: any, key: string) => {
+                        if (!obj) return undefined;
+                        return obj[key] ||
+                            obj[key.replace(/\./g, '-')] ||
+                            obj[key.replace(/\./g, '_')]; // specific Logseq normalization sometimes
+                    };
 
-                chatlogs.push({
-                    id,
-                    title,
-                    created: createdAt ? new Date(createdAt).toISOString() : '',
-                    updated: updatedAt ? new Date(updatedAt).toISOString() : '',
-                    // Check various property key formats
-                    model: props[CHATLOG_PROPERTIES.MODEL] || props['lda-chatlog-model'],
-                    provider: props[CHATLOG_PROPERTIES.PROVIDER] || props['lda-chatlog-provider'],
-                    messageCount: blocks.length,
-                });
+                    const props = page.properties || {};
+                    const id = getProp(props, CHATLOG_PROPERTIES.ID) || pageName;
+
+                    // Get block count for message count
+                    const blocks = await this.logseqApi.getPageBlocksTree(pageName);
+
+                    chatlogs.push({
+                        id,
+                        title,
+                        created: page.createdAt ? new Date(page.createdAt).toISOString() : new Date().toISOString(),
+                        updated: page.updatedAt ? new Date(page.updatedAt).toISOString() : new Date().toISOString(),
+                        model: getProp(props, CHATLOG_PROPERTIES.MODEL),
+                        provider: getProp(props, CHATLOG_PROPERTIES.PROVIDER),
+                        messageCount: blocks.length,
+                    });
+                } catch (e) {
+                    console.error(`[LogseqChatlogRepository] Error processing chatlog page ${pageName}:`, e);
+                }
             }
 
             // Sort by updated date, newest first

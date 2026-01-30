@@ -1,5 +1,6 @@
 <script lang="ts">
     import type { ChatlogMetadata } from "../../../domain/chatlog/types";
+    import "../../styles/chathistory.css";
 
     interface Props {
         isOpen: boolean;
@@ -99,60 +100,34 @@
 
 {#if isOpen}
     <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-    <div class="lda-history-modal-backdrop" onclick={handleBackdropClick}>
+    <div
+        class="lda-history-modal-backdrop"
+        onclick={handleBackdropClick}
+        style="position: absolute !important; inset: 0 !important; top: 0 !important; left: 0 !important; width: 100% !important; height: 100% !important; z-index: 50 !important; background: var(--ls-primary-background-color, #ffffff);"
+    >
         <div class="lda-history-modal">
             <!-- Header -->
             <div class="lda-history-header">
-                <h3 class="lda-history-title">Chat History</h3>
-                <div class="lda-history-header-actions">
-                    <button
-                        class="lda-btn-secondary"
-                        onclick={handleNewChat}
-                        title="New Chat"
-                    >
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                        >
-                            <line x1="12" y1="5" x2="12" y2="19"></line>
-                            <line x1="5" y1="12" x2="19" y2="12"></line>
-                        </svg>
-                        New
-                    </button>
-                    <button
-                        class="lda-btn-icon-sm"
-                        onclick={onClose}
-                        title="Close"
-                    >
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="18"
-                            height="18"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                        >
-                            <line x1="18" y1="6" x2="6" y2="18"></line>
-                            <line x1="6" y1="6" x2="18" y2="18"></line>
-                        </svg>
-                    </button>
-                </div>
-            </div>
-
-            <!-- Search -->
-            <div class="lda-history-search">
                 <input
                     type="text"
-                    placeholder="Search chatlogs..."
+                    placeholder="Search Chat History"
                     bind:value={searchQuery}
                     class="lda-history-search-input"
                 />
+                <button class="lda-btn-icon-sm" onclick={onClose} title="Close">
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                    >
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
             </div>
 
             <!-- List -->
@@ -178,13 +153,6 @@
                                 </div>
                                 <div class="lda-history-item-meta">
                                     <span>{formatDate(chatlog.created)}</span>
-                                    <span>·</span>
-                                    <span
-                                        >{chatlog.messageCount} message{chatlog.messageCount !==
-                                        1
-                                            ? "s"
-                                            : ""}</span
-                                    >
                                     {#if chatlog.model}
                                         <span>·</span>
                                         <span>{chatlog.model}</span>
@@ -206,12 +174,14 @@
                                 {:else}
                                     <svg
                                         xmlns="http://www.w3.org/2000/svg"
-                                        width="14"
-                                        height="14"
+                                        width="16"
+                                        height="16"
                                         viewBox="0 0 24 24"
                                         fill="none"
                                         stroke="currentColor"
                                         stroke-width="2"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
                                     >
                                         <polyline points="3 6 5 6 21 6"
                                         ></polyline>

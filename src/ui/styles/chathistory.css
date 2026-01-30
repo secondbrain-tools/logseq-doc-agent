@@ -1,46 +1,34 @@
 /* Chat History Modal Styles */
 
 .lda-history-modal-backdrop {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.5);
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    background: var(--ls-primary-background-color);
     display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
+    flex-direction: column;
+    z-index: 50;
+    /* Ensure it is above messages (z-index of other elts is usually low) */
+    width: 100% !important;
+    height: 100% !important;
 }
 
 .lda-history-modal {
-    background: var(--ls-primary-background-color);
-    border-radius: 8px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-    width: 90%;
-    max-width: 500px;
-    max-height: 70vh;
     display: flex;
     flex-direction: column;
+    width: 100%;
+    height: 100%;
     overflow: hidden;
+    background: var(--ls-primary-background-color);
 }
 
 .lda-history-header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    gap: 12px;
     padding: 12px 16px;
     border-bottom: 1px solid var(--ls-border-color);
-}
-
-.lda-history-title {
-    margin: 0;
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--ls-primary-text-color);
-}
-
-.lda-history-header-actions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+    flex-shrink: 0;
 }
 
 .lda-btn-secondary {
@@ -121,23 +109,30 @@
     font-size: 14px;
 }
 
+
 .lda-history-item {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     padding: 12px;
     margin-bottom: 4px;
     border-radius: 6px;
     cursor: pointer;
     transition: background 0.15s;
+    border: 1px solid transparent;
+    /* Reserve space for border */
 }
 
 .lda-history-item:hover {
     background: var(--ls-secondary-background-color);
+    border-color: var(--ls-border-color);
 }
 
 .lda-history-item-content {
     flex: 1;
     min-width: 0;
+    margin-right: 12px;
+    /* Add spacing between content and delete button */
 }
 
 .lda-history-item-title {

@@ -90,7 +90,7 @@ describe('get_logseq_document_tool helpers', () => {
 
         it('should extract originalName from page object', () => {
             const block = { page: { originalName: 'Original Name' } };
-            expect(extractPageLabel(block)).toBe('Original Name');
+            expect(extractPageLabel(block)).toContain('Original Name');
         });
 
         it('should fallback to unknown page', () => {
@@ -181,7 +181,7 @@ describe('getLogseqDocument tool', () => {
         mockGetPageBlocksTree.mockResolvedValue(mockTree);
 
         const result = await (getLogseqDocument as any).execute({}, undefined);
-        expect(result).toContain('Page: Test Page');
+        expect(result).toContain('Page: Test Page (#short-page-uuid)');
         expect(result).toContain('[1 #short-b1] Block 1');
         expect(result).toContain('[2 #short-b2] Block 2');
         expect(result).toContain('[2.1 #short-b3] Child 1');

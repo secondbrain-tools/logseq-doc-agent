@@ -31,6 +31,7 @@ export class ShortIdService {
     }
 
     public getUuid(shortId: string): string | undefined {
+        if (!shortId || typeof shortId !== 'string') return undefined;
         // Strip the '#' prefix if present for lookup
         const cleanId = shortId.startsWith('#') ? shortId.substring(1) : shortId;
         return this.shortToUuidMap.get(`#${cleanId}`) ?? this.shortToUuidMap.get(cleanId);

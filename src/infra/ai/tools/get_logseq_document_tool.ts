@@ -124,18 +124,31 @@ export function describeSelection(selection: LogseqSelection) {
         (typeof selection.name === 'string' && selection.name.length ? selection.name : undefined) ??
         (typeof selection.uuid === 'string' && selection.uuid.length ? selection.uuid : undefined) ??
         'Untitled Page';
-    return [`Selection Type: page`, `Page: ${pageName}`];
+
+    let pageLabel = pageName;
+    if (typeof selection.uuid === 'string' && selection.uuid.length > 0) {
+        const shortId = ShortIdService.getInstance().getShortId(selection.uuid);
+        pageLabel += ` (${shortId})`;
+    }
+
+    return [`Selection Type: page`, `Page: ${pageLabel}`];
 }
 
 export function extractPageLabel(selection: LogseqBlock) {
     const page = selection.page;
     if (typeof page === 'object' && page !== null) {
-        return (
+        let label = (
             (typeof page.originalName === 'string' && page.originalName.length ? page.originalName : undefined) ??
             (typeof page.name === 'string' && page.name.length ? page.name : undefined) ??
             (typeof page.uuid === 'string' && page.uuid.length ? page.uuid : undefined) ??
             'Unknown Page'
         );
+
+        if (typeof page.uuid === 'string' && page.uuid.length > 0) {
+            const shortId = ShortIdService.getInstance().getShortId(page.uuid);
+            label += ` (${shortId})`;
+        }
+        return label;
     }
     if (typeof page === 'string' && page.length > 0) {
         return page;

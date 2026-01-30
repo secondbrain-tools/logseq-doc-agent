@@ -50,7 +50,8 @@ describe('Block Management Tools', () => {
             const result = await (tool as any).execute({ targetShortId: '#target', content: 'New Block' });
 
             expect(mockInsertBlock).toHaveBeenCalledWith('uuid-target', 'New Block', {});
-            expect(result).toContain('Successfully added block');
+            expect(result).toContain('Successfully added block #new');
+            expect(result).toContain('parent #target');
         });
 
         it('should insert block before target (merge=false)', async () => {

@@ -55,4 +55,11 @@ describe('ShortIdService', () => {
     it('should return undefined for unknown short ID', () => {
         expect(service.getUuid('#unknown')).toBeUndefined();
     });
+
+    it('should return undefined for invalid or empty inputs to getUuid', () => {
+        expect(service.getUuid(undefined as any)).toBeUndefined();
+        expect(service.getUuid(null as any)).toBeUndefined();
+        expect(service.getUuid('')).toBeUndefined();
+        expect(service.getUuid({} as any)).toBeUndefined();
+    });
 });

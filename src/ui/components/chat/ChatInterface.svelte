@@ -6,6 +6,7 @@
     import { PROVIDERS } from "../../../domain/settings/index";
     import ModelSelector, { type ProviderGroup } from "./ModelSelector.svelte";
     import ChatHistoryModal from "./ChatHistoryModal.svelte";
+    import ContextMenu from "./ContextMenu.svelte";
 
     // --- Types ---
     import type { Message, MessagePart } from "../../../domain/chat/types";
@@ -52,6 +53,15 @@
     let userHasSelectedModel = $state(false);
     let modelGroups: ProviderGroup[] = $state([]);
     let isMergeOn = $state(true); // Default merge to true
+
+    let contextMenu = $state({
+        visible: false,
+        x: 0,
+        y: 0,
+        message: null as Message | null,
+        hasSelection: false,
+        selectedText: "",
+    });
 
     // --- Reactivity ---
     $effect(() => {
@@ -219,12 +229,119 @@
         );
     }
 
+    // --- Context Menu Actions ---
+    function handleContextMenu(e: MouseEvent, msg: Message) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        // Get current text selection
+        const selection = window.getSelection();
+        const selectedText = selection?.toString() || "";
+
+        contextMenu = {
+            visible: true,
+            x: e.clientX,
+            y: e.clientY,
+            message: msg,
+            hasSelection: selectedText.length > 0,
+            selectedText: selectedText,
+        };
+    }
+
+    async function copySelectionToClipboard() {
+        if (!contextMenu.selectedText) return;
+        try {
+            await navigator.clipboard.writeText(contextMenu.selectedText);
+            console.log("Selection copied to clipboard");
+        } catch (err) {
+            console.error("Failed to copy selection:", err);
+        }
+    }
+
+    async function copyMessageToClipboard(msg: Message) {
+        if (!msg) return;
+
+        let textToCopy = "";
+
+        // If simple content
+        if (!msg.parts || msg.parts.length === 0) {
+            textToCopy = msg.content;
+        } else {
+            // Filter parts: exclude tool_call and tool_result
+            // Include content and reasoning
+            const parts = msg.parts.filter((p) =>
+                ["content", "reasoning"].includes(p.type),
+            );
+            textToCopy = parts.map((p) => p.text || "").join("\n\n");
+
+            // Fallback for empty parts if original content exists (legacy support)
+            if (!textToCopy && msg.content) {
+                textToCopy = msg.content;
+            }
+        }
+
+        try {
+            await navigator.clipboard.writeText(textToCopy);
+            console.log("Copied to clipboard");
+            // Ideally assume toast notification elsewhere or simple log
+        } catch (err) {
+            console.error("Failed to copy:", err);
+        }
+    }
+
     // --- Effects ---
-    // Auto-scroll when messages change
+    // Auto-scroll logic: Only scroll when meaningful content changes, not on UI toggles
+    let lastMessageCount = 0;
+    let lastTailMessageSignature = "";
+
+    function getMessageSignature(msg: Message | undefined): string {
+        if (!msg) return "";
+        // Create a signature based on content and structure, ignoring UI state like isCollapsed
+        let sig = `${msg.id}:${msg.content.length}:${msg.role}`;
+        if (msg.parts) {
+            sig += `:${msg.parts.length}`;
+            msg.parts.forEach((p) => {
+                sig += `:${p.type}`;
+                if (p.type === "tool_result") {
+                    // Include tool result length/type in signature to scroll when result arrives
+                    sig += `:${p.toolResult ? JSON.stringify(p.toolResult).length : 0}`;
+                }
+                // For streaming content updates
+                if (p.type === "content") {
+                    sig += `:${p.text?.length || 0}`;
+                }
+                if (p.type === "reasoning") {
+                    sig += `:${p.text?.length || 0}`;
+                }
+            });
+        }
+        return sig;
+    }
+
     $effect(() => {
-        if ($messages.length && messageContainer) {
+        const msgs = $messages;
+        const currentCount = msgs.length;
+        const lastMsg = msgs[msgs.length - 1];
+        const currentTailSignature = getMessageSignature(lastMsg);
+
+        // Check if we should scroll
+        const shouldScroll =
+            currentCount > lastMessageCount || // New message added
+            (currentCount === lastMessageCount &&
+                currentTailSignature !== lastTailMessageSignature); // Content updated (streaming or tool result)
+
+        if (shouldScroll && messageContainer) {
+            // Update trackers
+            lastMessageCount = currentCount;
+            lastTailMessageSignature = currentTailSignature;
+
             // Use setTimeout to allow DOM update
             setTimeout(() => scrollToBottom(), 0);
+        } else if (currentCount < lastMessageCount) {
+            // Handle deletion or reset - just update trackers without scrolling or maybe scroll if needed?
+            // Usually on delete we don't need to force scroll to bottom, but we should update trackers.
+            lastMessageCount = currentCount;
+            lastTailMessageSignature = currentTailSignature;
         }
     });
 
@@ -267,10 +384,12 @@
                 </div>
 
                 <!-- Bubble -->
+                <!-- svelte-ignore a11y_no_static_element_interactions -->
                 <div
                     class="lda-bubble {msg.role === 'user'
                         ? 'ls-bg-user'
                         : 'ls-bg-agent'}"
+                    oncontextmenu={(e) => handleContextMenu(e, msg)}
                 >
                     <!-- Standard Content (Flat) -->
                     {#if !msg.parts || msg.parts.length === 0}
@@ -509,7 +628,39 @@
         </div>
     </div>
 
+    <!-- Context Menu -->
+    {#if contextMenu.visible && contextMenu.message}
+        <ContextMenu
+            x={contextMenu.x}
+            y={contextMenu.y}
+            options={[
+                // Copy Selection - only shown when text is selected
+                ...(contextMenu.hasSelection
+                    ? [
+                          {
+                              label: "Copy Selection",
+                              action: () => {
+                                  copySelectionToClipboard();
+                              },
+                          },
+                      ]
+                    : []),
+                // Copy Message - always shown
+                {
+                    label: "Copy Message",
+                    action: () => {
+                        if (contextMenu.message) {
+                            copyMessageToClipboard(contextMenu.message);
+                        }
+                    },
+                },
+            ]}
+            onClose={() => (contextMenu = { ...contextMenu, visible: false })}
+        />
+    {/if}
+
     <!-- History Modal (As Overlay) -->
+
     {#if onListChatlogs && historyModalOpen}
         <ChatHistoryModal
             isOpen={$historyModalOpen}

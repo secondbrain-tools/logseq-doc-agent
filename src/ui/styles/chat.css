@@ -80,6 +80,20 @@
     border-radius: 0.5rem;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
     border: 1px solid var(--ls-border-color, #eee);
+    user-select: text;
+    cursor: text;
+    -webkit-user-drag: none;
+}
+
+/* Text selection visibility for chat bubbles */
+.lda-bubble ::selection {
+    background: var(--ls-selection-background-color, rgba(16, 107, 163, 0.3));
+    color: var(--ls-primary-text-color, inherit);
+}
+
+.lda-bubble::-moz-selection {
+    background: var(--ls-selection-background-color, rgba(16, 107, 163, 0.3));
+    color: var(--ls-primary-text-color, inherit);
 }
 
 /* Input Area Layout */

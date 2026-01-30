@@ -315,8 +315,12 @@ export const logseq = {
                 'lda.chatlog.provider': 'openai',
             },
             blocks: [
-                { uuid: 'b1', content: 'role:: user\ntimestamp:: ...\nHello' },
-                { uuid: 'b2', content: 'role:: assistant\ntimestamp:: ...\nHi there!' }
+                { uuid: 'b1', content: 'lda.chatlog.role:: user\nlda.chatlog.timestamp:: ...\nHello' },
+                { uuid: 'b2', content: 'lda.chatlog.role:: assistant\nlda.chatlog.timestamp:: ...\nHi there!' },
+                {
+                    uuid: 'b_tool',
+                    content: `lda.chatlog.role:: assistant\nlda.chatlog.timestamp:: ...\nlda.chatlog.parts:: [{"type":"tool_call","toolName":"simulatedTool","toolArgs":{"query":"test"},"toolCallId":"call_1","isCollapsed":true},{"type":"tool_result","toolCallId":"call_1","toolResult":"Tool output here"}]\nThinking...`
+                }
             ]
         },
         {

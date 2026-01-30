@@ -121,6 +121,13 @@ export class LogseqChatlogRepository implements IChatlogRepository {
                 }
             }
         }
+
+        // Update the updated timestamp property on the page
+        try {
+            await this.logseqApi.upsertPageProperty(pageName, CHATLOG_PROPERTIES.UPDATED, new Date().toISOString());
+        } catch (e) {
+            console.error('[LogseqChatlogRepository] Error updating timestamp:', e);
+        }
     }
 
     /**
@@ -145,11 +152,21 @@ export class LogseqChatlogRepository implements IChatlogRepository {
         const chatlogsPath = this.getChatlogsPath();
         const title = pageName.replace(`${chatlogsPath}/`, '');
 
+        // Helper to get property case-insensitively/normalized
+        const getProp = (obj: any, key: string) => {
+            if (!obj) return undefined;
+            return obj[key] ||
+                obj[key.replace(/\./g, '-')] ||
+                obj[key.replace(/\./g, '_')];
+        };
+
+        const props = page.properties || {};
+
         const metadata: ChatlogMetadata = {
             id,
             title,
             created: page.createdAt ? new Date(page.createdAt).toISOString() : new Date().toISOString(),
-            updated: page.updatedAt ? new Date(page.updatedAt).toISOString() : new Date().toISOString(),
+            updated: getProp(props, CHATLOG_PROPERTIES.UPDATED) || (page.updatedAt ? new Date(page.updatedAt).toISOString() : new Date().toISOString()),
             model: page.properties?.[CHATLOG_PROPERTIES.MODEL],
             provider: page.properties?.[CHATLOG_PROPERTIES.PROVIDER],
             messageCount: messages.length,
@@ -211,7 +228,7 @@ export class LogseqChatlogRepository implements IChatlogRepository {
                         id,
                         title,
                         created: page.createdAt ? new Date(page.createdAt).toISOString() : new Date().toISOString(),
-                        updated: page.updatedAt ? new Date(page.updatedAt).toISOString() : new Date().toISOString(),
+                        updated: getProp(props, CHATLOG_PROPERTIES.UPDATED) || (page.updatedAt ? new Date(page.updatedAt).toISOString() : new Date().toISOString()),
                         model: getProp(props, CHATLOG_PROPERTIES.MODEL),
                         provider: getProp(props, CHATLOG_PROPERTIES.PROVIDER),
                         messageCount: blocks.length,

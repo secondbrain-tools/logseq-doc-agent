@@ -13,6 +13,7 @@ export interface LogseqApi {
   createPage(name: string, properties?: any, options?: any): Promise<any>;
   renamePage(oldName: string, newName: string, options?: { silent?: boolean }): Promise<any>;
   deletePage(name: string): Promise<void>;
+  upsertPageProperty(pageName: string, key: string, value: string): Promise<void>;
   getPageBlocksTree(pageName: string): Promise<BlockEntity[]>;
   datascriptQuery(query: string): Promise<any[]>;
   q(query: string): Promise<any[]>;

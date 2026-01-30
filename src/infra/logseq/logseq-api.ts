@@ -65,6 +65,21 @@ export class LogseqApiImpl implements LogseqApi {
     return this.api.Editor.deletePage(name);
   }
 
+  async upsertPageProperty(pageName: string, key: string, value: string): Promise<void> {
+    try {
+      const blocks = await this.getPageBlocksTree(pageName);
+      if (blocks && blocks.length > 0) {
+        // Update property on the first block (standard Logseq behavior for page properties)
+        await this.api.Editor.upsertBlockProperty(blocks[0].uuid, key, value);
+      } else {
+        // Page is empty, append a block with the property
+        await this.appendBlockInPage(pageName, `${key}:: ${value}`);
+      }
+    } catch (e) {
+      console.error(`Error upserting page property ${key} for page ${pageName}:`, e);
+    }
+  }
+
   async getPageBlocksTree(pageName: string): Promise<BlockEntity[]> {
     try {
       return await this.api.Editor.getPageBlocksTree(pageName) || [];

@@ -41,17 +41,21 @@ export class LogseqChatlogRepository implements IChatlogRepository {
 
         try {
             const results = await this.logseqApi.q(query);
+
             if (results && results.length > 0) {
                 const result = results[0];
 
                 // Result from simple query might be a block (pre-block) or a page
                 // If it's a block, it has a 'page' property with metadata
                 if (result.page) {
-                    return result.page.originalName || result.page.name || null;
+                    const foundName = result.page.originalName || result.page.name || null;
+                    return foundName;
                 }
 
                 // Otherwise try direct properties (if it really is a page)
-                return result.originalName || result.name || null;
+                const foundName = result.originalName || result.name || null;
+                return foundName;
+            } else {
             }
         } catch (error) {
             console.error('[LogseqChatlogRepository] Error finding page by ID:', error);
@@ -289,6 +293,15 @@ export class LogseqChatlogRepository implements IChatlogRepository {
             block += `${CHATLOG_PROPERTIES.MODEL}:: ${model}\n`;
         }
 
+        if (msg.parts && msg.parts.length > 0) {
+            try {
+                const partsJson = JSON.stringify(msg.parts);
+                block += `${CHATLOG_PROPERTIES.PARTS}:: ${partsJson}\n`;
+            } catch (e) {
+                console.warn('[LogseqChatlogRepository] Error stringifying parts:', e);
+            }
+        }
+
         // Escape content for Logseq compatibility
         block += this.escapeForLogseq(msg.content);
         return block;
@@ -300,19 +313,44 @@ export class LogseqChatlogRepository implements IChatlogRepository {
     private parseBlocksToMessages(blocks: any[]): Message[] {
         const messages: Message[] = [];
 
-        for (const block of blocks) {
-            if (!block.content) continue;
+        const processBlock = (block: any) => {
+            if (!block.content) {
+                return;
+            }
+
 
             const role = this.extractProperty(block.content, CHATLOG_PROPERTIES.ROLE);
-            if (!role || !['user', 'assistant', 'system'].includes(role)) continue;
+            if (role && ['user', 'assistant', 'system', 'tool'].includes(role)) {
+                let content = this.extractContent(block.content);
+                // For tool messages, content might be empty if it only has parts, but we strictly require content string in Message type
+                if (!content && role === 'tool') content = '';
+                const message: Message = {
+                    id: block.uuid || Date.now().toString(),
+                    role: role as Message['role'],
+                    content,
+                };
 
-            const content = this.extractContent(block.content);
+                // Extract parts if available
+                const partsJson = this.extractProperty(block.content, CHATLOG_PROPERTIES.PARTS);
+                if (partsJson) {
+                    try {
+                        message.parts = JSON.parse(partsJson);
+                    } catch (e) {
+                        console.warn('[LogseqChatlogRepository] Error parsing parts JSON:', e);
+                    }
+                }
 
-            messages.push({
-                id: block.uuid || Date.now().toString(),
-                role: role as Message['role'],
-                content,
-            });
+                messages.push(message);
+            }
+
+            // Process children
+            if (block.children && Array.isArray(block.children)) {
+                block.children.forEach(processBlock);
+            }
+        };
+
+        if (blocks) {
+            blocks.forEach(processBlock);
         }
 
         return messages;

@@ -38,4 +38,5 @@ export const CHATLOG_PROPERTIES = {
     PROVIDER: 'lda.chatlog.provider',
     AGENT: 'lda.chatlog.agent',
     ID: 'lda.chatlog.id',
+    PARTS: 'lda.chatlog.parts',
 } as const;

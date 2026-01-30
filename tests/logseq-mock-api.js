@@ -35,7 +35,39 @@ export const logseq = {
         appendBlockInPage: async (pageId, content) => {
             console.log(`[MockLogseq] appendBlockInPage: ${pageId}`, content);
             // In a real mock, we would append to sourceText signal here
-            return { uuid: 'new-block-uuid' };
+            return { uuid: 'new-block-uuid-' + Date.now() };
+        },
+        insertBlock: async (srcBlock, content, options) => {
+            console.log(`[MockLogseq] insertBlock: ${srcBlock}`, content);
+            // Naive implementation: Appends to the same page as the srcBlock
+            // 1. Find the page containing srcBlock
+            let targetPage = null;
+            for (const p of logseq._pages) {
+                if (p.blocks && p.blocks.find(b => b.uuid === srcBlock)) {
+                    targetPage = p;
+                    break;
+                }
+            }
+
+            // If not found, try to use the last active page or just fail gracefully
+            if (!targetPage) {
+                // Fallback: If we just created a block in appendBlockInPage, maybe we can assume it's the last page in _pages?
+                if (logseq._pages.length > 0) {
+                    targetPage = logseq._pages[logseq._pages.length - 1];
+                }
+            }
+
+            if (targetPage) {
+                const newBlock = {
+                    uuid: 'mock-block-' + Math.random().toString(36).substr(2, 5),
+                    content: content
+                };
+                if (!targetPage.blocks) targetPage.blocks = [];
+                targetPage.blocks.push(newBlock);
+                return newBlock;
+            }
+
+            return { uuid: 'new-block-uuid-' + Date.now() };
         },
         registerSlashCommand: (name, callback) => {
             console.log(`[MockLogseq] registerSlashCommand: /${name}`);

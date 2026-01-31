@@ -1,5 +1,6 @@
 <script lang="ts">
     import { onMount, tick, getContext, untrack } from "svelte";
+    import { slide } from "svelte/transition";
     import { marked } from "marked";
     import type { Writable } from "svelte/store";
 
@@ -489,7 +490,7 @@
                             <!-- Reasoning Block -->
                             {#if part.type === "reasoning"}
                                 <div
-                                    class="mb-2 border-l-2 pl-2"
+                                    class="mb-2 pl-2"
                                     style="border-color: var(--ls-border-color);"
                                 >
                                     <button
@@ -507,6 +508,10 @@
                                     </button>
                                     {#if !part.isCollapsed}
                                         <div
+                                            transition:slide={{
+                                                duration: 300,
+                                                axis: "y",
+                                            }}
                                             class="text-xs italic mt-1 lda-animate-fadeIn"
                                             style="color: var(--ls-secondary-text-color);"
                                         >

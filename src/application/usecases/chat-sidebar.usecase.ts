@@ -234,23 +234,18 @@ export class ChatSidebarUseCase {
                 for await (const chunk of stream) {
                     const partType = (chunk as any).type;
 
-
                     if (partType === 'text-delta') {
+                        // Collapse reasoning if switching to content
+                        this.tryCollapseLastReasoning(currentParts, aiMsgId);
 
                         const textDelta = (chunk as any).text || (chunk as any).textDelta || "";
                         currentText += textDelta;
-                        // Update the last message content (legacy) AND parts.
-
-                        // Logic for parts: Update the last "content" part or add a new one if the last one wasn't content
-                        if (currentParts.length === 0 || currentParts[currentParts.length - 1].type !== 'content') {
-                            currentParts.push({ type: 'content', text: textDelta });
-                        } else {
-                            const lastIdx = currentParts.length - 1;
-                            const lastPart = currentParts[lastIdx];
-                            currentParts[lastIdx] = { ...lastPart, text: lastPart.text + textDelta };
-                        }
+                        this.appendPartText(currentParts, 'content', textDelta);
 
                     } else if (partType === 'tool-call') {
+                        // Collapse reasoning if switching to tool
+                        this.tryCollapseLastReasoning(currentParts, aiMsgId);
+
                         const toolCall = chunk as any;
                         currentParts.push({
                             type: 'tool_call',
@@ -258,6 +253,7 @@ export class ChatSidebarUseCase {
                             toolName: toolCall.toolName,
                             toolArgs: toolCall.args || toolCall.input
                         });
+
                     } else if (partType === 'tool-result') {
                         const toolResult = chunk as any;
                         currentParts.push({
@@ -266,14 +262,22 @@ export class ChatSidebarUseCase {
                             toolName: toolResult.toolName,
                             toolResult: toolResult.result || toolResult.output
                         });
-                    } else if (partType === 'reasoning-delta') {
-                        // Optional: Handle reasoning if you want to show it
-                        const reasoningDelta = (chunk as any).textDelta; // or 'text' depending on sdk version
-                        if (currentParts.length === 0 || currentParts[currentParts.length - 1].type !== 'reasoning') {
-                            currentParts.push({ type: 'reasoning', text: reasoningDelta });
+
+                    } else if (partType === 'reasoning' || partType === 'reasoning-delta') {
+                        console.log(`[ChatSidebar] ${partType} chunk:`, chunk); // DEBUG LOG
+
+                        let reasoningDelta = "";
+                        if (partType === 'reasoning') {
+                            reasoningDelta = (chunk as any).textDelta || "";
                         } else {
-                            currentParts[currentParts.length - 1].text += reasoningDelta;
+                            // reasoning-delta fallback
+                            reasoningDelta = (chunk as any).textDelta || (chunk as any).text || "";
+                            if (!reasoningDelta && (chunk as any).textDelta === undefined && (chunk as any).text === undefined) {
+                                console.warn('[ChatSidebar] Received reasoning-delta without textDelta or text', chunk);
+                            }
                         }
+
+                        this.appendPartText(currentParts, 'reasoning', reasoningDelta);
                     }
 
                     // Update the store
@@ -303,5 +307,46 @@ export class ChatSidebarUseCase {
 
     private updateMessages(fn: (msgs: Message[]) => Message[]) {
         this.messages.update(fn);
+    }
+
+    private appendPartText(parts: any[], type: 'content' | 'reasoning', text: string) {
+        if (parts.length === 0 || parts[parts.length - 1].type !== type) {
+            parts.push({ type, text });
+        } else {
+            // Safe string concatenation
+            const lastIdx = parts.length - 1;
+            const current = parts[lastIdx].text || "";
+            // IMMUTABLE UPDATE: Create a new object for the updated part
+            parts[lastIdx] = { ...parts[lastIdx], text: current + text };
+        }
+    }
+
+    private tryCollapseLastReasoning(parts: any[], aiMsgId: string) {
+        if (parts.length === 0) return;
+
+        const lastIdx = parts.length - 1;
+        const lastPart = parts[lastIdx];
+
+        if (lastPart.type === 'reasoning' && !lastPart.isCollapsed) {
+            // Delayed collapse (2 seconds)
+            setTimeout(() => {
+                // Check strict bounds and type again in case of race/mutation
+                // We re-access 'parts' via closure reference 'currentParts' from the caller, 
+                // but here 'parts' is passed by reference.
+                // Ideally we should double check against the ACTUAL store or just trust the ref if it's the same array object.
+                // The caller passes 'currentParts' which is the array being mutated.
+                // However, by the time this executes, 'parts' might have new items pushed. 
+                // We specifically want to collapse parts[lastIdx].
+
+                if (parts[lastIdx] && parts[lastIdx].type === 'reasoning') {
+                    parts[lastIdx] = { ...parts[lastIdx], isCollapsed: true };
+                    // Trigger store update to reflect change
+                    this.updateMessages(msgs => msgs.map(m => m.id === aiMsgId ? {
+                        ...m,
+                        parts: [...parts]
+                    } : m));
+                }
+            }, 2000);
+        }
     }
 }

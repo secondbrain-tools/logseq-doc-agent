@@ -85,7 +85,8 @@ export class ModelFactory {
 
         if (providerId === 'openai') {
             options.providerOptions.openai = {
-                reasoningEffort: reasoningEffort
+                reasoningEffort: reasoningEffort,
+                reasoningSummary: 'auto'
             };
         } else if (providerId === 'anthropic') {
             options.providerOptions.anthropic = {

@@ -113,15 +113,30 @@ export class AgentRunner {
 
         const result = await generateText(options as any);
 
-        // Log reasoning if present
+        let accumulatedText = "";
+        const accumulatedToolCalls: any[] = [];
+
+        // Log reasoning if present - first only for openai 
         if ((result as any).reasoning) {
             console.log('[AgentRunner] Reasoning received in blocking:', (result as any).reasoning);
+
+            const reasoningParts = (result as any).reasoning;
+            if (Array.isArray(reasoningParts)) {
+                for (const part of reasoningParts) {
+                    // Check if part has valid text content
+                    // Handles openai structure where empty reasoning objects might appear
+                    if (part && typeof part.text === 'string' && part.text.length > 0) {
+                        controller.enqueue({ type: 'reasoning', textDelta: part.text });
+                    }
+                }
+            } else if (typeof reasoningParts === 'string') {
+                // Fallback for simple string reasoning
+                controller.enqueue({ type: 'reasoning', textDelta: reasoningParts });
+            }
+
         } else {
             console.log('[AgentRunner] No reasoning property in blocking result');
         }
-
-        let accumulatedText = "";
-        const accumulatedToolCalls: any[] = [];
 
         // Simulate Streaming for Client
         if (result.text) {

@@ -12,7 +12,8 @@ export class AgentRunner {
         private model: any,
         private toolsMap: any,
         private messages: any[],
-        private disableStreaming: boolean
+        private disableStreaming: boolean,
+        private options: any = {}
     ) { }
 
     /**
@@ -100,15 +101,42 @@ export class AgentRunner {
      * Generates a response using `generateText` (blocking implementation), effectively simulating a stream for the client.
      */
     private async generateBlocking(controller: ReadableStreamDefaultController, messages: any[], tools: any): Promise<{ text: string, toolCalls: any[] }> {
-        const result = await generateText({
+        const options = {
             model: this.model,
             messages: messages,
             tools: tools,
             maxSteps: 1,
-        } as any);
+            ...this.options // Spread extra options (providerOptions, reasoning, etc)
+        };
+
+        console.log('[AgentRunner] generateText options:', JSON.stringify(options, null, 2));
+
+        const result = await generateText(options as any);
 
         let accumulatedText = "";
         const accumulatedToolCalls: any[] = [];
+
+        // Log reasoning if present - first only for openai 
+        if ((result as any).reasoning) {
+            console.log('[AgentRunner] Reasoning received in blocking:', (result as any).reasoning);
+
+            const reasoningParts = (result as any).reasoning;
+            if (Array.isArray(reasoningParts)) {
+                for (const part of reasoningParts) {
+                    // Check if part has valid text content
+                    // Handles openai structure where empty reasoning objects might appear
+                    if (part && typeof part.text === 'string' && part.text.length > 0) {
+                        controller.enqueue({ type: 'reasoning', textDelta: part.text });
+                    }
+                }
+            } else if (typeof reasoningParts === 'string') {
+                // Fallback for simple string reasoning
+                controller.enqueue({ type: 'reasoning', textDelta: reasoningParts });
+            }
+
+        } else {
+            console.log('[AgentRunner] No reasoning property in blocking result');
+        }
 
         // Simulate Streaming for Client
         if (result.text) {
@@ -136,12 +164,17 @@ export class AgentRunner {
      * Generates a response using `streamText` (streaming implementation), forwarding all events to the client.
      */
     private async generateStreaming(controller: ReadableStreamDefaultController, messages: any[], tools: any): Promise<{ text: string, toolCalls: any[] }> {
-        const result = streamText({
+        const options = {
             model: this.model,
             messages: messages,
             tools: tools,
             maxSteps: 1,
-        } as any);
+            ...this.options // Spread extra options (providerOptions, reasoning, etc)
+        };
+
+        console.log('[AgentRunner] streamText options:', JSON.stringify(options, null, 2));
+
+        const result = streamText(options as any);
 
         const reader = result.fullStream.getReader();
         let accumulatedText = "";
@@ -152,6 +185,10 @@ export class AgentRunner {
             if (done) break;
 
             const type = (value as any).type;
+
+            if (type === 'reasoning') {
+                console.log('[AgentRunner] Streamed reasoning chunk:', value);
+            }
 
             // Forward everything to client
             controller.enqueue(value);

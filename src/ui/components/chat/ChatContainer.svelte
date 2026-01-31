@@ -10,11 +10,13 @@
         isLoading: Writable<boolean>;
         currentChatlogId?: Writable<string | null>;
         historyModalOpen?: Writable<boolean>;
+        isMergeOn?: Writable<boolean>;
         onSendMessage: (
             text: string,
             modelId: string,
             providerId: string,
             merge: boolean,
+            reasoningEffort?: "none" | "low" | "medium" | "high",
         ) => void;
         onClose: () => void;
         onReset: () => void;

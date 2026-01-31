@@ -5,6 +5,7 @@
     export interface ModelItem {
         id: string;
         name: string;
+        supportsReasoning?: boolean;
     }
 
     export interface ProviderGroup {

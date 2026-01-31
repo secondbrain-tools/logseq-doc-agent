@@ -93,6 +93,14 @@ export const configureSettings = () => {
                         description: `Show full response at once instead of typing effect.`,
                         default: false,
                     });
+
+                    settings.push({
+                        key: `enable_reasoning_${provider.id}_${model.value}`,
+                        type: 'boolean',
+                        title: `    ↳ Enable Reasoning`,
+                        description: `Enable reasoning capabilities for this model.`,
+                        default: model.supportsReasoning || false,
+                    });
                 }
             }
 
@@ -127,6 +135,14 @@ export const configureSettings = () => {
                         type: 'boolean',
                         title: `    ↳ Disable Streaming`,
                         description: `Show full response at once.`,
+                        default: false,
+                    });
+
+                    settings.push({
+                        key: `enable_reasoning_${provider.id}_${modelName}`,
+                        type: 'boolean',
+                        title: `    ↳ Enable Reasoning`,
+                        description: `Enable reasoning capabilities for this custom model.`,
                         default: false,
                     });
                 }
@@ -203,6 +219,33 @@ export const configureSettings = () => {
             enumChoices: ['No models enabled'],
         });
     }
+
+    // Reasoning Effort Settings
+    settings.push({
+        key: 'heading_reasoning',
+        type: 'heading',
+        title: 'Reasoning Effort',
+        description: '',
+        default: null
+    });
+
+    settings.push({
+        key: 'defaultReasoningEffort',
+        type: 'enum',
+        title: 'Default Reasoning Effort',
+        description: 'Default reasoning effort for the main model (if supported).',
+        default: 'medium',
+        enumChoices: ['none', 'low', 'medium', 'high'],
+    });
+
+    settings.push({
+        key: 'miniModelReasoningEffort',
+        type: 'enum',
+        title: 'Mini Model Reasoning Effort',
+        description: 'Default reasoning effort for the mini model (if supported).',
+        default: 'none',
+        enumChoices: ['none', 'low', 'medium', 'high'],
+    });
 
     // 3. Storage Settings
     settings.push({

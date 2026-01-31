@@ -13,8 +13,8 @@ export class VercelAIAdapter implements IAIService {
         this.modelFactory = new ModelFactory();
     }
 
-    async streamAgent(messages: Message[], modelId: string, providerId: string, merge: boolean = true): Promise<ReadableStream<any>> {
-        console.log('[VercelAIAdapter] streamAgent called', { modelId, providerId, merge });
+    async streamAgent(messages: Message[], modelId: string, providerId: string, merge: boolean = true, reasoningEffort?: 'none' | 'low' | 'medium' | 'high'): Promise<ReadableStream<any>> {
+        console.log('[VercelAIAdapter] streamAgent called', { modelId, providerId, merge, reasoningEffort });
 
         // VERIFICATION MOCK: Trigger tool call for specific prompt
         const lastMsg = messages[messages.length - 1];
@@ -50,11 +50,14 @@ export class VercelAIAdapter implements IAIService {
         }
 
         const disableStreaming = this.modelFactory.isStreamingDisabled(modelId, providerId);
-        const model = this.modelFactory.getModel(modelId, providerId);
+
+        // Use ModelConfig via configureModel to handle middleware and provider options
+        const { model, options } = this.modelFactory.configureModel(modelId, providerId, reasoningEffort);
+
         const toolsMap = createTools({ merge });
         const coreMessages = mapMessages(messages);
 
-        const runner = new AgentRunner(model, toolsMap, coreMessages, disableStreaming);
+        const runner = new AgentRunner(model, toolsMap, coreMessages, disableStreaming, options);
         return runner.run();
     }
 

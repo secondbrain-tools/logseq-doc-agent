@@ -7,7 +7,7 @@ export interface IAIService {
      * @param modelId The identifier of the model to use.
      * @param providerId The identifier of the provider.
      */
-    streamAgent(messages: Message[], modelId: string, providerId: string, merge?: boolean): Promise<ReadableStream<any>>;
+    streamAgent(messages: Message[], modelId: string, providerId: string, merge?: boolean, reasoningEffort?: 'none' | 'low' | 'medium' | 'high'): Promise<ReadableStream<any>>;
 
     /**
      * Generates a simple text response (No tools, no streaming).

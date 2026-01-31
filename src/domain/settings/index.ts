@@ -16,6 +16,7 @@ export interface ModelDefinition {
     label: string;
     value: string;
     defaultEnabled: boolean;
+    supportsReasoning?: boolean;
 }
 
 export interface ProviderDefinition {
@@ -35,8 +36,8 @@ export const PROVIDERS: ProviderDefinition[] = [
         apiKeyLabel: 'OpenAI API Key',
         apiKeyDesc: 'Enter your OpenAI API key.',
         models: [
-            { label: 'GPT-5.2', value: 'gpt-5.2', defaultEnabled: true },
-            { label: 'GPT-5.1', value: 'gpt-5.1', defaultEnabled: true },
+            { label: 'GPT-5.2', value: 'gpt-5.2', defaultEnabled: true, supportsReasoning: true },
+            { label: 'GPT-5.1', value: 'gpt-5.1', defaultEnabled: true, supportsReasoning: true },
             { label: 'GPT-5 Mini', value: 'gpt-5-mini', defaultEnabled: true },
             { label: 'GPT-5 Nano', value: 'gpt-5-nano', defaultEnabled: true },
         ]
@@ -48,8 +49,8 @@ export const PROVIDERS: ProviderDefinition[] = [
         apiKeyLabel: 'Anthropic API Key',
         apiKeyDesc: 'Enter your Anthropic API key.',
         models: [
-            { label: 'Claude 3.5 Sonnet', value: 'claude-3-5-sonnet-20240620', defaultEnabled: true },
-            { label: 'Claude 3 Opus', value: 'claude-3-opus-20240229', defaultEnabled: true },
+            { label: 'Claude 3.5 Sonnet', value: 'claude-3-5-sonnet-20240620', defaultEnabled: true, supportsReasoning: true },
+            { label: 'Claude 3 Opus', value: 'claude-3-opus-20240229', defaultEnabled: true, supportsReasoning: true },
             { label: 'Claude 3 Sonnet', value: 'claude-3-sonnet-20240229', defaultEnabled: false },
             { label: 'Claude 3 Haiku', value: 'claude-3-haiku-20240307', defaultEnabled: false },
         ]

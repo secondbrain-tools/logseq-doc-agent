@@ -6,6 +6,8 @@ import SidebarWindow from '../../ui/components/SidebarWindow.svelte';
  * Concrete implementation of SidebarInjector for frontend
  */
 export class FrontendSidebarInjector implements SidebarInjector {
+    private instances = new Map<string, { app: any, container: HTMLElement, indicator: HTMLElement }>();
+
     private getSidebarContainer(): HTMLElement | null {
         // Try to find the inner content list directly
         // Logic: #right-sidebar-container -> .cp__right-sidebar-scrollable -> .sidebar-item-list
@@ -30,6 +32,20 @@ export class FrontendSidebarInjector implements SidebarInjector {
         }
 
         let container = this.getSidebarContainer();
+
+        // Cleanup existing instance if any
+        if (this.instances.has(title)) {
+            console.log('[LDA Debug] removing existing sidebar instance for title:', title);
+            const old = this.instances.get(title)!;
+            try {
+                unmount(old.app);
+                old.container.remove();
+                old.indicator.remove();
+            } catch (e) {
+                console.warn('[LDA Debug] error removing old sidebar instance:', e);
+            }
+            this.instances.delete(title);
+        }
 
         if (!container) {
             console.log('[LDA Debug] Container not found immediately after open request.');
@@ -79,6 +95,9 @@ export class FrontendSidebarInjector implements SidebarInjector {
                 onClose: () => {
                     console.log('[LDA Debug] SidebarWindow onClose triggered.');
                     // Cleanup when closed
+                    if (this.instances.get(title)?.app === sidebarWindowApp) {
+                        this.instances.delete(title);
+                    }
                     unmount(sidebarWindowApp);
                     windowContainer.remove();
                     dropIndicator.remove();
@@ -86,5 +105,11 @@ export class FrontendSidebarInjector implements SidebarInjector {
             }
         });
         console.log('[LDA Debug] SidebarWindow mounted.');
+
+        this.instances.set(title, {
+            app: sidebarWindowApp,
+            container: windowContainer,
+            indicator: dropIndicator
+        });
     }
 }

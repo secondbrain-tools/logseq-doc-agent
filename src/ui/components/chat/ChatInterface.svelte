@@ -17,11 +17,13 @@
         isLoading: Writable<boolean>;
         currentChatlogId?: Writable<string | null>;
         historyModalOpen?: Writable<boolean>;
+        isMergeOn?: Writable<boolean>;
         onSendMessage: (
             text: string,
             modelId: string,
             providerId: string,
             merge: boolean,
+            reasoningEffort?: "none" | "low" | "medium" | "high",
         ) => void;
         onClose: () => void;
         onReset: () => void;
@@ -35,6 +37,7 @@
         messages,
         isLoading,
         historyModalOpen,
+        isMergeOn,
         onSendMessage,
         onNewChat,
         onLoadChatlog,
@@ -51,8 +54,9 @@
     let selectedModel = $state("");
     let selectedProviderId = $state(""); // New state
     let userHasSelectedModel = $state(false);
+    let reasoningEffort = $state<"none" | "low" | "medium" | "high">("medium");
     let modelGroups: ProviderGroup[] = $state([]);
-    let isMergeOn = $state(true); // Default merge to true
+    // Remove local isMergeOn state, use prop/store
 
     let contextMenu = $state({
         visible: false,
@@ -61,6 +65,7 @@
         message: null as Message | null,
         hasSelection: false,
         selectedText: "",
+        type: "message" as "message" | "reasoning", // Add type
     });
 
     // --- Reactivity ---
@@ -110,16 +115,33 @@
                         : model.defaultEnabled;
 
                 if (isModelEnabled) {
-                    groupModels.push({ id: model.value, name: model.label });
+                    const reasoningKey = `enable_reasoning_${provider.id}_${model.value}`;
+                    const customReasoningEnabled = settings[reasoningKey];
+                    // Fallback to static definition only if setting is undefined (e.g. fresh install before settings open)
+                    const supportsReasoning =
+                        customReasoningEnabled !== undefined
+                            ? customReasoningEnabled
+                            : model.supportsReasoning;
+
+                    groupModels.push({
+                        id: model.value,
+                        name: model.label,
+                        supportsReasoning: supportsReasoning,
+                    });
                 }
             }
 
             // Custom models
             const providerCustomModels = customModels[provider.id] || [];
             for (const modelName of providerCustomModels) {
+                const reasoningKey = `enable_reasoning_${provider.id}_${modelName}`;
+                // Default to false for custom models if setting undefined
+                const supportsReasoning = settings[reasoningKey] || false;
+
                 groupModels.push({
                     id: modelName,
                     name: `${modelName} (Custom)`,
+                    supportsReasoning: supportsReasoning,
                 });
             }
 
@@ -175,6 +197,51 @@
         }
     }
 
+    // --- Reasoning Logic ---
+    let currentModelSupportsReasoning = $derived.by(() => {
+        if (!selectedModel || !modelGroups.length) return false;
+        for (const group of modelGroups) {
+            const m = group.models.find((m) => m.id === selectedModel);
+            if (m) return !!m.supportsReasoning;
+        }
+        return false;
+    });
+
+    $effect(() => {
+        if (!currentModelSupportsReasoning) return;
+
+        const settings = $settingsStore || {};
+        const miniModel = settings["miniModel"];
+        const isMini = selectedModel === miniModel;
+
+        const defaultEffort = isMini
+            ? settings["miniModelReasoningEffort"] || "none"
+            : settings["defaultReasoningEffort"] || "medium";
+
+        reasoningEffort = defaultEffort;
+    });
+
+    function openReasoningMenu(e: MouseEvent) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const btn = e.currentTarget as HTMLElement;
+        const rect = btn.getBoundingClientRect();
+
+        // Use setTimeout to avoid the current click event immediately closing the menu
+        setTimeout(() => {
+            contextMenu = {
+                visible: true,
+                x: rect.left,
+                y: rect.top - 10,
+                message: null,
+                hasSelection: false,
+                selectedText: "",
+                type: "reasoning",
+            };
+        }, 0);
+    }
+
     // --- Actions ---
     function handleSubmit() {
         if (!inputText.trim()) return;
@@ -182,7 +249,13 @@
         // Use bound provider ID (ModelSelector ensures it matches)
         // Fallback search only if needed (e.g. init state fallback)
         let providerId = selectedProviderId;
-        onSendMessage(inputText, selectedModel, providerId, isMergeOn);
+        onSendMessage(
+            inputText,
+            selectedModel,
+            providerId,
+            $isMergeOn ?? true, // Use store value
+            currentModelSupportsReasoning ? reasoningEffort : undefined,
+        );
         inputText = "";
     }
 
@@ -245,6 +318,7 @@
             message: msg,
             hasSelection: selectedText.length > 0,
             selectedText: selectedText,
+            type: "message",
         };
     }
 
@@ -360,6 +434,17 @@
             return text;
         }
     }
+
+    // --- Icons ---
+    const brainSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z" /><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z" /><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4" /><path d="M17.599 6.5a3 3 0 0 0 .399-1.375" /><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5" /><path d="M3.477 10.896a4 4 0 0 1 .585-.396" /><path d="M19.938 10.5a4 4 0 0 1 .585.396" /><path d="M6 18a4 4 0 0 1-1.9-7.4" /><path d="M18 18a4 4 0 0 0 1.9-7.4" /></svg>`;
+    const dashSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>`;
+
+    const icons = {
+        dash: `<div style="opacity: 0.5;">${dashSvg}</div>`,
+        brainSmall: `<div style="transform: scale(0.8); color: var(--ls-link-text-color, #106ba3);">${brainSvg}</div>`,
+        brainMedium: `<div style="transform: scale(1.0); color: var(--ls-link-text-color, #106ba3);">${brainSvg}</div>`,
+        brainLarge: `<div style="transform: scale(1.2); color: var(--ls-link-text-color, #106ba3);">${brainSvg}</div>`,
+    };
 </script>
 
 <div class="lda-chat-container">
@@ -580,15 +665,7 @@
                 </svg>
             </button>
 
-            <!-- Merge Toggle -->
-            <label
-                class="flex items-center gap-1 text-xs cursor-pointer select-none"
-                style="color: var(--ls-primary-text-color);"
-                title="Merge content with existing block content"
-            >
-                <input type="checkbox" bind:checked={isMergeOn} />
-                Merge
-            </label>
+            <!-- Merge Toggle Removed (Moved to Options Menu) -->
 
             <!-- Model Selection -->
             <ModelSelector
@@ -597,6 +674,75 @@
                 groups={modelGroups}
                 onChange={handleModelChange}
             />
+
+            {#if currentModelSupportsReasoning}
+                <button
+                    class="lda-btn-icon ml-1"
+                    title={`Reasoning Effort: ${reasoningEffort}`}
+                    onclick={openReasoningMenu}
+                    style="color: var(--ls-link-text-color, #106ba3); opacity: {reasoningEffort ===
+                    'none'
+                        ? '0.5'
+                        : reasoningEffort === 'low'
+                          ? '0.7'
+                          : reasoningEffort === 'medium'
+                            ? '0.85'
+                            : '1'}; transition: opacity 0.2s, transform 0.2s;"
+                >
+                    {#if reasoningEffort === "none"}
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="18"
+                            height="18"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        >
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                    {:else}
+                        <!-- Brain Icon - Scaled based on effort -->
+                        <div
+                            style="transform: scale({reasoningEffort === 'low'
+                                ? 0.8
+                                : reasoningEffort === 'medium'
+                                  ? 1.0
+                                  : 1.2}); display: flex; align-items: center; justify-content: center;"
+                        >
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="18"
+                                height="18"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                            >
+                                <path
+                                    d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"
+                                />
+                                <path
+                                    d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"
+                                />
+                                <path
+                                    d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"
+                                />
+                                <path d="M17.599 6.5a3 3 0 0 0 .399-1.375" />
+                                <path d="M6.003 5.125A3 3 0 0 0 6.401 6.5" />
+                                <path d="M3.477 10.896a4 4 0 0 1 .585-.396" />
+                                <path d="M19.938 10.5a4 4 0 0 1 .585.396" />
+                                <path d="M6 18a4 4 0 0 1-1.9-7.4" />
+                                <path d="M18 18a4 4 0 0 0 1.9-7.4" />
+                            </svg>
+                        </div>
+                    {/if}
+                </button>
+            {/if}
 
             <div class="lda-spacer"></div>
 
@@ -629,32 +775,67 @@
     </div>
 
     <!-- Context Menu -->
-    {#if contextMenu.visible && contextMenu.message}
+    {#if contextMenu.visible && (contextMenu.message || contextMenu.type === "reasoning")}
         <ContextMenu
             x={contextMenu.x}
             y={contextMenu.y}
-            options={[
-                // Copy Selection - only shown when text is selected
-                ...(contextMenu.hasSelection
-                    ? [
-                          {
-                              label: "Copy Selection",
-                              action: () => {
-                                  copySelectionToClipboard();
-                              },
+            options={contextMenu.type === "reasoning"
+                ? [
+                      {
+                          label: "None",
+                          icon: icons.dash,
+                          action: () => {
+                              reasoningEffort = "none";
+                              contextMenu = { ...contextMenu, visible: false };
                           },
-                      ]
-                    : []),
-                // Copy Message - always shown
-                {
-                    label: "Copy Message",
-                    action: () => {
-                        if (contextMenu.message) {
-                            copyMessageToClipboard(contextMenu.message);
-                        }
-                    },
-                },
-            ]}
+                      },
+                      {
+                          label: "Low",
+                          icon: icons.brainSmall,
+                          action: () => {
+                              reasoningEffort = "low";
+                              contextMenu = { ...contextMenu, visible: false };
+                          },
+                      },
+                      {
+                          label: "Medium",
+                          icon: icons.brainMedium,
+                          action: () => {
+                              reasoningEffort = "medium";
+                              contextMenu = { ...contextMenu, visible: false };
+                          },
+                      },
+                      {
+                          label: "High",
+                          icon: icons.brainLarge,
+                          action: () => {
+                              reasoningEffort = "high";
+                              contextMenu = { ...contextMenu, visible: false };
+                          },
+                      },
+                  ]
+                : [
+                      // Copy Selection - only shown when text is selected
+                      ...(contextMenu.hasSelection
+                          ? [
+                                {
+                                    label: "Copy Selection",
+                                    action: () => {
+                                        copySelectionToClipboard();
+                                    },
+                                },
+                            ]
+                          : []),
+                      // Copy Message - always shown
+                      {
+                          label: "Copy Message",
+                          action: () => {
+                              if (contextMenu.message) {
+                                  copyMessageToClipboard(contextMenu.message);
+                              }
+                          },
+                      },
+                  ]}
             onClose={() => (contextMenu = { ...contextMenu, visible: false })}
         />
     {/if}
@@ -663,7 +844,7 @@
 
     {#if onListChatlogs && historyModalOpen}
         <ChatHistoryModal
-            isOpen={$historyModalOpen}
+            isOpen={$historyModalOpen ?? false}
             onClose={() => historyModalOpen?.set(false)}
             onNewChat={() => {
                 if (onNewChat) onNewChat();

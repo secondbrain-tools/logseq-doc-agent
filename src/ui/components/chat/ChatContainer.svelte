@@ -17,6 +17,8 @@
             providerId: string,
             merge: boolean,
             reasoningEffort?: "none" | "low" | "medium" | "high",
+            agentName?: string,
+            contextItems?: any[],
         ) => void;
         onClose: () => void;
         onReset: () => void;

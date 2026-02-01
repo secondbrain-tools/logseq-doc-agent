@@ -11,6 +11,7 @@ import type { AgentDefinition, AgentContext } from '../../domain/agent/types';
 // Rewrite file with STORE approach for reactivity
 import { writable, type Writable, get } from 'svelte/store';
 import { PROVIDERS } from '../../domain/settings/index';
+import { getContextContent, type ContextItem } from '../../infra/logseq/context-utils';
 
 export class ChatSidebarUseCase {
     private isChatOpen = false;
@@ -94,7 +95,7 @@ export class ChatSidebarUseCase {
             isMergeOn: this.isMergeOn,
             agents: this.agents,
             selectedAgent: this.selectedAgent,
-            onSendMessage: (text: string, modelId: string, providerId: string, merge: boolean, reasoningEffort?: 'none' | 'low' | 'medium' | 'high', agentName?: string) => this.handleUserMessage(text, modelId, providerId, merge, reasoningEffort, agentName),
+            onSendMessage: (text: string, modelId: string, providerId: string, merge: boolean, reasoningEffort?: 'none' | 'low' | 'medium' | 'high', agentName?: string, contextItems?: any[]) => this.handleUserMessage(text, modelId, providerId, merge, reasoningEffort, agentName, contextItems),
             onClose: () => {
                 this.isChatOpen = false;
             },
@@ -132,7 +133,7 @@ export class ChatSidebarUseCase {
             isMergeOn: this.isMergeOn,
             agents: this.agents,
             selectedAgent: this.selectedAgent,
-            onSendMessage: (text: string, modelId: string, providerId: string, merge: boolean, reasoningEffort?: 'none' | 'low' | 'medium' | 'high', agentName?: string) => this.handleUserMessage(text, modelId, providerId, merge, reasoningEffort, agentName),
+            onSendMessage: (text: string, modelId: string, providerId: string, merge: boolean, reasoningEffort?: 'none' | 'low' | 'medium' | 'high', agentName?: string, contextItems?: any[]) => this.handleUserMessage(text, modelId, providerId, merge, reasoningEffort, agentName, contextItems),
             onClose: () => {
                 this.isChatOpen = false;
             },
@@ -256,12 +257,35 @@ export class ChatSidebarUseCase {
         };
     }
 
-    private async handleUserMessage(text: string, modelId: string, providerId: string, merge: boolean, reasoningEffort?: 'none' | 'low' | 'medium' | 'high', agentName?: string) {
-        // 1. Add User Message
+    private async handleUserMessage(text: string, modelId: string, providerId: string, merge: boolean, reasoningEffort?: 'none' | 'low' | 'medium' | 'high', agentName?: string, contextItems?: ContextItem[]) {
+        let fullText = text;
+
+        // 0. Inject Context
+        if (contextItems && contextItems.length > 0) {
+            this.isLoading.set(true); // Show loading while fetching context
+            try {
+                const contextParts: string[] = [];
+                for (const item of contextItems) {
+                    const content = await getContextContent(item);
+                    contextParts.push(`\n\n--- Context: ${item.name} ---\n${content}\n---------------------------`);
+                }
+                fullText += contextParts.join('');
+            } catch (err) {
+                console.error("Failed to fetch context", err);
+                // proceed without context or maybe alert? proceeding for now.
+            }
+        }
+
+        // 1. Add User Message (UI shows original text to user, but we send fullText? 
+        // Actually, usually we want to show what was sent. 
+        // If the context is huge, showing it all in the chat bubble might be overwhelming. 
+        // But for transparency, let's show it or at least append it. 
+        // Decision: Append to content so it is visible.
+
         this.updateMessages(msgs => [...msgs, {
             id: Date.now().toString(),
             role: 'user',
-            content: text
+            content: fullText
         }]);
 
         // 2. Start Loading

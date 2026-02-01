@@ -6,12 +6,14 @@
 
     import { PROVIDERS } from "../../../domain/settings/index";
     import ModelSelector, { type ProviderGroup } from "./ModelSelector.svelte";
+    import AgentSelector from "./AgentSelector.svelte";
     import ChatHistoryModal from "./ChatHistoryModal.svelte";
     import ContextMenu from "./ContextMenu.svelte";
 
     // --- Types ---
     import type { Message, MessagePart } from "../../../domain/chat/types";
     import type { ChatlogMetadata } from "../../../domain/chatlog/types";
+    import type { AgentDefinition } from "../../../domain/agent/types";
 
     interface Props {
         messages: Writable<Message[]>;
@@ -19,12 +21,15 @@
         currentChatlogId?: Writable<string | null>;
         historyModalOpen?: Writable<boolean>;
         isMergeOn?: Writable<boolean>;
+        agents?: Writable<AgentDefinition[]>;
+        selectedAgent?: Writable<string>;
         onSendMessage: (
             text: string,
             modelId: string,
             providerId: string,
             merge: boolean,
             reasoningEffort?: "none" | "low" | "medium" | "high",
+            agentName?: string,
         ) => void;
         onClose: () => void;
         onReset: () => void;
@@ -39,6 +44,8 @@
         isLoading,
         historyModalOpen,
         isMergeOn,
+        agents,
+        selectedAgent,
         onSendMessage,
         onNewChat,
         onLoadChatlog,
@@ -250,12 +257,14 @@
         // Use bound provider ID (ModelSelector ensures it matches)
         // Fallback search only if needed (e.g. init state fallback)
         let providerId = selectedProviderId;
+        const agentName = selectedAgent ? $selectedAgent : undefined;
         onSendMessage(
             inputText,
             selectedModel,
             providerId,
             $isMergeOn ?? true, // Use store value
             currentModelSupportsReasoning ? reasoningEffort : undefined,
+            agentName,
         );
         inputText = "";
     }
@@ -671,6 +680,19 @@
             </button>
 
             <!-- Merge Toggle Removed (Moved to Options Menu) -->
+
+            <!-- Agent Selection -->
+            {#if agents && $agents && $agents.length > 0 && selectedAgent}
+                <AgentSelector
+                    agents={$agents}
+                    value={$selectedAgent || ""}
+                    onChange={(agent) => {
+                        if (agent && selectedAgent) {
+                            $selectedAgent = agent.name;
+                        }
+                    }}
+                />
+            {/if}
 
             <!-- Model Selection -->
             <ModelSelector

@@ -1,7 +1,8 @@
-import { createTools } from './tools/index';
+import { createTools, filterTools } from './tools/index';
 import { generateText } from 'ai';
 import type { IAIService } from '../../application/ports/ai-service';
 import type { Message } from '../../domain/chat/types';
+import type { AgentContext } from '../../domain/agent/types';
 import { mapMessages } from './message-mapper';
 import { ModelFactory } from './model-factory';
 import { AgentRunner } from './agent-runner';
@@ -13,8 +14,21 @@ export class VercelAIAdapter implements IAIService {
         this.modelFactory = new ModelFactory();
     }
 
-    async streamAgent(messages: Message[], modelId: string, providerId: string, merge: boolean = true, reasoningEffort?: 'none' | 'low' | 'medium' | 'high'): Promise<ReadableStream<any>> {
-        console.log('[VercelAIAdapter] streamAgent called', { modelId, providerId, merge, reasoningEffort });
+    async streamAgent(
+        messages: Message[],
+        modelId: string,
+        providerId: string,
+        merge: boolean = true,
+        reasoningEffort?: 'none' | 'low' | 'medium' | 'high',
+        agentContext?: AgentContext
+    ): Promise<ReadableStream<any>> {
+        console.log('[VercelAIAdapter] streamAgent called', {
+            modelId,
+            providerId,
+            merge,
+            reasoningEffort,
+            agentName: agentContext?.agentName
+        });
 
         // VERIFICATION MOCK: Trigger tool call for specific prompt
         const lastMsg = messages[messages.length - 1];
@@ -54,8 +68,23 @@ export class VercelAIAdapter implements IAIService {
         // Use ModelConfig via configureModel to handle middleware and provider options
         const { model, options } = this.modelFactory.configureModel(modelId, providerId, reasoningEffort);
 
-        const toolsMap = createTools({ merge });
-        const coreMessages = mapMessages(messages);
+        // Create tools and filter based on agent context
+        let toolsMap: Record<string, any> = createTools({ merge });
+        if (agentContext && agentContext.allowedTools) {
+            toolsMap = filterTools(toolsMap, agentContext.allowedTools);
+            console.log('[VercelAIAdapter] Filtered tools to:', Object.keys(toolsMap));
+        }
+
+        // Build messages with agent system prompt
+        let coreMessages = mapMessages(messages);
+        if (agentContext?.prompt) {
+            // Prepend system message with agent prompt
+            coreMessages = [
+                { role: 'system', content: agentContext.prompt },
+                ...coreMessages
+            ];
+            console.log('[VercelAIAdapter] Added agent system prompt', agentContext.prompt);
+        }
 
         const runner = new AgentRunner(model, toolsMap, coreMessages, disableStreaming, options);
         return runner.run();
@@ -75,3 +104,4 @@ export class VercelAIAdapter implements IAIService {
         return result.text;
     }
 }
+

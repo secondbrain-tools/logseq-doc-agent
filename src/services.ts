@@ -12,6 +12,7 @@ import { MiniModelRunner } from './infra/ai/mini-model-runner';
 import { ChatlogService } from './application/services/chatlog.service';
 import { LogseqChatlogRepository } from './infra/logseq/chatlog-repository';
 import { LogseqSettingsAdapter } from './infra/logseq/settings-adapter';
+import { LogseqAgentRepository } from './infra/logseq/agent-repository';
 
 // Globals from previous implementation
 // We use 'parent.document' because the plugin runs in an iframe
@@ -28,6 +29,7 @@ export class Services {
     public toolbarInjector: FrontendToolbarInjector;
     public promptRepo: LogseqPromptRepository;
     public chatlogService: ChatlogService;
+    public agentRepository: LogseqAgentRepository;
 
     // Use Cases
     public injectRatingsUseCase: InjectRatingsUseCase;
@@ -47,14 +49,23 @@ export class Services {
         const settingsAdapter = new LogseqSettingsAdapter();
         this.promptRepo = new LogseqPromptRepository(this.logseqApi);
         this.miniModelRunner = new MiniModelRunner(aiAdapter, settingsAdapter);
+
+        // Storage root getter used by repositories
+        const getStorageRoot = () => ((window as any).logseq?.settings?.storageRoot as string) || 'logseq-doc-agent';
+
         const chatlogRepo = new LogseqChatlogRepository(
             this.logseqApi,
-            () => ((window as any).logseq?.settings?.storageRoot as string) || 'logseq-doc-agent'
+            getStorageRoot
         );
 
         this.chatlogService = new ChatlogService(
             chatlogRepo,
             this.miniModelRunner
+        );
+
+        this.agentRepository = new LogseqAgentRepository(
+            this.logseqApi,
+            getStorageRoot
         );
 
         // Initialize Use Cases
@@ -72,7 +83,8 @@ export class Services {
         this.chatUseCase = new ChatSidebarUseCase(
             this.sidebarInjector,
             aiAdapter,
-            this.chatlogService
+            this.chatlogService,
+            this.agentRepository
         );
 
         // Initialize Globals
@@ -90,8 +102,23 @@ export class Services {
         return Services._instance;
     }
 
+    /**
+     * Initialize agent repository, ensuring default agent exists
+     */
+    public async initializeAgents(): Promise<void> {
+        try {
+            const created = await this.agentRepository.ensureBuiltInAgentsExist();
+            if (created) {
+                console.log('[Services] Default agent was created');
+            }
+        } catch (error) {
+            console.error('[Services] Error initializing agents:', error);
+        }
+    }
+
     // Allow setting ID from outside if needed (e.g. from main)
     public setPluginId(id: string) {
         this.pluginID = id;
     }
 }
+

@@ -5,6 +5,8 @@ import type { Message } from '../../domain/chat/types';
 import type { IAIService } from '../ports/ai-service';
 import type { ChatlogService } from '../services/chatlog.service';
 import type { ChatlogMetadata } from '../../domain/chatlog/types';
+import type { IAgentRepository } from '../ports/agent-repository';
+import type { AgentDefinition, AgentContext } from '../../domain/agent/types';
 
 // Rewrite file with STORE approach for reactivity
 import { writable, type Writable, get } from 'svelte/store';
@@ -24,30 +26,63 @@ export class ChatSidebarUseCase {
     // History modal state (shared between ChatInterface and ChatHeaderActions)
     private historyModalOpen: Writable<boolean> = writable(false);
 
+    // Agent state
+    public agents: Writable<AgentDefinition[]> = writable([]);
+    public selectedAgent: Writable<string> = writable('');
+
     constructor(
         private sidebarInjector: SidebarInjector,
         private aiService: IAIService,
-        private chatlogService?: ChatlogService
+        private chatlogService?: ChatlogService,
+        private agentRepository?: IAgentRepository
     ) { }
+
+    /**
+     * Load available agents from repository
+     */
+    async loadAgents(): Promise<void> {
+        if (!this.agentRepository) {
+            console.warn('[ChatSidebarUseCase] AgentRepository not available');
+            return;
+        }
+
+        try {
+            const agentList = await this.agentRepository.getAllAgents();
+            this.agents.set(agentList);
+
+            // Select default agent if none selected
+            const currentSelected = get(this.selectedAgent);
+            if (!currentSelected || !agentList.find(a => a.name === currentSelected)) {
+                const defaultAgent = await this.agentRepository.getDefaultAgent();
+                if (defaultAgent) {
+                    this.selectedAgent.set(defaultAgent.name);
+                } else if (agentList.length > 0) {
+                    // Fallback to first agent alphabetically
+                    const sorted = [...agentList].sort((a, b) => a.name.localeCompare(b.name));
+                    this.selectedAgent.set(sorted[0].name);
+                }
+            }
+
+            console.log(`[ChatSidebarUseCase] Loaded ${agentList.length} agents`);
+        } catch (error) {
+            console.error('[ChatSidebarUseCase] Error loading agents:', error);
+        }
+    }
 
     openChat() {
         if (this.isChatOpen) return;
         this.isChatOpen = true;
 
+        // Load agents on chat open
+        this.loadAgents();
+
+        // Don't show default greeting - agent prompt will provide context
         if (get(this.messages).length === 0) {
-            this.messages.set([
-                { id: '1', role: 'assistant', content: "Hello! I'm your AI assistant. I can help you research, write, and critique content.", personality: 'Agent' }
-            ]);
+            this.messages.set([]);
         }
 
         const toggleMerge = () => {
             this.isMergeOn.update(v => !v);
-            // Re-inject sidebar to update the menu state?
-            // Actually, Svelte should handle reactivity if we passed the store?
-            // SidebarWindow Props: menuOptions is an array, not a store.
-            // So we need to re-inject sidebar options when this changes?
-            // Or we make menuOptions reactive in SidebarWindow?
-            // The simplest 'mvp' way to update the menu visually (the checkmark) is to update the props.
             this.updateSidebar();
         };
 
@@ -57,7 +92,9 @@ export class ChatSidebarUseCase {
             currentChatlogId: this.currentChatlogId,
             historyModalOpen: this.historyModalOpen,
             isMergeOn: this.isMergeOn,
-            onSendMessage: (text: string, modelId: string, providerId: string, merge: boolean, reasoningEffort?: 'none' | 'low' | 'medium' | 'high') => this.handleUserMessage(text, modelId, providerId, merge, reasoningEffort),
+            agents: this.agents,
+            selectedAgent: this.selectedAgent,
+            onSendMessage: (text: string, modelId: string, providerId: string, merge: boolean, reasoningEffort?: 'none' | 'low' | 'medium' | 'high', agentName?: string) => this.handleUserMessage(text, modelId, providerId, merge, reasoningEffort, agentName),
             onClose: () => {
                 this.isChatOpen = false;
             },
@@ -82,9 +119,6 @@ export class ChatSidebarUseCase {
 
     private updateSidebar() {
         if (!this.isChatOpen) return;
-        // Re-inject to update menu options state (checked)
-        // This is a bit heavy but ensures the checkmark updates in the non-reactive SidebarWindow prop
-        // Ideally SidebarWindow would accept a store for options, but for now this works.
         const toggleMerge = () => {
             this.isMergeOn.update(v => !v);
             this.updateSidebar();
@@ -96,7 +130,9 @@ export class ChatSidebarUseCase {
             currentChatlogId: this.currentChatlogId,
             historyModalOpen: this.historyModalOpen,
             isMergeOn: this.isMergeOn,
-            onSendMessage: (text: string, modelId: string, providerId: string, merge: boolean, reasoningEffort?: 'none' | 'low' | 'medium' | 'high') => this.handleUserMessage(text, modelId, providerId, merge, reasoningEffort),
+            agents: this.agents,
+            selectedAgent: this.selectedAgent,
+            onSendMessage: (text: string, modelId: string, providerId: string, merge: boolean, reasoningEffort?: 'none' | 'low' | 'medium' | 'high', agentName?: string) => this.handleUserMessage(text, modelId, providerId, merge, reasoningEffort, agentName),
             onClose: () => {
                 this.isChatOpen = false;
             },
@@ -124,11 +160,11 @@ export class ChatSidebarUseCase {
      */
     newChat() {
         this.currentChatlogId.set(null);
-        this.messages.set([
-            { id: Date.now().toString(), role: 'assistant', content: "Hello! I'm your AI assistant. I can help you research, write, and critique content.", personality: 'Agent' }
-        ]);
+        // Don't show default greeting - agent prompt provides context
+        this.messages.set([]);
         this.isLoading.set(false);
-        // Reset title cache for new chat - handled by service
+        // Reload agents in case new ones were added
+        this.loadAgents();
     }
 
     resetChat() {
@@ -151,6 +187,8 @@ export class ChatSidebarUseCase {
                 this.messages.set(entry.messages);
                 this.currentModel = entry.metadata.model || '';
                 this.currentProvider = entry.metadata.provider || '';
+                // Reload agents when loading chatlog
+                await this.loadAgents();
                 return true;
             }
             return false;
@@ -197,7 +235,28 @@ export class ChatSidebarUseCase {
         await this.chatlogService.requestSave(id, msgs, modelId, providerId);
     }
 
-    private async handleUserMessage(text: string, modelId: string, providerId: string, merge: boolean, reasoningEffort?: 'none' | 'low' | 'medium' | 'high') {
+    /**
+     * Build AgentContext from selected agent name
+     */
+    private buildAgentContext(agentName?: string): AgentContext | undefined {
+        if (!agentName) return undefined;
+
+        const agentList = get(this.agents);
+        const agent = agentList.find(a => a.name === agentName);
+
+        if (!agent) {
+            console.warn(`[ChatSidebarUseCase] Agent not found: ${agentName}`);
+            return undefined;
+        }
+
+        return {
+            agentName: agent.name,
+            prompt: agent.prompt,
+            allowedTools: agent.tools
+        };
+    }
+
+    private async handleUserMessage(text: string, modelId: string, providerId: string, merge: boolean, reasoningEffort?: 'none' | 'low' | 'medium' | 'high', agentName?: string) {
         // 1. Add User Message
         this.updateMessages(msgs => [...msgs, {
             id: Date.now().toString(),
@@ -224,7 +283,11 @@ export class ChatSidebarUseCase {
             // Pass current history including the new user message
             // Note: handleUserMessage has already added the user message to the store, so get(this.messages) includes it.
             const currentMessages = get(this.messages);
-            const stream = await this.aiService.streamAgent(currentMessages, modelId, providerId, merge, reasoningEffort);
+
+            // Build agent context if agent is selected
+            const agentContext = this.buildAgentContext(agentName);
+
+            const stream = await this.aiService.streamAgent(currentMessages, modelId, providerId, merge, reasoningEffort, agentContext);
 
             let currentText = "";
             let currentParts: any[] = [];

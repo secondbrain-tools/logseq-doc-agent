@@ -38,6 +38,10 @@ export class LogseqApiImpl implements LogseqApi {
     return this.api.Editor.getPage(name);
   }
 
+  async getBlock(uuid: string, options?: { includeChildren?: boolean }): Promise<BlockEntity | null> {
+    return this.api.Editor.getBlock(uuid, options);
+  }
+
   async createPage(name: string, properties?: any, options?: any): Promise<any> {
     return this.api.Editor.createPage(name, properties, options);
   }
@@ -65,6 +69,10 @@ export class LogseqApiImpl implements LogseqApi {
     return this.api.Editor.deletePage(name);
   }
 
+  async deleteBlock(uuid: string): Promise<void> {
+    return this.api.Editor.removeBlock(uuid);
+  }
+
   async upsertPageProperty(pageName: string, key: string, value: string): Promise<void> {
     try {
       const blocks = await this.getPageBlocksTree(pageName);
@@ -78,6 +86,10 @@ export class LogseqApiImpl implements LogseqApi {
     } catch (e) {
       console.error(`Error upserting page property ${key} for page ${pageName}:`, e);
     }
+  }
+
+  async upsertBlockProperty(uuid: string, key: string, value: string): Promise<void> {
+    return this.api.Editor.upsertBlockProperty(uuid, key, value);
   }
 
   async getPageBlocksTree(pageName: string): Promise<BlockEntity[]> {

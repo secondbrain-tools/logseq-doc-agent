@@ -78,6 +78,20 @@ export const logseq = {
         },
         getBlock: async (uuid, opts) => {
             // console.log(`[MockLogseq] getBlock: ${uuid}`, opts);
+
+            // First check agent blocks (if loaded)
+            if (logseq._agentBlocks && logseq._agentBlocks[uuid]) {
+                const block = logseq._agentBlocks[uuid];
+                const result = {
+                    uuid: block.uuid,
+                    content: block.content,
+                    properties: block.properties,
+                    children: opts?.includeChildren ? block.children : []
+                };
+                return result;
+            }
+
+            // Then check parsed block state
             const state = blockState.value;
             const block = state[uuid];
 
@@ -92,16 +106,6 @@ export const logseq = {
 
                 // Simple child fetching if requested
                 if (opts && opts.includeChildren && block.children && block.children.length > 0) {
-                    // In the sim signal structure, `children` are fully nested objects (from parseOrg).
-                    // But `blockState` is flat map.
-                    // The `block` object in `blockState` implies it HAS `children` array of nodes?
-                    // Let's check `logseq-sim-lib.js`:
-                    //  `newBlockState[node.uuid] = node;`
-                    //  `node` has `children: []` which contains CHILD NODES (objects).
-                    // So we can just map them recursively?
-                    // BUT, strictly, `getBlock` returns `children` as mixed based on depth loading.
-                    // For Sim, let's just return the nested structure since it's already in memory.
-
                     // Helper to map children recursively
                     const mapChildren = (nodes) => {
                         return nodes.map(n => ({
@@ -438,6 +442,79 @@ logseq.Editor.appendBlockInPage = async (pageId, content) => {
 const originalQ = logseq.DB.q;
 logseq.DB.q = async (query) => {
     console.log(`[MockLogseq] DB.q query: ${query}`);
+
+    // Agent property query: (property logseq-doc-agent.agent)
+    if (query.includes('logseq-doc-agent.agent')) {
+        console.log('[MockLogseq] Matched agent query');
+        // Return mock agent blocks (these are also stored in _agentBlocks for getBlock lookup)
+        if (!logseq._agentBlocks) {
+            logseq._agentBlocks = {
+                'agent-block-1': {
+                    uuid: 'agent-block-1',
+                    content: `logseq-doc-agent.agent:: Default Agent
+logseq-doc-agent.agent.tools:: *
+logseq-doc-agent.agent.default:: true
+logseq-doc-agent.agent.description:: Default assistant with full tools`,
+                    properties: {
+                        'logseqDocAgent.agent': 'Default Agent',
+                        'logseqDocAgent.agent.tools': '*',
+                        'logseqDocAgent.agent.default': 'true',
+                        'logseqDocAgent.agent.description': 'Default assistant with full tools'
+                    },
+                    page: { name: 'logseq-doc-agent/agents', 'original-name': 'logseq-doc-agent/agents' },
+                    children: [
+                        {
+                            uuid: 'agent-block-1-child-1',
+                            content: 'You are a helpful AI assistant for Logseq. Help users research, write, and manage notes.',
+                            properties: {},
+                            children: []
+                        }
+                    ]
+                },
+                'agent-block-2': {
+                    uuid: 'agent-block-2',
+                    content: `logseq-doc-agent.agent:: Research Assistant
+logseq-doc-agent.agent.tools:: readonly
+logseq-doc-agent.agent.description:: Read-only research mode`,
+                    properties: {
+                        'logseqDocAgent.agent': 'Research Assistant',
+                        'logseqDocAgent.agent.tools': 'readonly',
+                        'logseqDocAgent.agent.description': 'Read-only research mode',
+                    },
+                    page: { name: 'logseq-doc-agent/agents', 'original-name': 'logseq-doc-agent/agents' },
+                    children: [
+                        {
+                            uuid: 'agent-block-2-child-1',
+                            content: 'You are a research assistant. You can read documents but cannot modify them. Focus on analysis and summarization.',
+                            properties: {},
+                            children: []
+                        }
+                    ]
+                },
+                'agent-block-3': {
+                    uuid: 'agent-block-3',
+                    content: `logseq-doc-agent.agent:: Writer
+logseq-doc-agent.agent.tools:: getLogseqDocument, addBlock
+logseq-doc-agent.agent.description:: Writing assistance`,
+                    properties: {
+                        'logseqDocAgent.agent': 'Writer',
+                        'logseqDocAgent.agent.tools': 'getLogseqDocument, addBlock',
+                        'logseqDocAgent.agent.description': 'Writing assistance'
+                    },
+                    page: { name: 'My Agents', 'original-name': 'My Agents' },
+                    children: [
+                        {
+                            uuid: 'agent-block-3-child-1',
+                            content: 'You are a writing assistant. Help users draft and add content to their notes. You can read documents and add new blocks.',
+                            properties: {},
+                            children: []
+                        }
+                    ]
+                }
+            };
+        }
+        return Object.values(logseq._agentBlocks);
+    }
 
     // Chatlog ID property query
     // Matches (property :lda.chatlog.id) OR (property :lda.chatlog.id "value")

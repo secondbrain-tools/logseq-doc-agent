@@ -56,6 +56,8 @@ export const setupPlugin = async () => {
     // Initialize Plugin Data (Pages/Defaults)
     await initDataService.initialize();
 
+    // Ensure built-in agents (Default, Ask) exist
+    await services.initializeAgents();
 
     // Re-run initialization if storageRoot changes
     logseq.onSettingsChanged(async (newSettings, oldSettings) => {

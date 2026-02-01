@@ -49,9 +49,9 @@ export class InitDataService {
             await this.populateDefaultSkills(skillsResult.page.name);
         }
 
-        if (agentsResult.isNew && agentsResult.page) {
-            await this.populateDefaultAgents(agentsResult.page.name);
-        }
+        // if (agentsResult.isNew && agentsResult.page) {
+        //     await this.populateDefaultAgents(agentsResult.page.name);
+        // }
     }
 
     private async ensurePage(name: string, properties: any = {}): Promise<{ page: any, isNew: boolean }> {
@@ -100,12 +100,12 @@ export class InitDataService {
         }
     }
 
-    private async populateDefaultAgents(pageName: string) {
-        if (!pageName) return;
+    // private async populateDefaultAgents(pageName: string) {
+    //     if (!pageName) return;
 
-        console.log('[InitDataService] Populating default agents...');
-        await this.logseqApi.appendBlockInPage(pageName,
-            `Default Agent\nlogseq-doc-agent.agent:: default\nlogseq-doc-agent.tools:: *\nlogseq-doc-agent.agent.description:: Default agent with access to all tools.`
-        );
-    }
+    //     console.log('[InitDataService] Populating default agents...');
+    //     await this.logseqApi.appendBlockInPage(pageName,
+    //         `Default Agent\nlogseq-doc-agent.agent:: default\nlogseq-doc-agent.tools:: *\nlogseq-doc-agent.agent.description:: Default agent with access to all tools.`
+    //     );
+    // }
 }

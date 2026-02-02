@@ -2,6 +2,7 @@
     import AgentSelector from "./AgentSelector.svelte";
     import ModelSelector, { type ProviderGroup } from "./ModelSelector.svelte";
     import ContextMenu from "./ContextMenu.svelte";
+    import ChatModal from "./ChatModal.svelte";
     import type { AgentDefinition } from "../../../domain/agent/types";
     import type { ContextItem } from "../../../infra/logseq/context-utils";
 
@@ -52,6 +53,8 @@
 
     // --- Local State ---
     let isContextMenuOpen = $state(false); // For "Add Context" menu
+    let isMaxedOut = $state(false); // Track if input is at max height
+    let isExpanded = $state(false); // Track if input is maximized in modal
     let reasoningMenu = $state({
         visible: false,
         x: 0,
@@ -61,12 +64,26 @@
     function autoresize(node: HTMLTextAreaElement, _value: string) {
         const resize = () => {
             node.style.height = "auto";
-            node.style.height = `${Math.min(node.scrollHeight, 200)}px`;
-            node.style.overflowY = node.scrollHeight > 200 ? "auto" : "hidden";
+            const scrollHeight = node.scrollHeight;
+            const maxHeight = 200; // Match the CSS max-height logic or implicit
+
+            node.style.height = `${Math.min(scrollHeight, maxHeight)}px`;
+
+            const isOverflowing = scrollHeight > maxHeight;
+            node.style.overflowY = isOverflowing ? "auto" : "hidden";
+
+            // Update maxed out state
+            // Use a small buffer to avoid flickering or precision issues
+            if (isOverflowing && !isMaxedOut) {
+                isMaxedOut = true;
+            } else if (!isOverflowing && isMaxedOut) {
+                isMaxedOut = false;
+            }
         };
 
         node.addEventListener("input", resize);
-        resize();
+        // Call resize initially to set state
+        setTimeout(resize, 0);
 
         return {
             update(_newValue: string) {
@@ -78,7 +95,27 @@
         };
     }
 
+    // --- Actions ---
     function handleKeydown(e: KeyboardEvent) {
+        // Stop propagation for arrow keys to prevent Logseq from hijacking navigation
+        if (
+            ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)
+        ) {
+            e.stopPropagation();
+            return;
+        }
+
+        if (e.key === "Escape") {
+            if (isExpanded) {
+                isExpanded = false;
+                e.stopPropagation(); // Prevent bubbling if needed
+            } else {
+                (e.target as HTMLTextAreaElement).blur();
+                // Release focus to allow Logseq navigation
+            }
+            return;
+        }
+
         if (e.key === "Enter") {
             if (e.shiftKey) {
                 // Explicitly handle Shift+Enter to avoid environment interference
@@ -96,21 +133,20 @@
                     inputText.substring(end);
 
                 // Move cursor to after newline
-                // We need to wait for Svelte to update the DOM value?
-                // Actually, since we bound value, it updates. But cursor reset happens.
-                // We need to set selection range after tick or immediately?
-                // Since this runs before Svelte updates DOM, we might need tick(),
-                // but setting local state updates DOM on next tick.
-                // The cursor position reset is a classic issue.
                 setTimeout(() => {
                     const newPos = start + 1;
                     textarea.selectionStart = newPos;
                     textarea.selectionEnd = newPos;
-                    // Trigger resize just in case (action update should handle it though)
                 }, 0);
             } else {
                 // Enter without Shift = Send
                 e.preventDefault();
+                if (isExpanded) {
+                    // Close modal first if expanded, then send
+                    isExpanded = false;
+                    // Small delay to allow transition if needed,
+                    // but immediate send is usually preferred.
+                }
                 onSendMessage();
             }
         }
@@ -132,9 +168,14 @@
         }, 0);
     }
 
+    function toggleExpand() {
+        isExpanded = !isExpanded;
+    }
+
     // --- Icons ---
     const brainSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z" /><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z" /><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4" /><path d="M17.599 6.5a3 3 0 0 0 .399-1.375" /><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5" /><path d="M3.477 10.896a4 4 0 0 1 .585-.396" /><path d="M19.938 10.5a4 4 0 0 1 .585.396" /><path d="M6 18a4 4 0 0 1-1.9-7.4" /><path d="M18 18a4 4 0 0 0 1.9-7.4" /></svg>`;
     const dashSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>`;
+    const maximizeSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>`;
 
     const icons = {
         dash: `<div style="opacity: 0.5;">${dashSvg}</div>`,
@@ -180,14 +221,27 @@
             {/each}
         </div>
     {/if}
-    <textarea
-        class="lda-chat-textarea"
-        rows="1"
-        placeholder="Ask anything..."
-        bind:value={inputText}
-        onkeydown={handleKeydown}
-        use:autoresize={inputText}
-    ></textarea>
+
+    <div class="relative w-full">
+        <textarea
+            class="lda-chat-textarea"
+            rows="1"
+            placeholder="Ask anything..."
+            bind:value={inputText}
+            onkeydown={handleKeydown}
+            use:autoresize={inputText}
+        ></textarea>
+
+        {#if isMaxedOut}
+            <button
+                class="lda-maximize-btn"
+                onclick={toggleExpand}
+                title="Maximize Input"
+            >
+                {@html maximizeSvg}
+            </button>
+        {/if}
+    </div>
 
     <div class="lda-chat-footer">
         <!-- Add Context Button -->
@@ -389,6 +443,55 @@
     />
 {/if}
 
+<!-- Expanded Input Modal -->
+{#if isExpanded}
+    <ChatModal
+        isOpen={isExpanded}
+        title="Edit Message"
+        onClose={() => (isExpanded = false)}
+    >
+        <div class="lda-expanded-input-container">
+            <textarea
+                class="lda-chat-textarea lda-expanded-textarea"
+                placeholder="Ask anything..."
+                bind:value={inputText}
+                onkeydown={handleKeydown}
+                autofocus
+            ></textarea>
+
+            <div class="lda-expanded-footer">
+                <button
+                    class="lda-btn-primary"
+                    onclick={() => {
+                        isExpanded = false;
+                        onSendMessage();
+                    }}
+                    title="Send"
+                    disabled={!inputText.trim()}
+                    style={!inputText.trim()
+                        ? "opacity: 0.5; cursor: default;"
+                        : ""}
+                >
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    >
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                        <polyline points="12 5 19 12 12 19"></polyline>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </ChatModal>
+{/if}
+
 <style>
     .lda-context-bar {
         display: flex;
@@ -474,5 +577,58 @@
 
     .lda-context-menu-item:hover {
         background: var(--ls-secondary-background-color);
+    }
+
+    /* Maximize Button */
+    .lda-maximize-btn {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        background: var(--ls-secondary-background-color);
+        border: 1px solid var(--ls-border-color);
+        border-radius: 4px;
+        padding: 4px;
+        cursor: pointer;
+        opacity: 0.3;
+        transition:
+            opacity 0.2s,
+            background-color 0.2s;
+        color: var(--ls-secondary-text-color);
+        z-index: 10;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .lda-maximize-btn:hover {
+        opacity: 1;
+        background: var(--ls-tertiary-background-color);
+        color: var(--ls-primary-text-color);
+    }
+
+    /* Expansion Modal Styles */
+    .lda-expanded-input-container {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        gap: 1rem;
+        padding: 1rem;
+    }
+
+    .lda-expanded-textarea {
+        flex: 1;
+        resize: none !important;
+        min-height: 200px;
+        font-family: inherit;
+        font-size: 1rem;
+        line-height: 1.5;
+        border: 1px solid var(--ls-border-color);
+        border-radius: 6px;
+        padding: 1rem;
+    }
+
+    .lda-expanded-footer {
+        display: flex;
+        justify-content: flex-end;
     }
 </style>

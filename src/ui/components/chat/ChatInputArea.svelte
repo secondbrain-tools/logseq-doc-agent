@@ -58,11 +58,61 @@
         y: 0,
     });
 
-    // --- Actions ---
+    function autoresize(node: HTMLTextAreaElement, _value: string) {
+        const resize = () => {
+            node.style.height = "auto";
+            node.style.height = `${Math.min(node.scrollHeight, 200)}px`;
+            node.style.overflowY = node.scrollHeight > 200 ? "auto" : "hidden";
+        };
+
+        node.addEventListener("input", resize);
+        resize();
+
+        return {
+            update(_newValue: string) {
+                resize();
+            },
+            destroy() {
+                node.removeEventListener("input", resize);
+            },
+        };
+    }
+
     function handleKeydown(e: KeyboardEvent) {
-        if (e.key === "Enter" && !e.shiftKey) {
-            e.preventDefault();
-            onSendMessage();
+        if (e.key === "Enter") {
+            if (e.shiftKey) {
+                // Explicitly handle Shift+Enter to avoid environment interference
+                e.preventDefault();
+                e.stopPropagation();
+
+                const textarea = e.target as HTMLTextAreaElement;
+                const start = textarea.selectionStart;
+                const end = textarea.selectionEnd;
+
+                // Insert newline
+                inputText =
+                    inputText.substring(0, start) +
+                    "\n" +
+                    inputText.substring(end);
+
+                // Move cursor to after newline
+                // We need to wait for Svelte to update the DOM value?
+                // Actually, since we bound value, it updates. But cursor reset happens.
+                // We need to set selection range after tick or immediately?
+                // Since this runs before Svelte updates DOM, we might need tick(),
+                // but setting local state updates DOM on next tick.
+                // The cursor position reset is a classic issue.
+                setTimeout(() => {
+                    const newPos = start + 1;
+                    textarea.selectionStart = newPos;
+                    textarea.selectionEnd = newPos;
+                    // Trigger resize just in case (action update should handle it though)
+                }, 0);
+            } else {
+                // Enter without Shift = Send
+                e.preventDefault();
+                onSendMessage();
+            }
         }
     }
 
@@ -119,6 +169,7 @@
                             class="lda-context-remove"
                             onclick={(e) => {
                                 e.stopPropagation();
+                                e.preventDefault();
                                 onRemoveContext(ctx.item.id);
                             }}
                         >
@@ -131,10 +182,11 @@
     {/if}
     <textarea
         class="lda-chat-textarea"
-        rows="2"
+        rows="1"
         placeholder="Ask anything..."
         bind:value={inputText}
         onkeydown={handleKeydown}
+        use:autoresize={inputText}
     ></textarea>
 
     <div class="lda-chat-footer">

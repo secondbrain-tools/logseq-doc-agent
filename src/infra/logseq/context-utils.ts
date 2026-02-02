@@ -4,7 +4,6 @@ import {
     type LogseqBlock,
     type OutlineAnnotation,
 } from '../ai/tools/types';
-import { ShortIdService } from '../ai/short-id.service';
 import { flattenBlocks, buildDocumentResponse } from '../ai/tools/get_logseq_document_tool';
 
 const getLogseq = () => (window as any).logseq;
@@ -36,10 +35,9 @@ export async function getCurrentPageContext(): Promise<ContextItem | null> {
         name = currentPage.name;
     }
 
-    // Append short ID if available (consistent with tool logic)
-    const shortId = ShortIdService.getInstance().getShortId(currentPage.uuid);
-    if (shortId) {
-        name += ` (${shortId})`;
+    // Append Logseq ID if available
+    if (currentPage.id) {
+        name += ` (id:${currentPage.id})`;
     }
 
     return {

@@ -1,7 +1,6 @@
 
 import { z } from 'zod';
 import { tool } from 'ai';
-import { ShortIdService } from '../short-id.service';
 import type { MergeEntity } from '../../../domain/merge/entity';
 
 /**
@@ -10,20 +9,16 @@ import type { MergeEntity } from '../../../domain/merge/entity';
 export const createUpdateBlockTool = (context: { merge: boolean }) => tool({
     description: 'Update a Logseq block with new content. If merge is on (default), adds content as a merge property. If off, overwrites content.',
     inputSchema: z.object({
-        shortid: z.string().describe('The short ID of the block to update (e.g., #a1b2)'),
+        id: z.union([z.number(), z.string()]).describe('The Logseq block ID (integer)'),
         content: z.string().describe('The new content to write to the block'),
     }),
-    execute: async ({ shortid, content }: { shortid: string, content: string }) => {
+    execute: async ({ id, content }: { id: number | string, content: string }) => {
         try {
-            const uuid = ShortIdService.getInstance().getUuid(shortid);
-            if (!uuid) {
-                return `Error: Could not find block with short ID ${shortid}`;
+            const block = await logseq.Editor.getBlock(id);
+            if (!block || !block.uuid) {
+                return `Error: Block not found for ID ${id}`;
             }
-
-            const block = await logseq.Editor.getBlock(uuid);
-            if (!block) {
-                return `Error: Block not found for UUID ${uuid}`;
-            }
+            const uuid = block.uuid;
 
             const currentContent = block.content || "";
             let newContent = "";
@@ -62,6 +57,7 @@ export const createUpdateBlockTool = (context: { merge: boolean }) => tool({
 
                 // Create merge entity with original content as backup
                 const mergeData: MergeEntity = {
+                    type: 'update',
                     newContent: content, // Storing new content for reference/diffing
                     originalContent: originalBody
                 };
@@ -84,7 +80,7 @@ export const createUpdateBlockTool = (context: { merge: boolean }) => tool({
             }
 
             await logseq.Editor.updateBlock(uuid, newContent);
-            return `Successfully updated block ${shortid}.`;
+            return `Successfully updated block ${id}.`;
 
         } catch (e) {
             console.error('[UpdateBlockTool] Error:', e);

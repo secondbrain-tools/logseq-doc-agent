@@ -11,6 +11,7 @@ import type { AgentDefinition, AgentContext } from '../../domain/agent/types';
 // Rewrite file with STORE approach for reactivity
 import { writable, type Writable, get } from 'svelte/store';
 import { PROVIDERS } from '../../domain/settings/index';
+import { getContextContent, type ContextItem } from '../../infra/logseq/context-utils';
 
 export class ChatSidebarUseCase {
     private isChatOpen = false;
@@ -94,7 +95,7 @@ export class ChatSidebarUseCase {
             isMergeOn: this.isMergeOn,
             agents: this.agents,
             selectedAgent: this.selectedAgent,
-            onSendMessage: (text: string, modelId: string, providerId: string, merge: boolean, reasoningEffort?: 'none' | 'low' | 'medium' | 'high', agentName?: string) => this.handleUserMessage(text, modelId, providerId, merge, reasoningEffort, agentName),
+            onSendMessage: (text: string, modelId: string, providerId: string, merge: boolean, reasoningEffort?: 'none' | 'low' | 'medium' | 'high', agentName?: string, contextItems?: any[]) => this.handleUserMessage(text, modelId, providerId, merge, reasoningEffort, agentName, contextItems),
             onClose: () => {
                 this.isChatOpen = false;
             },
@@ -132,7 +133,7 @@ export class ChatSidebarUseCase {
             isMergeOn: this.isMergeOn,
             agents: this.agents,
             selectedAgent: this.selectedAgent,
-            onSendMessage: (text: string, modelId: string, providerId: string, merge: boolean, reasoningEffort?: 'none' | 'low' | 'medium' | 'high', agentName?: string) => this.handleUserMessage(text, modelId, providerId, merge, reasoningEffort, agentName),
+            onSendMessage: (text: string, modelId: string, providerId: string, merge: boolean, reasoningEffort?: 'none' | 'low' | 'medium' | 'high', agentName?: string, contextItems?: any[]) => this.handleUserMessage(text, modelId, providerId, merge, reasoningEffort, agentName, contextItems),
             onClose: () => {
                 this.isChatOpen = false;
             },
@@ -256,12 +257,46 @@ export class ChatSidebarUseCase {
         };
     }
 
-    private async handleUserMessage(text: string, modelId: string, providerId: string, merge: boolean, reasoningEffort?: 'none' | 'low' | 'medium' | 'high', agentName?: string) {
+    private async handleUserMessage(text: string, modelId: string, providerId: string, merge: boolean, reasoningEffort?: 'none' | 'low' | 'medium' | 'high', agentName?: string, contextItems?: ContextItem[]) {
+        // 0. Inject Context
+        const parts: any[] = [];
+
+        if (contextItems && contextItems.length > 0) {
+            this.isLoading.set(true); // Show loading while fetching context
+            try {
+                for (const item of contextItems) {
+                    const content = await getContextContent(item);
+                    const formattedText = `\n\n--- Context: ${item.name} ---\n${content}\n---------------------------`;
+
+                    parts.push({
+                        type: 'context',
+                        text: formattedText,
+                        contextName: item.name,
+                        contextContent: content
+                    });
+                }
+            } catch (err) {
+                console.error("Failed to fetch context", err);
+                // proceed without context or maybe alert? proceeding for now.
+            }
+        }
+
         // 1. Add User Message
+        // We use fullText for content if there are no parts, but here we want to separate them.
+        // The user input 'text' goes to 'content'.
+
+        // If we have context parts, we MUST add the text as a content part too
+        if (parts.length > 0) {
+            parts.unshift({
+                type: "content",
+                text: text
+            });
+        }
         this.updateMessages(msgs => [...msgs, {
             id: Date.now().toString(),
             role: 'user',
-            content: text
+            content: text,
+            parts: parts.length > 0 ? parts : undefined
         }]);
 
         // 2. Start Loading

@@ -6,7 +6,7 @@ import {
     type OutlineAnnotation,
     isLogseqBlockEntity
 } from './types';
-import { ShortIdService } from '../short-id.service';
+
 
 // Access the global logseq object
 const getLogseq = () => (window as any).logseq;
@@ -126,9 +126,8 @@ export function describeSelection(selection: LogseqSelection) {
         'Untitled Page';
 
     let pageLabel = pageName;
-    if (typeof selection.uuid === 'string' && selection.uuid.length > 0) {
-        const shortId = ShortIdService.getInstance().getShortId(selection.uuid);
-        pageLabel += ` (${shortId})`;
+    if (selection.id) {
+        pageLabel += ` (id:${selection.id})`;
     }
 
     return [`Selection Type: page`, `Page: ${pageLabel}`];
@@ -144,9 +143,8 @@ export function extractPageLabel(selection: LogseqBlock) {
             'Unknown Page'
         );
 
-        if (typeof page.uuid === 'string' && page.uuid.length > 0) {
-            const shortId = ShortIdService.getInstance().getShortId(page.uuid);
-            label += ` (${shortId})`;
+        if (page.id) {
+            label += ` (id:${page.id})`;
         }
         return label;
     }
@@ -172,14 +170,7 @@ export function formatBlockLines(annotation: OutlineAnnotation) {
     const idLabel = getHierarchyLabel(block);
     const roleLabel = tag === 'chapter' ? 'Chapter ' : tag === 'section' ? 'Section ' : '';
 
-    // Short ID integration
-    let shortIdLabel = '';
-    if (block.uuid) {
-        const shortId = ShortIdService.getInstance().getShortId(block.uuid);
-        shortIdLabel = ` ${shortId}`;
-    }
-
-    const basePrefix = `[${roleLabel}${idLabel}${shortIdLabel}]`;
+    const basePrefix = `[${roleLabel}${idLabel}]`;
     const text = cleanBlockContent(block.content) || '(empty block)';
     const lines = text.split('\n');
     const formatted = lines.map((line, index) => {
@@ -196,11 +187,11 @@ export function getHierarchyLabel(block: LogseqBlock) {
     if (typeof block.hierarchyId === 'string' && block.hierarchyId.length > 0) {
         return block.hierarchyId;
     }
-    if (block.uuid) {
-        return `uuid:${block.uuid}`;
-    }
     if (block.id !== undefined) {
         return `id:${block.id}`;
+    }
+    if (typeof block.uuid === 'string' && block.uuid.length > 0) {
+        return `uuid:${block.uuid}`;
     }
     return 'block';
 }

@@ -1,7 +1,6 @@
 
 import { z } from 'zod';
 import { tool } from 'ai';
-import { ShortIdService } from '../short-id.service';
 import type { MergeEntity } from '../../../domain/merge/entity';
 
 /**
@@ -10,28 +9,28 @@ import type { MergeEntity } from '../../../domain/merge/entity';
 export const createDeleteBlockTool = (context: { merge: boolean }) => tool({
     description: 'Delete a block. If merge is on, marks it for deletion instead of actually deleting.',
     inputSchema: z.object({
-        shortid: z.string().describe('The short ID of the block to delete (e.g., #a1b2)'),
+        id: z.union([z.number(), z.string()]).describe('The Logseq block ID (integer) to delete'),
     }),
-    execute: async ({ shortid }: { shortid: string }) => {
+    execute: async ({ id }: { id: number | string }) => {
         try {
-            const uuid = ShortIdService.getInstance().getUuid(shortid);
-            if (!uuid) {
-                return `Error: Could not find block with short ID ${shortid}`;
+            const block = await logseq.Editor.getBlock(id);
+            if (!block || !block.uuid) {
+                return `Error: Block not found for ID ${id}`;
             }
+            const uuid = block.uuid;
 
             if (context.merge) {
-                // Merge Mode: "Soft" delete
-                const block = await logseq.Editor.getBlock(uuid);
-                if (!block) {
-                    return `Error: Block not found for UUID ${uuid}`;
-                }
+                // Optimistic Merge Logic for Delete:
+                // Instead of deleting, we mark it as 'delete' in merge property.
+                // We do NOT change content significantly, maybe just append the merge prop.
 
-                const currentContent = block.content || "";
+                // Fetch fresh block to get content
+                const freshBlock = await logseq.Editor.getBlock(uuid);
+                const currentContent = freshBlock?.content || "";
 
                 // We need to parse existing properties to inject ours cleanly, 
                 // similar to updateBlock but we don't need to stash "originalContent" 
                 // because we aren't changing the body, just adding a tag.
-                // However, update_block_tool removes existing agent props. We should probably do same to avoid duplicates.
 
                 const lines = currentContent.split('\n');
                 const cleanLines: string[] = []; // Body
@@ -58,7 +57,8 @@ export const createDeleteBlockTool = (context: { merge: boolean }) => tool({
                 const body = cleanLines.join('\n');
 
                 const mergeData: MergeEntity = {
-                    type: 'delete'
+                    type: 'delete',
+                    originalContent: body // Storing original content just in case
                 };
 
                 propertyLines.push(`logseq-doc-agent.merge:: ${JSON.stringify(mergeData)}`);
@@ -69,12 +69,12 @@ export const createDeleteBlockTool = (context: { merge: boolean }) => tool({
                 }
 
                 await logseq.Editor.updateBlock(uuid, newContent);
-                return `Marked block ${shortid} for deletion.`;
+                return `Marked block ${id} for deletion.`;
 
             } else {
                 // Hard delete
                 await logseq.Editor.removeBlock(uuid);
-                return `Deleted block ${shortid}.`;
+                return `Deleted block ${id}.`;
             }
 
         } catch (e) {

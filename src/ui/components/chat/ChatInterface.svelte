@@ -3,6 +3,11 @@
     import { slide } from "svelte/transition";
     import { marked } from "marked";
     import type { Writable } from "svelte/store";
+    import {
+        getCurrentPageContext,
+        onCurrentPageChange,
+        type ContextItem,
+    } from "../../../infra/logseq/context-utils";
 
     import { PROVIDERS } from "../../../domain/settings/index";
     import ModelSelector, { type ProviderGroup } from "./ModelSelector.svelte";
@@ -30,6 +35,7 @@
             merge: boolean,
             reasoningEffort?: "none" | "low" | "medium" | "high",
             agentName?: string,
+            contextItems?: ContextItem[],
         ) => void;
         onClose: () => void;
         onReset: () => void;
@@ -75,6 +81,15 @@
         selectedText: "",
         type: "message" as "message" | "reasoning", // Add type
     });
+
+    interface ActiveContext {
+        item: ContextItem;
+        isActive: boolean;
+        isAuto?: boolean; // New flag for auto-context
+    }
+
+    let activeContexts = $state<ActiveContext[]>([]);
+    let isContextMenuOpen = $state(false);
 
     // --- Reactivity ---
     $effect(() => {
@@ -251,7 +266,7 @@
     }
 
     // --- Actions ---
-    function handleSubmit() {
+    async function handleSubmit() {
         if (!inputText.trim()) return;
 
         // Use bound provider ID (ModelSelector ensures it matches)
@@ -262,11 +277,93 @@
             inputText,
             selectedModel,
             providerId,
+
             $isMergeOn ?? true, // Use store value
             currentModelSupportsReasoning ? reasoningEffort : undefined,
             agentName,
+            activeContexts.filter((c) => c.isActive).map((c) => c.item), // Pass only active contexts
         );
         inputText = "";
+
+        // Clear manual contexts, disable auto contexts
+        activeContexts = activeContexts
+            .filter((c) => c.isAuto)
+            .map((c) => ({ ...c, isActive: false }));
+    }
+
+    async function setupAutoContext() {
+        const ctx = await getCurrentPageContext();
+        updateAutoContext(ctx);
+
+        // Subscribe to changes
+        return onCurrentPageChange((newCtx) => {
+            updateAutoContext(newCtx);
+        });
+    }
+
+    function updateAutoContext(ctx: ContextItem | null) {
+        // Find if we already hav auto context
+        const existingAutoIndex = activeContexts.findIndex((c) => c.isAuto);
+        const wasActive =
+            existingAutoIndex !== -1
+                ? activeContexts[existingAutoIndex].isActive
+                : true; // Default to true if new
+
+        let newContexts = activeContexts.filter((c) => !c.isAuto);
+
+        if (ctx) {
+            // Prepend new auto context with restored state
+            newContexts = [
+                { item: ctx, isActive: wasActive, isAuto: true },
+                ...newContexts,
+            ];
+        }
+
+        activeContexts = newContexts;
+    }
+
+    onMount(() => {
+        const unsub = setupAutoContext();
+        // Since setupAutoContext is async but returns a sync unsub function wrapper primarily,
+        // actually `onCurrentPageChange` returns the unsub.
+        // We need to handle the promise for the initial fetch?
+        // `setupAutoContext` is async.
+        // Let's refactor slightly to be clean.
+        let cleanup: (() => void) | undefined;
+        setupAutoContext().then((un) => (cleanup = un));
+
+        return () => {
+            if (cleanup) cleanup();
+        };
+    });
+
+    async function addCurrentPageContext() {
+        // This is now "Reset/Re-add" or manual trigger if needed.
+        // But with auto-context, this menu item might be redundant or just ensure it's enabled?
+        // Let's make it just ensure it's active.
+        const ctx = await getCurrentPageContext();
+        if (ctx) {
+            const existingAuto = activeContexts.find((c) => c.isAuto);
+            if (existingAuto) {
+                // specific logic: ensure it is active
+                existingAuto.isActive = true;
+                activeContexts = [...activeContexts]; // trigger reactivity
+            } else {
+                // Should have been there by auto, but if somehow missing:
+                updateAutoContext(ctx);
+            }
+        }
+        isContextMenuOpen = false;
+    }
+
+    function removeContext(id: string) {
+        activeContexts = activeContexts.filter((c) => c.item.id !== id);
+    }
+
+    function toggleContext(id: string) {
+        activeContexts = activeContexts.map((c) =>
+            c.item.id === id ? { ...c, isActive: !c.isActive } : c,
+        );
     }
 
     function handleKeydown(e: KeyboardEvent) {
@@ -633,6 +730,34 @@
                                 <div class="markdown-body">
                                     {@html renderMarkdown(part.text || "")}
                                 </div>
+                            {:else if part.type === "context"}
+                                <div class="mb-2">
+                                    <details
+                                        class="group border rounded-sm"
+                                        style="border-color: var(--ls-border-color); background: var(--ls-secondary-background-color);"
+                                    >
+                                        <summary
+                                            class="flex items-center cursor-pointer p-2 text-xs font-medium select-none focus:outline-none opacity-80 hover:opacity-100"
+                                        >
+                                            <span
+                                                class="mr-2 transform group-open:rotate-90 transition-transform"
+                                                >▶</span
+                                            >
+                                            <span
+                                                >📄 Context: {part.contextName ||
+                                                    "Attached Document"}</span
+                                            >
+                                        </summary>
+                                        <div
+                                            class="p-2 border-t text-xs overflow-x-auto whitespace-pre-wrap font-mono"
+                                            style="border-color: var(--ls-border-color); color: var(--ls-secondary-text-color);"
+                                        >
+                                            {part.contextContent ||
+                                                part.text ||
+                                                ""}
+                                        </div>
+                                    </details>
+                                </div>
                             {/if}
                         {/each}
                     {/if}
@@ -652,6 +777,40 @@
 
     <!-- Input Area -->
     <div class="lda-chat-input-area">
+        {#if activeContexts.length > 0}
+            <div class="lda-context-bar">
+                {#each activeContexts as ctx (ctx.item.id)}
+                    <!-- svelte-ignore a11y_click_events_have_key_events -->
+                    <!-- svelte-ignore a11y_no_static_element_interactions -->
+                    <div
+                        class="lda-context-tag {ctx.isActive
+                            ? ''
+                            : 'lda-context-tag-inactive'}"
+                        onclick={() => toggleContext(ctx.item.id)}
+                        title={ctx.isActive
+                            ? "Uncheck to disable"
+                            : "Check to enable"}
+                    >
+                        <span class="lda-context-icon"
+                            >{ctx.isActive ? "☑️" : "⬜"}</span
+                        >
+                        <span class="lda-context-name">{ctx.item.name}</span>
+
+                        {#if !ctx.isAuto}
+                            <button
+                                class="lda-context-remove"
+                                onclick={(e) => {
+                                    e.stopPropagation();
+                                    removeContext(ctx.item.id);
+                                }}
+                            >
+                                ×
+                            </button>
+                        {/if}
+                    </div>
+                {/each}
+            </div>
+        {/if}
         <textarea
             class="lda-chat-textarea"
             rows="2"
@@ -662,22 +821,45 @@
 
         <div class="lda-chat-footer">
             <!-- Add Context Button -->
-            <button class="lda-btn-icon" title="Add Context">
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
+            <div class="relative">
+                <button
+                    class="lda-btn-icon"
+                    title="Add Context"
+                    onclick={() => (isContextMenuOpen = !isContextMenuOpen)}
                 >
-                    <line x1="12" y1="5" x2="12" y2="19"></line>
-                    <line x1="5" y1="12" x2="19" y2="12"></line>
-                </svg>
-            </button>
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    >
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="16"></line>
+                        <line x1="8" y1="12" x2="16" y2="12"></line>
+                    </svg>
+                </button>
+                {#if isContextMenuOpen}
+                    <!-- svelte-ignore a11y_click_events_have_key_events -->
+                    <!-- svelte-ignore a11y_no_static_element_interactions -->
+                    <div
+                        class="lda-context-menu-backdrop"
+                        onclick={() => (isContextMenuOpen = false)}
+                    ></div>
+                    <div class="lda-context-menu-popover">
+                        <button
+                            class="lda-context-menu-item"
+                            onclick={addCurrentPageContext}
+                        >
+                            <span>📄</span> Current Page
+                        </button>
+                    </div>
+                {/if}
+            </div>
 
             <!-- Merge Toggle Removed (Moved to Options Menu) -->
 
@@ -888,3 +1070,91 @@
         />
     {/if}
 </div>
+
+<style>
+    .lda-context-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        padding: 0.5rem;
+        background: var(--ls-tertiary-background-color, #f5f5f5);
+        border-bottom: 1px solid var(--ls-border-color);
+        font-size: 0.8rem;
+    }
+
+    .lda-context-tag {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+        background: var(--ls-secondary-background-color, #fff);
+        padding: 0.15rem 0.4rem;
+        border-radius: 4px;
+        border: 1px solid var(--ls-border-color);
+        cursor: pointer;
+        user-select: none;
+        transition: opacity 0.2s;
+    }
+
+    .lda-context-tag-inactive {
+        opacity: 0.6;
+        background: var(--ls-tertiary-background-color, #eee);
+    }
+
+    .lda-context-remove {
+        background: none;
+        border: none;
+        cursor: pointer;
+        opacity: 0.6;
+        padding: 0 0.1rem;
+        font-size: 1rem;
+        line-height: 1;
+    }
+
+    .lda-context-remove:hover {
+        opacity: 1;
+        color: var(--ls-error-text-color, red);
+    }
+
+    .lda-context-menu-popover {
+        position: absolute;
+        bottom: 100%;
+        left: 0;
+        background: var(--ls-primary-background-color);
+        border: 1px solid var(--ls-border-color);
+        border-radius: 4px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+
+        z-index: 50;
+        min-width: 220px;
+        padding: 0.25rem 0;
+        margin-bottom: 0.25rem;
+        white-space: nowrap;
+    }
+
+    .lda-context-menu-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: 49;
+        cursor: default;
+    }
+
+    .lda-context-menu-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        width: 100%;
+        padding: 0.5rem 1rem;
+        text-align: left;
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: var(--ls-primary-text-color);
+    }
+
+    .lda-context-menu-item:hover {
+        background: var(--ls-secondary-background-color);
+    }
+</style>

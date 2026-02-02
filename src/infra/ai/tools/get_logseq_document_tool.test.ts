@@ -9,7 +9,6 @@ import {
     formatBlockLines,
     buildDocumentResponse
 } from './get_logseq_document_tool';
-import { ShortIdService } from '../short-id.service';
 import type { LogseqBlock, LogseqPage, LogseqSelection } from './types';
 
 describe('get_logseq_document_tool helpers', () => {
@@ -127,9 +126,6 @@ describe('getLogseqDocument tool', () => {
     const mockGetCurrentPage = vi.fn();
     const mockGetPageBlocksTree = vi.fn();
 
-    // Mock ShortIdService
-    const mockGetShortId = vi.fn();
-
     beforeEach(() => {
         vi.stubGlobal('window', {
             logseq: {
@@ -139,15 +135,6 @@ describe('getLogseqDocument tool', () => {
                 },
             },
         });
-
-        // Mock the ShortIdService singleton
-        vi.spyOn(ShortIdService, 'getInstance').mockReturnValue({
-            getShortId: mockGetShortId,
-            getUuid: vi.fn(),
-            reset: vi.fn(),
-        } as any);
-
-        mockGetShortId.mockImplementation((uuid) => `#short-${uuid}`);
     });
 
     afterEach(() => {
@@ -166,8 +153,8 @@ describe('getLogseqDocument tool', () => {
         expect(result).toBe('No document currently active.');
     });
 
-    it('should return formatted document for active page with short IDs', async () => {
-        const mockPage: LogseqPage = { uuid: 'page-uuid', originalName: 'Test Page' };
+    it('should return formatted document for active page with hierarchy IDs', async () => {
+        const mockPage: LogseqPage = { uuid: 'page-uuid', originalName: 'Test Page', id: 1 };
         mockGetCurrentPage.mockResolvedValue(mockPage);
 
         const mockTree = [
@@ -181,9 +168,19 @@ describe('getLogseqDocument tool', () => {
         mockGetPageBlocksTree.mockResolvedValue(mockTree);
 
         const result = await (getLogseqDocument as any).execute({}, undefined);
-        expect(result).toContain('Page: Test Page (#short-page-uuid)');
-        expect(result).toContain('[1 #short-b1] Block 1');
-        expect(result).toContain('[2 #short-b2] Block 2');
-        expect(result).toContain('[2.1 #short-b3] Child 1');
+
+        // Expected format based on current tool implementation:
+        // Selection Type: page
+        // Page: Test Page (id:1)
+        // 
+        // Blocks:
+        // [1] Block 1
+        // [2] Block 2
+        //   [2.1] Child 1
+
+        expect(result).toContain('Page: Test Page (id:1)');
+        expect(result).toContain('[1] Block 1');
+        expect(result).toContain('[2] Block 2');
+        expect(result).toContain('[2.1] Child 1');
     });
 });

@@ -25,6 +25,20 @@ export const logseq = {
         openRightSidebar: () => {
             console.log('[MockLogseq] openRightSidebar');
             window.dispatchEvent(new CustomEvent('logseq:open-sidebar'));
+        },
+        onRouteChanged: (callback) => {
+            console.log('[MockLogseq] onRouteChanged registered');
+            logseq.App._routeChangedCallback = callback;
+            return () => {
+                console.log('[MockLogseq] onRouteChanged unsubscribed');
+                logseq.App._routeChangedCallback = null;
+            };
+        },
+        // Helper to trigger route changes from simulator console/UI
+        _triggerRouteChanged: (path, template) => {
+            if (logseq.App._routeChangedCallback) {
+                logseq.App._routeChangedCallback({ path, template: template || 'page' });
+            }
         }
     },
     Editor: {
@@ -83,6 +97,7 @@ export const logseq = {
             if (logseq._agentBlocks && logseq._agentBlocks[uuid]) {
                 const block = logseq._agentBlocks[uuid];
                 const result = {
+                    id: block.id || 0, // Agent blocks might not have IDs yet, default to 0
                     uuid: block.uuid,
                     content: block.content,
                     properties: block.properties,
@@ -93,11 +108,18 @@ export const logseq = {
 
             // Then check parsed block state
             const state = blockState.value;
-            const block = state[uuid];
+            let block = state[uuid];
+
+            // If not found by UUID, try lookup by integer ID
+            if (!block && (typeof uuid === 'number' || (typeof uuid === 'string' && /^\d+$/.test(uuid)))) {
+                const searchId = parseInt(uuid);
+                block = Object.values(state).find(b => b.id === searchId);
+            }
 
             if (block) {
                 // Return a simplified BlockEntity structure
                 const result = {
+                    id: block.id,
                     uuid: block.uuid,
                     content: block.content,
                     properties: block.properties,
@@ -451,6 +473,7 @@ logseq.DB.q = async (query) => {
             logseq._agentBlocks = {
                 'agent-block-1': {
                     uuid: 'agent-block-1',
+                    id: 9001,
                     content: `logseq-doc-agent.agent:: Default Agent
 logseq-doc-agent.agent.tools:: *
 logseq-doc-agent.agent.default:: true
@@ -473,6 +496,7 @@ logseq-doc-agent.agent.description:: Default assistant with full tools`,
                 },
                 'agent-block-2': {
                     uuid: 'agent-block-2',
+                    id: 9002,
                     content: `logseq-doc-agent.agent:: Research Assistant
 logseq-doc-agent.agent.tools:: readonly
 logseq-doc-agent.agent.description:: Read-only research mode`,
@@ -493,6 +517,7 @@ logseq-doc-agent.agent.description:: Read-only research mode`,
                 },
                 'agent-block-3': {
                     uuid: 'agent-block-3',
+                    id: 9003,
                     content: `logseq-doc-agent.agent:: Writer
 logseq-doc-agent.agent.tools:: getLogseqDocument, addBlock
 logseq-doc-agent.agent.description:: Writing assistance`,

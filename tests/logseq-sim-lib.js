@@ -122,6 +122,7 @@ export function parseOrg(text) {
             const node = {
                 // Temporary ID until properties are parsed, or final if no ID prop
                 uuid: null,
+                id: null,
                 content: content,
                 rawLines: [], // for properties
                 children: [],
@@ -166,6 +167,11 @@ export function parseOrg(text) {
             node.uuid = node.properties.id;
         } else {
             node.uuid = generateUUID();
+        }
+
+        // Generate a random integer ID (Logseq style)
+        if (!node.id) {
+            node.id = Math.floor(Math.random() * 1000000) + 1;
         }
 
         // Add to state

@@ -35,10 +35,7 @@ export async function getCurrentPageContext(): Promise<ContextItem | null> {
         name = currentPage.name;
     }
 
-    // Append Logseq ID if available
-    if (currentPage.id) {
-        name += ` (id:${currentPage.id})`;
-    }
+
 
     return {
         id: currentPage.uuid,

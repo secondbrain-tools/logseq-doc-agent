@@ -25,6 +25,20 @@ export const logseq = {
         openRightSidebar: () => {
             console.log('[MockLogseq] openRightSidebar');
             window.dispatchEvent(new CustomEvent('logseq:open-sidebar'));
+        },
+        onRouteChanged: (callback) => {
+            console.log('[MockLogseq] onRouteChanged registered');
+            logseq.App._routeChangedCallback = callback;
+            return () => {
+                console.log('[MockLogseq] onRouteChanged unsubscribed');
+                logseq.App._routeChangedCallback = null;
+            };
+        },
+        // Helper to trigger route changes from simulator console/UI
+        _triggerRouteChanged: (path, template) => {
+            if (logseq.App._routeChangedCallback) {
+                logseq.App._routeChangedCallback({ path, template: template || 'page' });
+            }
         }
     },
     Editor: {

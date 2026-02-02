@@ -5,6 +5,7 @@
     import type { Writable } from "svelte/store";
     import {
         getCurrentPageContext,
+        onCurrentPageChange,
         type ContextItem,
     } from "../../../infra/logseq/context-utils";
 
@@ -84,6 +85,7 @@
     interface ActiveContext {
         item: ContextItem;
         isActive: boolean;
+        isAuto?: boolean; // New flag for auto-context
     }
 
     let activeContexts = $state<ActiveContext[]>([]);
@@ -282,18 +284,73 @@
             activeContexts.filter((c) => c.isActive).map((c) => c.item), // Pass only active contexts
         );
         inputText = "";
-        activeContexts = []; // Clear context after sending
+
+        // Clear manual contexts, disable auto contexts
+        activeContexts = activeContexts
+            .filter((c) => c.isAuto)
+            .map((c) => ({ ...c, isActive: false }));
     }
 
+    async function setupAutoContext() {
+        const ctx = await getCurrentPageContext();
+        updateAutoContext(ctx);
+
+        // Subscribe to changes
+        return onCurrentPageChange((newCtx) => {
+            updateAutoContext(newCtx);
+        });
+    }
+
+    function updateAutoContext(ctx: ContextItem | null) {
+        // Find if we already hav auto context
+        const existingAutoIndex = activeContexts.findIndex((c) => c.isAuto);
+        const wasActive =
+            existingAutoIndex !== -1
+                ? activeContexts[existingAutoIndex].isActive
+                : true; // Default to true if new
+
+        let newContexts = activeContexts.filter((c) => !c.isAuto);
+
+        if (ctx) {
+            // Prepend new auto context with restored state
+            newContexts = [
+                { item: ctx, isActive: wasActive, isAuto: true },
+                ...newContexts,
+            ];
+        }
+
+        activeContexts = newContexts;
+    }
+
+    onMount(() => {
+        const unsub = setupAutoContext();
+        // Since setupAutoContext is async but returns a sync unsub function wrapper primarily,
+        // actually `onCurrentPageChange` returns the unsub.
+        // We need to handle the promise for the initial fetch?
+        // `setupAutoContext` is async.
+        // Let's refactor slightly to be clean.
+        let cleanup: (() => void) | undefined;
+        setupAutoContext().then((un) => (cleanup = un));
+
+        return () => {
+            if (cleanup) cleanup();
+        };
+    });
+
     async function addCurrentPageContext() {
+        // This is now "Reset/Re-add" or manual trigger if needed.
+        // But with auto-context, this menu item might be redundant or just ensure it's enabled?
+        // Let's make it just ensure it's active.
         const ctx = await getCurrentPageContext();
         if (ctx) {
-            // Avoid duplicates
-            if (!activeContexts.find((c) => c.item.id === ctx.id)) {
-                activeContexts = [
-                    ...activeContexts,
-                    { item: ctx, isActive: true },
-                ];
+            const existingAuto = activeContexts.find((c) => c.isAuto);
+            if (existingAuto) {
+                // specific logic: ensure it is active
+                existingAuto.isActive = true;
+                activeContexts = [...activeContexts]; // trigger reactivity
+            } else {
+                // Should have been there by auto, but if somehow missing:
+                updateAutoContext(ctx);
             }
         }
         isContextMenuOpen = false;
@@ -738,15 +795,18 @@
                             >{ctx.isActive ? "☑️" : "⬜"}</span
                         >
                         <span class="lda-context-name">{ctx.item.name}</span>
-                        <button
-                            class="lda-context-remove"
-                            onclick={(e) => {
-                                e.stopPropagation();
-                                removeContext(ctx.item.id);
-                            }}
-                        >
-                            ×
-                        </button>
+
+                        {#if !ctx.isAuto}
+                            <button
+                                class="lda-context-remove"
+                                onclick={(e) => {
+                                    e.stopPropagation();
+                                    removeContext(ctx.item.id);
+                                }}
+                            >
+                                ×
+                            </button>
+                        {/if}
                     </div>
                 {/each}
             </div>

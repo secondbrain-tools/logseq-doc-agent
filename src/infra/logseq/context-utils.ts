@@ -45,6 +45,27 @@ export async function getCurrentPageContext(): Promise<ContextItem | null> {
 }
 
 /**
+ * Subscribes to page navigation events and returns the new page context.
+ * Returns an unsubscribe function.
+ */
+export function onCurrentPageChange(callback: (context: ContextItem | null) => void): () => void {
+    const logseq = getLogseq();
+    if (!logseq) return () => { };
+
+    const off = logseq.App.onRouteChanged(async () => {
+        // Wait a tick for context to settle? usually good practice in Logseq
+        // But onRouteChanged usually implies we are there.
+        // Let's get the fresh context
+        const context = await getCurrentPageContext();
+        callback(context);
+    });
+
+    return () => {
+        if (off) off();
+    };
+}
+
+/**
  * Fetches the fresh content for a given context item.
  * Used at send-time.
  */

@@ -258,34 +258,45 @@ export class ChatSidebarUseCase {
     }
 
     private async handleUserMessage(text: string, modelId: string, providerId: string, merge: boolean, reasoningEffort?: 'none' | 'low' | 'medium' | 'high', agentName?: string, contextItems?: ContextItem[]) {
-        let fullText = text;
-
         // 0. Inject Context
+        const parts: any[] = [];
+
         if (contextItems && contextItems.length > 0) {
             this.isLoading.set(true); // Show loading while fetching context
             try {
-                const contextParts: string[] = [];
                 for (const item of contextItems) {
                     const content = await getContextContent(item);
-                    contextParts.push(`\n\n--- Context: ${item.name} ---\n${content}\n---------------------------`);
+                    const formattedText = `\n\n--- Context: ${item.name} ---\n${content}\n---------------------------`;
+
+                    parts.push({
+                        type: 'context',
+                        text: formattedText,
+                        contextName: item.name,
+                        contextContent: content
+                    });
                 }
-                fullText += contextParts.join('');
             } catch (err) {
                 console.error("Failed to fetch context", err);
                 // proceed without context or maybe alert? proceeding for now.
             }
         }
 
-        // 1. Add User Message (UI shows original text to user, but we send fullText? 
-        // Actually, usually we want to show what was sent. 
-        // If the context is huge, showing it all in the chat bubble might be overwhelming. 
-        // But for transparency, let's show it or at least append it. 
-        // Decision: Append to content so it is visible.
+        // 1. Add User Message
+        // We use fullText for content if there are no parts, but here we want to separate them.
+        // The user input 'text' goes to 'content'.
 
+        // If we have context parts, we MUST add the text as a content part too
+        if (parts.length > 0) {
+            parts.unshift({
+                type: "content",
+                text: text
+            });
+        }
         this.updateMessages(msgs => [...msgs, {
             id: Date.now().toString(),
             role: 'user',
-            content: fullText
+            content: text,
+            parts: parts.length > 0 ? parts : undefined
         }]);
 
         // 2. Start Loading

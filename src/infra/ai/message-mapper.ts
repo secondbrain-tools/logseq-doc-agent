@@ -6,9 +6,31 @@ export function mapMessages(messages: Message[]): CoreMessage[] {
     const flatMessages = messages.flatMap(m => {
         // 1. User Message
         if (m.role === 'user') {
+            let contentText = m.content;
+
+            // Append context parts if present
+            if (m.parts && m.parts.length > 0) {
+                const contextParts = m.parts
+                    .filter(p => p.type === 'context')
+                    .map(p => p.text || '')
+                    .join('');
+
+                if (contextParts) {
+                    // Start of execution logic - we might append it using a newline separator if content exists
+                    // However, chat-sidebar.usecase.ts constructs the text with newlines already in the 'text' field of the part?
+                    // Let's assume the text field in the part contains the formatted string.
+                    // But wait, if we change the usecase to separate them, we need to ensure concatenation happens here for the LLM.
+                    // The plan says: "Map context parts to text blocks for the AI model"
+                    // The usecase will put the formatted string into part.text.
+
+                    // We append context to the main content.
+                    contentText += contextParts;
+                }
+            }
+
             const userMsg: CoreUserMessage = {
                 role: 'user',
-                content: [{ type: 'text', text: m.content }]
+                content: [{ type: 'text', text: contentText }]
             };
             return [userMsg];
         }

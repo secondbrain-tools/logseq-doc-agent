@@ -183,13 +183,18 @@ export function formatBlockLines(annotation: OutlineAnnotation) {
     return formatted;
 }
 
-if (typeof block.hierarchyId === 'string' && block.hierarchyId.length > 0) {
-    return block.hierarchyId;
+export function getHierarchyLabel(block: LogseqBlock) {
+    if (typeof block.hierarchyId === 'string' && block.hierarchyId.length > 0) {
+        return block.hierarchyId;
+    }
+    if (block.id !== undefined) {
+        return `id:${block.id}`;
+    }
+    if (typeof block.uuid === 'string' && block.uuid.length > 0) {
+        return `uuid:${block.uuid}`;
+    }
+    return 'block';
 }
-if (block.id !== undefined) {
-    return `id:${block.id}`;
-}
-return 'block';
 
 export function cleanBlockContent(content?: string | null) {
     if (!content) {

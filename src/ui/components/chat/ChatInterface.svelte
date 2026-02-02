@@ -673,6 +673,34 @@
                                 <div class="markdown-body">
                                     {@html renderMarkdown(part.text || "")}
                                 </div>
+                            {:else if part.type === "context"}
+                                <div class="mb-2">
+                                    <details
+                                        class="group border rounded-sm"
+                                        style="border-color: var(--ls-border-color); background: var(--ls-secondary-background-color);"
+                                    >
+                                        <summary
+                                            class="flex items-center cursor-pointer p-2 text-xs font-medium select-none focus:outline-none opacity-80 hover:opacity-100"
+                                        >
+                                            <span
+                                                class="mr-2 transform group-open:rotate-90 transition-transform"
+                                                >▶</span
+                                            >
+                                            <span
+                                                >📄 Context: {part.contextName ||
+                                                    "Attached Document"}</span
+                                            >
+                                        </summary>
+                                        <div
+                                            class="p-2 border-t text-xs overflow-x-auto whitespace-pre-wrap font-mono"
+                                            style="border-color: var(--ls-border-color); color: var(--ls-secondary-text-color);"
+                                        >
+                                            {part.contextContent ||
+                                                part.text ||
+                                                ""}
+                                        </div>
+                                    </details>
+                                </div>
                             {/if}
                         {/each}
                     {/if}

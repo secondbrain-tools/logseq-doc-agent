@@ -168,7 +168,7 @@
 }
 
 .lda-btn-primary:hover {
-    background-color: var(--ls-tertiary-background-color, #eee);
+    background-color: color-mix(in srgb, var(--ls-link-text-color), transparent 10%);
 }
 
 .lda-btn-primary:active {
@@ -281,23 +281,20 @@
 /* Trigger Button */
 .lda-model-trigger {
     appearance: none;
-    background: transparent;
-    border: 1px solid transparent;
-    border-radius: 0.375rem;
-    /* match Logseq sizing */
-    padding: 0.4rem 0.6rem;
-    font-size: 0.85rem;
-    color: var(--ls-secondary-text-color);
-    /* slightly muted */
+    background: var(--ls-secondary-background-color, #f5f5f5);
+    border: 1px solid var(--ls-border-color, #ddd);
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 0.75rem;
+    color: var(--ls-primary-text-color, #333);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    /* Push chevron to right */
-    gap: 6px;
-    transition: all 0.2s ease;
-    width: 160px;
-    /* Fixed width for consistency */
+    gap: 4px;
+    transition: background 0.2s;
+    max-width: 140px;
+    /* Reduced width & set max */
 }
 
 .lda-model-trigger:hover:not(:disabled) {
@@ -316,8 +313,8 @@
     overflow: hidden;
     text-overflow: ellipsis;
     flex: 1;
-    /* Take up remaining space */
     text-align: left;
+    max-width: 100px;
 }
 
 /* Chevron Animation */

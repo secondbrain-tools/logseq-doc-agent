@@ -12,6 +12,23 @@ import cssContent from '../../ui/styles/feedback-components.css?raw';
 export class InjectRatingsUseCase {
   constructor(private componentInjector: ComponentInjector, private styleInjector: StyleInjector, private logseqApi: LogseqApi) { }
 
+  public dispose() {
+    console.log('[InjectRatingsUseCase] Disposing...');
+    // Cleanup styles
+    this.styleInjector.removeStyles('feedback-rating-styles');
+
+    // Cleanup injected components
+    // We cast to access the concrete method not in the interface (unless we update interface)
+    // Ideally we should update the interface, but for now we cast or assume it's available if we know the concrete type in main.
+    // Since we are inside the class, we just call it.
+    // Wait, componentInjector is typed as ComponentInjector interface.
+    // I need to check if ComponentInjector interface has dispose.
+    // It likely doesn't. 
+    if ('dispose' in this.componentInjector) {
+      (this.componentInjector as any).dispose();
+    }
+  }
+
   /**
    * Injects FeedbackRating components into all elements with 'feedback' property in their data-refs-self attribute
    */

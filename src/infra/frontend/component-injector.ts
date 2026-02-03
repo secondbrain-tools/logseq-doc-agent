@@ -1,4 +1,4 @@
-import { mount } from 'svelte';
+import { mount, unmount } from 'svelte';
 import type { ComponentInjector } from '../../application/ports';
 import { InjectionPosition } from '../../domain/logseq';
 
@@ -7,10 +7,30 @@ import { InjectionPosition } from '../../domain/logseq';
  * This implementation handles both standard DOM and Logseq's iframe context
  */
 export class FrontendComponentInjector implements ComponentInjector {
+  private injectedComponents: Set<{ container: HTMLElement, app: any }> = new Set();
+
   private getMainDocument(): Document | null {
     // Try to access the parent document (for Logseq iframe context)
     // Fall back to current document if not available
     return window.parent?.document || window.top?.document || document;
+  }
+
+  public dispose(): void {
+    console.log(`[FrontendComponentInjector] Disposing ${this.injectedComponents.size} components...`);
+    this.injectedComponents.forEach(item => {
+      try {
+        // Unmount the Svelte app instance to trigger onDestroy/cleanup lifecycles
+        unmount(item.app);
+
+        // Remove the container from DOM
+        if (item.container && item.container.parentNode) {
+          item.container.remove();
+        }
+      } catch (e) {
+        console.warn('Error removing component container:', e);
+      }
+    });
+    this.injectedComponents.clear();
   }
 
   injectComponent(target: HTMLElement, component: any, props?: any): void {
@@ -49,11 +69,12 @@ export class FrontendComponentInjector implements ComponentInjector {
     this.insertContainerAtPosition(container, target, position);
 
     // Mount the component
-    mount(component, {
+    const app = mount(component, {
       target: container,
       props: props || {}
     });
 
+    this.injectedComponents.add({ container, app });
     console.log(`Component injected at position: ${position}`);
     return container;
   }
@@ -88,6 +109,16 @@ export class FrontendComponentInjector implements ComponentInjector {
   removeComponent(container: HTMLElement): void {
     if (container) {
       container.remove();
+      // Find and remove from set
+      for (const item of this.injectedComponents) {
+        if (item.container === container) {
+          try {
+            unmount(item.app);
+          } catch (e) { /* ignore */ }
+          this.injectedComponents.delete(item);
+          break;
+        }
+      }
       console.log('Component removed successfully');
     }
   }

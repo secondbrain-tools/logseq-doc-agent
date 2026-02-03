@@ -28,6 +28,7 @@
         isMergeOn?: Writable<boolean>;
         agents?: Writable<AgentDefinition[]>;
         selectedAgent?: Writable<string>;
+        focusSignal?: Writable<number>;
         onSendMessage: (
             text: string,
             modelId: string,
@@ -52,6 +53,7 @@
         isMergeOn,
         agents,
         selectedAgent,
+        focusSignal,
         onSendMessage,
         onNewChat,
         onLoadChatlog,
@@ -527,6 +529,7 @@
         bind:selectedProviderId
         bind:reasoningEffort
         {currentModelSupportsReasoning}
+        focusSignal={$focusSignal}
         onSendMessage={handleSubmit}
         onAddContext={addCurrentPageContext}
         onRemoveContext={removeContext}

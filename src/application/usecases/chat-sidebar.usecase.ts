@@ -70,8 +70,22 @@ export class ChatSidebarUseCase {
         }
     }
 
-    openChat() {
-        if (this.isChatOpen) return;
+
+    // Signal for focus request
+    public focusSignal: Writable<number> = writable(0);
+
+    openChat(options?: { focus?: boolean }) {
+        if (this.isChatOpen) {
+            if (options?.focus) {
+                this.focusSignal.update(n => n + 1);
+            }
+            return;
+        }
+
+        if (options?.focus) {
+            this.focusSignal.update(n => n + 1);
+        }
+
         this.isChatOpen = true;
 
         // Load agents on chat open
@@ -95,6 +109,8 @@ export class ChatSidebarUseCase {
             isMergeOn: this.isMergeOn,
             agents: this.agents,
             selectedAgent: this.selectedAgent,
+
+            focusSignal: this.focusSignal,
             onSendMessage: (text: string, modelId: string, providerId: string, merge: boolean, reasoningEffort?: 'none' | 'low' | 'medium' | 'high', agentName?: string, contextItems?: any[]) => this.handleUserMessage(text, modelId, providerId, merge, reasoningEffort, agentName, contextItems),
             onClose: () => {
                 this.isChatOpen = false;
@@ -133,6 +149,8 @@ export class ChatSidebarUseCase {
             isMergeOn: this.isMergeOn,
             agents: this.agents,
             selectedAgent: this.selectedAgent,
+
+            focusSignal: this.focusSignal,
             onSendMessage: (text: string, modelId: string, providerId: string, merge: boolean, reasoningEffort?: 'none' | 'low' | 'medium' | 'high', agentName?: string, contextItems?: any[]) => this.handleUserMessage(text, modelId, providerId, merge, reasoningEffort, agentName, contextItems),
             onClose: () => {
                 this.isChatOpen = false;

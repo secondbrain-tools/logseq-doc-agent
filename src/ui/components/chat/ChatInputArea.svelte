@@ -23,6 +23,7 @@
         selectedProviderId: string;
         reasoningEffort: "none" | "low" | "medium" | "high";
         currentModelSupportsReasoning: boolean;
+        focusSignal?: number;
 
         onSendMessage: () => void;
         onAddContext: () => void;
@@ -43,6 +44,7 @@
         selectedProviderId = $bindable(),
         reasoningEffort = $bindable(),
         currentModelSupportsReasoning,
+        focusSignal,
         onSendMessage,
         onAddContext,
         onRemoveContext,
@@ -59,6 +61,15 @@
         visible: false,
         x: 0,
         y: 0,
+    });
+
+    let textareaElement: HTMLTextAreaElement | undefined = $state();
+
+    $effect(() => {
+        // Respond to focus signal changes
+        if (focusSignal && textareaElement) {
+            textareaElement.focus();
+        }
     });
 
     function autoresize(node: HTMLTextAreaElement, _value: string) {
@@ -99,9 +110,57 @@
     function handleKeydown(e: KeyboardEvent) {
         // Stop propagation for arrow keys to prevent Logseq from hijacking navigation
         if (
-            ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)
+            [
+                "ArrowUp",
+                "ArrowDown",
+                "ArrowLeft",
+                "ArrowRight",
+                "Backspace",
+                "Delete",
+                "PageUp",
+                "PageDown",
+            ].includes(e.key)
         ) {
             e.stopPropagation();
+
+            if (["PageUp", "PageDown"].includes(e.key)) {
+                const ta = e.target as HTMLTextAreaElement;
+                const isScrollable = ta.scrollHeight > ta.clientHeight;
+                e.preventDefault();
+
+                if (!isScrollable) {
+                    if (e.key === "PageUp") {
+                        ta.setSelectionRange(0, 0);
+                    } else {
+                        ta.setSelectionRange(ta.value.length, ta.value.length);
+                    }
+                } else {
+                    const pageHeight = ta.clientHeight;
+                    // Manual Scrolling since preventDefault is active
+                    if (e.key === "PageUp") {
+                        const newTop = Math.max(0, ta.scrollTop - pageHeight);
+                        ta.scrollTop = newTop;
+                        // Optional: Clamp cursor to start if at top
+                        if (newTop === 0) ta.setSelectionRange(0, 0);
+                    } else {
+                        const newTop = Math.min(
+                            ta.scrollHeight - pageHeight,
+                            ta.scrollTop + pageHeight,
+                        );
+                        ta.scrollTop = newTop;
+                        // Optional: Clamp cursor to end if at bottom
+                        const atBottom =
+                            Math.abs(
+                                ta.scrollHeight - newTop - ta.clientHeight,
+                            ) < 2;
+                        if (atBottom)
+                            ta.setSelectionRange(
+                                ta.value.length,
+                                ta.value.length,
+                            );
+                    }
+                }
+            }
             return;
         }
 
@@ -228,6 +287,7 @@
             rows="1"
             placeholder="Ask anything..."
             bind:value={inputText}
+            bind:this={textareaElement}
             onkeydown={handleKeydown}
             use:autoresize={inputText}
         ></textarea>

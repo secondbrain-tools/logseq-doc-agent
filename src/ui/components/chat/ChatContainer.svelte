@@ -11,6 +11,7 @@
         currentChatlogId?: Writable<string | null>;
         historyModalOpen?: Writable<boolean>;
         isMergeOn?: Writable<boolean>;
+        focusSignal?: Writable<number>;
         onSendMessage: (
             text: string,
             modelId: string,

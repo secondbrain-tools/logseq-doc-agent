@@ -91,10 +91,22 @@ export const setupPlugin = async () => {
         'ti-message', // Icon class
         'AI Chat',
         () => {
-            console.log('[src/plugin/index.ts] Open Chat clicked');
-            services.chatUseCase.openChat();
+            services.chatUseCase.openChat({ focus: true });
         }
     );
+
+    // Register Command Palette & Hotkey for Opening Chat
+    logseq.App.registerCommandPalette({
+        key: 'open-chat-palette',
+        label: 'Open Chat',
+        keybinding: {
+            binding: 'g c',
+            mode: 'non-editing'
+        }
+    }, () => {
+        console.log("goto chat");
+        services.chatUseCase.openChat({ focus: true });
+    });
 
     // Register a slash command to get block content
     logseq.Editor.registerSlashCommand('Get Block Content', async () => {

@@ -29,6 +29,7 @@
         agents?: Writable<AgentDefinition[]>;
         selectedAgent?: Writable<string>;
         focusSignal?: Writable<number>;
+        expandSignal?: Writable<number>;
         onSendMessage: (
             text: string,
             modelId: string,
@@ -54,6 +55,7 @@
         agents,
         selectedAgent,
         focusSignal,
+        expandSignal,
         onSendMessage,
         onNewChat,
         onLoadChatlog,
@@ -488,6 +490,17 @@
         }
     });
 
+    // --- Settings ---
+    // --- Settings ---
+    let maximizedWidth = $derived(
+        $settingsStore?.maximizedChatWidth || "900px",
+    );
+    // Calculated padding to center content while keeping container full width
+    // We use a CSS variable for the calculation to respond to width changes
+    // width: 100% is assumed.
+    // padding = (100% - max_width) / 2
+    // We use max(0px, ...) so it doesn't break on small screens.
+
     function scrollToBottom() {
         if (messageContainer) {
             messageContainer.scrollTop = messageContainer.scrollHeight;
@@ -495,50 +508,56 @@
     }
 </script>
 
-<div class="lda-chat-container">
+<div class="lda-chat-container" style="--lda-max-width: {maximizedWidth}">
     <!-- Message List -->
     <div bind:this={messageContainer} class="lda-chat-messages">
-        {#each $messages as msg, mIndex (msg.id)}
-            <MessageBubble
-                {msg}
-                onToggleCollapse={(pIndex) =>
-                    togglePartCollapse(mIndex, pIndex)}
-                onContextMenu={(e, m) => handleContextMenu(e, m)}
-            />
-        {/each}
+        <!-- Inner wrapper for content constraint & border application -->
+        <div class="lda-messages-inner">
+            {#each $messages as msg, mIndex (msg.id)}
+                <MessageBubble
+                    {msg}
+                    onToggleCollapse={(pIndex) =>
+                        togglePartCollapse(mIndex, pIndex)}
+                    onContextMenu={(e, m) => handleContextMenu(e, m)}
+                />
+            {/each}
 
-        {#if $isLoading}
-            <div
-                class="flex items-center gap-2 p-2"
-                style="color: var(--ls-secondary-text-color); font-size: 0.8rem;"
-            >
-                <div class="animate-pulse">Thinking...</div>
-            </div>
-        {/if}
+            {#if $isLoading}
+                <div
+                    class="flex items-center gap-2 p-2"
+                    style="color: var(--ls-secondary-text-color); font-size: 0.8rem;"
+                >
+                    <div class="animate-pulse">Thinking...</div>
+                </div>
+            {/if}
+        </div>
     </div>
 
     <!-- Input Area -->
-    <ChatInputArea
-        bind:inputText
-        isLoading={$isLoading}
-        {activeContexts}
-        agents={$agents || []}
-        selectedAgent={$selectedAgent || ""}
-        {modelGroups}
-        bind:selectedModel
-        bind:selectedProviderId
-        bind:reasoningEffort
-        {currentModelSupportsReasoning}
-        focusSignal={$focusSignal}
-        onSendMessage={handleSubmit}
-        onAddContext={addCurrentPageContext}
-        onRemoveContext={removeContext}
-        onToggleContext={toggleContext}
-        onModelChange={handleModelChange}
-        onAgentChange={(name) => {
-            if ($selectedAgent !== undefined) $selectedAgent = name;
-        }}
-    />
+    <div class="lda-input-wrapper">
+        <ChatInputArea
+            bind:inputText
+            isLoading={$isLoading}
+            {activeContexts}
+            agents={$agents || []}
+            selectedAgent={$selectedAgent || ""}
+            {modelGroups}
+            bind:selectedModel
+            bind:selectedProviderId
+            bind:reasoningEffort
+            {currentModelSupportsReasoning}
+            focusSignal={focusSignal ? $focusSignal : undefined}
+            expandSignal={expandSignal ? $expandSignal : undefined}
+            onSendMessage={handleSubmit}
+            onAddContext={addCurrentPageContext}
+            onRemoveContext={removeContext}
+            onToggleContext={toggleContext}
+            onModelChange={handleModelChange}
+            onAgentChange={(name) => {
+                if ($selectedAgent !== undefined) $selectedAgent = name;
+            }}
+        />
+    </div>
 
     <!-- Context Menu -->
     {#if contextMenu.visible && contextMenu.message}
@@ -594,5 +613,39 @@
 </div>
 
 <style>
-    /* No generic styles left, but keeping style tag open for future or global overrides if needed */
+    /* Configurable Max Width for Full Screen Mode */
+    :global(.lda-sidebar-maximized) .lda-chat-container {
+        /* Keep container full width so background/layout uses full screen */
+        width: 100%;
+    }
+
+    /* Apply padding constraint ONLY in maximized mode */
+    :global(.lda-sidebar-maximized) .lda-chat-messages,
+    :global(.lda-sidebar-maximized) .lda-input-wrapper {
+        padding-inline: max(
+            1rem,
+            calc((100% - var(--lda-max-width, 900px)) / 2)
+        );
+    }
+
+    /* Inner wrappers logic */
+    .lda-messages-inner {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        min-height: 100%;
+    }
+
+    /* Apply Borders to the CONTENT elements when maximized */
+    :global(.lda-sidebar-maximized)
+        .lda-input-wrapper
+        :global(.lda-chat-input-area) {
+        border-right: 1px solid var(--ls-border-color, #dddddd);
+        border-left: 1px solid var(--ls-border-color, #dddddd);
+    }
+
+    /* Input wrapper default styles */
+    .lda-input-wrapper {
+        flex-shrink: 0;
+    }
 </style>

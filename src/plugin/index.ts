@@ -108,6 +108,18 @@ export const setupPlugin = async () => {
         services.chatUseCase.openChat({ focus: true });
     });
 
+    logseq.App.registerCommandPalette({
+        key: 'toggle-chat-expand',
+        label: 'Toggle Chat Expand',
+        keybinding: {
+            binding: 'alt+c',
+            mode: 'global'
+        }
+    }, () => {
+        console.log("toggle chat expand");
+        services.chatUseCase.toggleExpand();
+    });
+
     // Register a slash command to get block content
     logseq.Editor.registerSlashCommand('Get Block Content', async () => {
         try {

@@ -132,10 +132,10 @@ export class FrontendSidebarInjector implements SidebarInjector {
         return container as HTMLElement;
     }
 
-    injectIntoSidebar(component: any, props: any, title: string, icon?: string): void {
+    injectIntoSidebar(component: any, props: any, title: string, icon?: string, options?: { onMaximize?: () => void }): void {
         console.log('[LDA Debug] injectIntoSidebar called with title:', title);
 
-        // Always attempt to open the sidebar to ensure it's visible.
+        // Always attempt to open the sidebar to ensure it is visible.
         if (typeof (window as any).logseq?.App?.openRightSidebar === 'function') {
             (window as any).logseq.App.openRightSidebar();
         }
@@ -171,7 +171,7 @@ export class FrontendSidebarInjector implements SidebarInjector {
             console.log('[LDA Debug] Retrying in 100ms...');
             setTimeout(() => {
                 if (!this.instances.has(title)) { // Only retry if still not handled
-                    this.injectIntoSidebar(component, props, title, icon);
+                    this.injectIntoSidebar(component, props, title, icon, options);
                 }
             }, 100);
             return;
@@ -202,6 +202,7 @@ export class FrontendSidebarInjector implements SidebarInjector {
                 icon,
                 component,
                 componentProps: props,
+                onMaximize: options?.onMaximize,
                 onClose: () => {
                     console.log('[LDA Debug] SidebarWindow onClose triggered.');
 
@@ -240,5 +241,14 @@ export class FrontendSidebarInjector implements SidebarInjector {
             icon
         });
         console.log('[LDA Debug] Instance registered/updated.');
+    }
+    toggleWindowMaximize(title: string): void {
+        const instance = this.instances.get(title);
+        if (instance && instance.app && typeof instance.app.toggleMaximize === 'function') {
+            console.log(`[LDA Debug] Toggling maximize for '${title}'`);
+            instance.app.toggleMaximize();
+        } else {
+            console.warn(`[LDA Debug] Cannot toggle maximize: Instance '${title}' not found or method missing.`);
+        }
     }
 }

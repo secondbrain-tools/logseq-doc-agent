@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { tick } from "svelte";
     import AgentSelector from "./AgentSelector.svelte";
     import ModelSelector, { type ProviderGroup } from "./ModelSelector.svelte";
     import ContextMenu from "./ContextMenu.svelte";
@@ -24,6 +25,7 @@
         reasoningEffort: "none" | "low" | "medium" | "high";
         currentModelSupportsReasoning: boolean;
         focusSignal?: number;
+        expandSignal?: number;
 
         onSendMessage: () => void;
         onAddContext: () => void;
@@ -45,6 +47,7 @@
         reasoningEffort = $bindable(),
         currentModelSupportsReasoning,
         focusSignal,
+        expandSignal,
         onSendMessage,
         onAddContext,
         onRemoveContext,
@@ -64,11 +67,24 @@
     });
 
     let textareaElement: HTMLTextAreaElement | undefined = $state();
+    let expandedTextareaElement: HTMLTextAreaElement | undefined = $state();
 
     $effect(() => {
         // Respond to focus signal changes
         if (focusSignal && textareaElement) {
             textareaElement.focus();
+        }
+    });
+
+    $effect(() => {
+        // Respond to expand signal changes
+        if (expandSignal) {
+            console.log("[UI] expandSignal received:", expandSignal);
+            // Delay expansion to ensure DOM is stable and prevent flush errors
+            setTimeout(() => {
+                console.log("[UI] Triggering delayed toggleExpand");
+                void toggleExpand();
+            }, 100);
         }
     });
 
@@ -161,12 +177,19 @@
                     }
                 }
             }
+        }
+
+        // Toggle Expansion: Alt + ArrowUp/ArrowDown
+        if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+            e.preventDefault();
+            e.stopPropagation();
+            void toggleExpand();
             return;
         }
 
         if (e.key === "Escape") {
             if (isExpanded) {
-                isExpanded = false;
+                void toggleExpand(); // Use toggleExpand to handle focus restore
                 e.stopPropagation(); // Prevent bubbling if needed
             } else {
                 (e.target as HTMLTextAreaElement).blur();
@@ -202,7 +225,7 @@
                 e.preventDefault();
                 if (isExpanded) {
                     // Close modal first if expanded, then send
-                    isExpanded = false;
+                    void toggleExpand(); // Close and restore focus (though send might clear it)
                     // Small delay to allow transition if needed,
                     // but immediate send is usually preferred.
                 }
@@ -227,8 +250,37 @@
         }, 0);
     }
 
-    function toggleExpand() {
-        isExpanded = !isExpanded;
+    async function toggleExpand() {
+        console.log("[UI] toggleExpand START. isExpanded:", isExpanded);
+        try {
+            const source = isExpanded
+                ? expandedTextareaElement
+                : textareaElement;
+            const start = source?.selectionStart;
+            const end = source?.selectionEnd;
+
+            isExpanded = !isExpanded;
+            await tick();
+
+            const target = isExpanded
+                ? expandedTextareaElement
+                : textareaElement;
+            if (target) {
+                target.focus();
+                if (typeof start === "number" && typeof end === "number") {
+                    try {
+                        target.setSelectionRange(start, end);
+                    } catch (err) {
+                        console.warn(
+                            "[UI] Failed to restore selection range",
+                            err,
+                        );
+                    }
+                }
+            }
+        } catch (e) {
+            console.error("[UI] Error in toggleExpand:", e);
+        }
     }
 
     // --- Icons ---
@@ -515,8 +567,8 @@
                 class="lda-chat-textarea lda-expanded-textarea"
                 placeholder="Ask anything..."
                 bind:value={inputText}
+                bind:this={expandedTextareaElement}
                 onkeydown={handleKeydown}
-                autofocus
             ></textarea>
 
             <div class="lda-expanded-footer">

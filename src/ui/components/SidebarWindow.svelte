@@ -14,6 +14,7 @@
         headerActions?: any;
         headerActionsProps?: any;
         menuOptions?: any[];
+        onMaximize?: () => void;
     }
 
     let {
@@ -25,7 +26,17 @@
         headerActions = undefined,
         headerActionsProps = undefined,
         menuOptions = undefined,
+        onMaximize = undefined,
     }: Props = $props();
+
+    // State
+    let isCollapsed = $state(false);
+    let isMaximized = $state(false);
+    let isPoppedOut = $state(false);
+    let popoutWindow: Window | null = null;
+    let popoutApp: any = null;
+
+    const dispatch = createEventDispatcher();
 
     // Extract header actions from componentProps if passed there (for SidebarInjector compatibility)
     let EffectiveHeaderActions = $derived(
@@ -66,25 +77,17 @@
         };
     }
 
-    // State
-    let isCollapsed = $state(false);
-    let isMaximized = $state(false);
-    let isPoppedOut = $state(false);
-    let popoutWindow: Window | null = null;
-    let popoutApp: any = null;
-
-    const dispatch = createEventDispatcher();
-
     function toggleCollapse() {
         if (isMaximized || isPoppedOut) return; // Disable collapse when maximized or popped out
         isCollapsed = !isCollapsed;
     }
 
-    function toggleMaximize() {
+    export function toggleMaximize() {
         if (isPoppedOut) return;
         isMaximized = !isMaximized;
         if (isMaximized) {
             isCollapsed = false; // Force expand when maximizing
+            if (onMaximize) onMaximize();
         }
     }
 

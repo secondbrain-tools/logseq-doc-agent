@@ -158,19 +158,51 @@ export const setupPlugin = async () => {
         template: '<a title="logseq-doc-agent" style="font-size:15px;color:#1f9ee1;opacity:unset" data-on-click="injectIntoPage" class="button icon">.🤖</a>'
     });
 
+    // Helper for debouncing
+    const debounce = (func: Function, wait: number) => {
+        let timeout: any;
+        return (...args: any[]) => {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(this, args), wait);
+        };
+    };
+
+    // Unified injection function
+    const injectComponents = async () => {
+        // Small delay to ensure DOM is ready (especially for route changes)
+        setTimeout(() => {
+            try {
+                services.injectRatingsUseCase.execute();
+                services.injectMergesUseCase.execute();
+            } catch (error) {
+                console.error('Error injecting feedback components:', error);
+            }
+        }, 100);
+    };
+
+    // 1. Route Changed Listener
+    logseq.App.onRouteChanged(() => {
+        console.log('[src/plugin/index.ts] Route changed, triggering injection...');
+        injectComponents();
+    });
+
+    // 2. DB Changed Listener (Debounced)
+    // This handles block updates, creation, deletion, moves etc.
+    const debouncedOnDbChanged = debounce(() => {
+        console.log('[src/plugin/index.ts] DB changed, triggering injection...');
+        injectComponents();
+    }, 500);
+
+    logseq.DB.onChanged((e) => {
+        // Optional: Filter events if needed, but for now we just debounce everything
+        debouncedOnDbChanged();
+    });
+
     // Handle the pagebar button click
     logseq.provideModel({
         async injectIntoPage() {
-            // Wait a bit for DOM to be ready, then inject components
-            setTimeout(() => {
-                try {
-                    services.injectRatingsUseCase.execute();
-                    services.injectMergesUseCase.execute();
-                } catch (error) {
-                    console.error('Error injecting feedback components:', error);
-                    logseq.UI.showMsg('Error injecting feedback components', 'error');
-                }
-            }, 500);
+            console.log('[src/plugin/index.ts] Manual injection triggered');
+            injectComponents();
         },
     });
 };

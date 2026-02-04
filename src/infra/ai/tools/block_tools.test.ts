@@ -168,8 +168,8 @@ describe('Block Management Tools', () => {
 
             await (tool as any).execute({ id: 10, targetId: 20 });
 
-            // 1. Move
-            expect(mockMoveBlock).toHaveBeenCalledWith('uuid-source', 'uuid-target', {});
+            // 1. Move - default anchor 'parent' should pass { children: true }
+            expect(mockMoveBlock).toHaveBeenCalledWith('uuid-source', 'uuid-target', { children: true });
 
             // 2. Update with history
             expect(mockUpdateBlock).toHaveBeenCalledWith(

@@ -47,14 +47,16 @@ export const createMoveBlockTool = (context: { merge: boolean }) => tool({
 
             // Perform Move
             const options: any = {};
-            if (anchor === 'before') {
+            if (anchor === 'parent') {
+                // Explicitly set children: true to insert as child of target
+                options.children = true;
+            } else if (anchor === 'before') {
                 options.sibling = true;
                 options.before = true;
             } else if (anchor === 'after') {
                 options.sibling = true;
                 options.before = false;
             }
-            // else 'parent' -> defaults (child)
 
             await logseq.Editor.moveBlock(uuid, targetUuid, options);
 

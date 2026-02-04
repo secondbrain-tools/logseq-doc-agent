@@ -40,6 +40,13 @@ export const setupPlugin = async () => {
 
         logseq.beforeunload(async () => {
             doc.getElementById(linkId)?.remove();
+
+            // Clean up sidebar instances to prevent dangling elements
+            Services.instance.sidebarInjector.dispose();
+
+            // Clean up injected ratings and merge icons
+            Services.instance.injectRatingsUseCase.dispose();
+            Services.instance.injectMergesUseCase.dispose();
         });
     }
 
@@ -84,10 +91,34 @@ export const setupPlugin = async () => {
         'ti-message', // Icon class
         'AI Chat',
         () => {
-            console.log('[src/plugin/index.ts] Open Chat clicked');
-            services.chatUseCase.openChat();
+            services.chatUseCase.openChat({ focus: true });
         }
     );
+
+    // Register Command Palette & Hotkey for Opening Chat
+    logseq.App.registerCommandPalette({
+        key: 'open-chat-palette',
+        label: 'Open Chat',
+        keybinding: {
+            binding: 'g c',
+            mode: 'non-editing'
+        }
+    }, () => {
+        console.log("goto chat");
+        services.chatUseCase.openChat({ focus: true });
+    });
+
+    logseq.App.registerCommandPalette({
+        key: 'toggle-chat-expand',
+        label: 'Toggle Chat Expand',
+        keybinding: {
+            binding: 'alt+c',
+            mode: 'global'
+        }
+    }, () => {
+        console.log("toggle chat expand");
+        services.chatUseCase.toggleExpand();
+    });
 
     // Register a slash command to get block content
     logseq.Editor.registerSlashCommand('Get Block Content', async () => {

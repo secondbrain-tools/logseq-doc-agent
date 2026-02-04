@@ -9,6 +9,13 @@ export class InjectMergesUseCase {
         private logseqApi: LogseqApi
     ) { }
 
+    public dispose() {
+        console.log('[InjectMergesUseCase] Disposing...');
+        if ('dispose' in this.componentInjector) {
+            (this.componentInjector as any).dispose();
+        }
+    }
+
     async execute() {
         try {
             // Find all blocks with the merge property

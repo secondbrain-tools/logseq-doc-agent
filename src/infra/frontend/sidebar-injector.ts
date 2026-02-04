@@ -6,63 +6,174 @@ import SidebarWindow from '../../ui/components/SidebarWindow.svelte';
  * Concrete implementation of SidebarInjector for frontend
  */
 export class FrontendSidebarInjector implements SidebarInjector {
-    private instances = new Map<string, { app: any, container: HTMLElement, indicator: HTMLElement }>();
+    private observer: MutationObserver | null = null;
+    private sidebarObserver: MutationObserver | null = null; // Store this to disconnect properly
+
+    constructor() {
+        this.setupObserver();
+    }
+
+    public dispose() {
+        console.log('[LDA Debug] FrontendSidebarInjector dispose called.');
+
+        // Disconnect observers
+        if (this.observer) this.observer.disconnect();
+        if (this.sidebarObserver) this.sidebarObserver.disconnect();
+
+        // Cleanup all instances
+        this.instances.forEach((data, title) => {
+            console.log(`[LDA Debug] Cleaning up sidebar instance: ${title}`);
+            try {
+                unmount(data.app);
+                data.container.remove();
+                data.indicator.remove();
+            } catch (e) {
+                console.warn(`[LDA Debug] Error cleaning up ${title}:`, e);
+            }
+        });
+
+        this.instances.clear();
+    }
+
+    private setupObserver() {
+        // We watch the document body for the sidebar appearance, or the sidebar container itself/its children
+        // Since the sidebar container might be recreated, we should watch a stable parent or poll/re-observe.
+        // For simplicity and robustness, we can watch document.body for subtree changes to find the sidebar if missing,
+        // and watch the sidebar container for child list changes if present.
+
+        if (typeof window === 'undefined') return;
+
+        const mainDocument = window.parent?.document || window.top?.document || document;
+
+        let currentSidebarContainer: HTMLElement | null = null;
+
+        const checkAndRestore = () => {
+            const sidebar = this.getSidebarContainer();
+
+            // 1. If sidebar container appeared or changed
+            if (sidebar && sidebar !== currentSidebarContainer) {
+                console.log('[LDA Debug] Sidebar container found/changed. Setting up watcher.');
+                currentSidebarContainer = sidebar;
+
+                // Watch this specific container for cleared content
+                if (this.sidebarObserver) this.sidebarObserver.disconnect();
+                this.sidebarObserver = new MutationObserver(() => {
+                    this.restoreMissingInstances();
+                });
+                this.sidebarObserver.observe(sidebar, { childList: true });
+            }
+
+            // 2. Perform restoration check
+            this.restoreMissingInstances();
+        };
+
+        // Main observer to detect major DOM changes (navigation, re-layout)
+        this.observer = new MutationObserver((mutations) => {
+            // optimized: only check if relevant nodes touched? 
+            // For now, just check throttled or directly.
+            checkAndRestore();
+        });
+
+        this.observer.observe(mainDocument.body, { childList: true, subtree: true });
+
+        // Initial check
+        checkAndRestore();
+    }
+
+    private restoreMissingInstances() {
+        // Iterate over expected instances
+        this.instances.forEach((data, title) => {
+            // Check if attached
+            if (!data.container.isConnected) {
+                console.log(`[LDA Debug] Instance '${title}' found detached. Attempting restoration...`);
+
+                // It is detached. Logic:
+                // 1. Cleanup the old detached Svelte app (prevent leaks)
+                try {
+                    unmount(data.app);
+                } catch (e) { /* ignore */ }
+
+                // 2. Try to find sidebar again
+                const container = this.getSidebarContainer();
+                if (container) {
+                    console.log(`[LDA Debug] Re-injecting '${title}' into fresh sidebar container.`);
+                    // 3. Re-inject using stored config
+                    // We need to call injectIntoSidebar again basically, but we need the checks there to not loop infinitely if something is wrong.
+                    // We can reuse the internal logic.
+                    this.injectIntoSidebar(data.component, data.props, title, data.icon);
+                } else {
+                    console.log(`[LDA Debug] Sidebar container missing. Cannot restore '${title}' yet.`);
+                    // It will stay in 'instances' as "detached". 
+                    // Next time observer triggers (sidebar appears), we will retry.
+                }
+            }
+        });
+    }
+
+    // Extended map to store config for restoration
+    private instances = new Map<string, {
+        app: any,
+        container: HTMLElement,
+        indicator: HTMLElement,
+        component: any,
+        props: any,
+        icon?: string
+    }>();
 
     private getSidebarContainer(): HTMLElement | null {
         // Try to find the inner content list directly
         // Logic: #right-sidebar-container -> .cp__right-sidebar-scrollable -> .sidebar-item-list
         const mainDocument = window.parent?.document || window.top?.document || document;
-        console.log('[LDA Debug] looking for sidebar container in document:', mainDocument === document ? 'current' : 'parent');
+        // console.log('[LDA Debug] looking for sidebar container...');
 
         // In sim: #right-sidebar-container .cp__right-sidebar-scrollable .sidebar-item-list
         // In Logseq real: same usually.
         const container = mainDocument.querySelector('#right-sidebar-container .sidebar-item-list');
-        console.log('[LDA Debug] found container?', !!container, container);
         return container as HTMLElement;
     }
 
-    injectIntoSidebar(component: any, props: any, title: string, icon?: string): void {
+    injectIntoSidebar(component: any, props: any, title: string, icon?: string, options?: { onMaximize?: () => void }): void {
         console.log('[LDA Debug] injectIntoSidebar called with title:', title);
 
-        // Always attempt to open the sidebar to ensure it's visible.
-        // This fixes the issue in simulation where container exists (hidden) but sidebar is visually closed.
+        // Always attempt to open the sidebar to ensure it is visible.
         if (typeof (window as any).logseq?.App?.openRightSidebar === 'function') {
-            console.log('[LDA Debug] calling logseq.App.openRightSidebar() to ensure visibility');
             (window as any).logseq.App.openRightSidebar();
         }
 
         let container = this.getSidebarContainer();
 
-        // Cleanup existing instance if any
+        // Check if we have an active, connected instance already
         if (this.instances.has(title)) {
-            console.log('[LDA Debug] removing existing sidebar instance for title:', title);
-            const old = this.instances.get(title)!;
-            try {
-                unmount(old.app);
-                old.container.remove();
-                old.indicator.remove();
-            } catch (e) {
-                console.warn('[LDA Debug] error removing old sidebar instance:', e);
+            const existing = this.instances.get(title)!;
+            if (existing.container.isConnected) {
+                console.log('[LDA Debug] Instance already connected. Updating? (Skipping for now)');
+                return;
+            } else {
+                // Determine if it was just a "dangling" reference from a wiped DOM
+                console.log('[LDA Debug] Found detached instance in map. Cleaning up before re-inject.');
+                try {
+                    unmount(existing.app);
+                    existing.container.remove();
+                    existing.indicator.remove();
+                } catch (e) { /* ignore */ }
+                this.instances.delete(title);
             }
-            this.instances.delete(title);
         }
 
         if (!container) {
-            console.log('[LDA Debug] Container not found immediately after open request.');
+            console.log('[LDA Debug] Container not found immediately.');
+            // Rely on Observer to retry if it appears later
+            // But we should store intentions? 
+            // Actually, if we return here, 'instances' map is empty for this title.
+            // So 'restoreMissingInstances' won't do anything.
+            // We needs a "Pending" state or simply retry once.
 
-            // Retry finding container after a short delay or check immediately if update is synchronous (Sim is effectively synch via event but React/Preact might take a tick)
-            // Since Preact renders asynchronously, we might need to wait properly.
-            // For now, let's just warn if still missing, or set a retry.
-            // But typically we can't wait in a sync method.
-            // We will assume the sidebar opens.
-        }
-
-        // Slight hack: if we just opened it, we might need a microtask for DOM to update.
-        // Ideally this method should be async, but the interface is void.
-        // We can use setTimeout to defer injection if container is missing initially.
-        if (!container) {
-            console.log('[LDA Debug] Container still missing, retrying in 100ms...');
-            setTimeout(() => this.injectIntoSidebar(component, props, title, icon), 100);
+            console.log('[LDA Debug] Retrying in 100ms...');
+            setTimeout(() => {
+                if (!this.instances.has(title)) { // Only retry if still not handled
+                    this.injectIntoSidebar(component, props, title, icon, options);
+                }
+            }, 100);
             return;
         }
 
@@ -78,7 +189,6 @@ export class FrontendSidebarInjector implements SidebarInjector {
         windowContainer.style.display = 'contents';
 
         // Add to DOM (Prepend to show at top)
-        // Order desired: Drop -> Window -> ...
         container.insertBefore(windowContainer, container.firstChild);
         container.insertBefore(dropIndicator, container.firstChild);
         console.log('[LDA Debug] DOM elements inserted (Drop Indicator + Window).');
@@ -92,11 +202,27 @@ export class FrontendSidebarInjector implements SidebarInjector {
                 icon,
                 component,
                 componentProps: props,
+                onMaximize: options?.onMaximize,
                 onClose: () => {
                     console.log('[LDA Debug] SidebarWindow onClose triggered.');
+
+                    // Notify component if it has an onClose handler
+                    if (props && typeof props.onClose === 'function') {
+                        try {
+                            props.onClose();
+                        } catch (err) {
+                            console.error('[LDA Debug] Error calling component onClose:', err);
+                        }
+                    }
+
                     // Cleanup when closed
-                    if (this.instances.get(title)?.app === sidebarWindowApp) {
+                    // Only remove if it matches current app (race condition check)
+                    const current = this.instances.get(title);
+                    if (current && current.app === sidebarWindowApp) {
                         this.instances.delete(title);
+                        // We must explicitly stop observing or cleaning up if this was the last one? 
+                        // The observer runs globally, so it's fine. 
+                        // Removing from 'instances' means 'restoreMissingInstances' will ignore it.
                     }
                     unmount(sidebarWindowApp);
                     windowContainer.remove();
@@ -109,7 +235,20 @@ export class FrontendSidebarInjector implements SidebarInjector {
         this.instances.set(title, {
             app: sidebarWindowApp,
             container: windowContainer,
-            indicator: dropIndicator
+            indicator: dropIndicator,
+            component,
+            props,
+            icon
         });
+        console.log('[LDA Debug] Instance registered/updated.');
+    }
+    toggleWindowMaximize(title: string): void {
+        const instance = this.instances.get(title);
+        if (instance && instance.app && typeof instance.app.toggleMaximize === 'function') {
+            console.log(`[LDA Debug] Toggling maximize for '${title}'`);
+            instance.app.toggleMaximize();
+        } else {
+            console.warn(`[LDA Debug] Cannot toggle maximize: Instance '${title}' not found or method missing.`);
+        }
     }
 }

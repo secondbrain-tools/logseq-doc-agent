@@ -257,6 +257,14 @@ export const configureSettings = () => {
     });
 
     settings.push({
+        key: 'maximizedChatWidth',
+        type: 'string',
+        title: 'Maximized Chat Width',
+        description: 'Width of the chat area when maximized (e.g. "900px", "60%", "40rem"). Default: 900px',
+        default: '80rem',
+    });
+
+    settings.push({
         key: 'storageRoot',
         type: 'string',
         title: 'Storage Root Page',

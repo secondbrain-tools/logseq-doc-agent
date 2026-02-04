@@ -189,16 +189,17 @@ describe('getLogseqDocument tool', () => {
     describe('Merge Logic', () => {
         const mockPage: LogseqPage = { uuid: 'page-uuid', originalName: 'Test Page', id: 1 };
 
-        const originalContent = 'Original Content';
+        const baseContent = 'Original Content';
         const proposedContent = 'Proposed Content';
+        // New structure: base in merge property, proposed content in block body
         const mergeData = JSON.stringify({
             type: 'update',
-            newContent: proposedContent,
-            originalContent: originalContent
+            base: baseContent
         });
 
         const mockTree = [{
-            content: `logseq-doc-agent.merge:: ${mergeData}\n${originalContent}`,
+            // Block body is now the working copy (proposed content)
+            content: `logseq-doc-agent.merge:: ${mergeData}\n${proposedContent}`,
             uuid: 'b1'
         }];
 
@@ -211,16 +212,16 @@ describe('getLogseqDocument tool', () => {
             const tool = createTool({ mergeDefault: true, mergeBoth: false });
             const result = await (tool as any).execute({}, undefined);
 
+            // Block body (cleaned) should be shown as proposed content
             expect(result).toContain(proposedContent);
-            expect(result).not.toContain(originalContent);
         });
 
         it('should show both contents if mergeBoth is true', async () => {
             const tool = createTool({ mergeDefault: true, mergeBoth: true });
             const result = await (tool as any).execute({}, undefined);
 
-            expect(result).toContain('[ORIGINAL]');
-            expect(result).toContain(originalContent);
+            expect(result).toContain('[BASE]');
+            expect(result).toContain(baseContent);
             expect(result).toContain('[PROPOSED]');
             expect(result).toContain(proposedContent);
         });
@@ -229,8 +230,8 @@ describe('getLogseqDocument tool', () => {
             const tool = createTool({ mergeDefault: false, mergeBoth: false });
             const result = await (tool as any).execute({}, undefined);
 
-            expect(result).toContain(originalContent);
-            expect(result).not.toContain(proposedContent);
+            // When merge is off, show raw block content (includes proposedContent since it's in body)
+            expect(result).toContain(proposedContent);
         });
     });
 });

@@ -61,8 +61,16 @@ export const createAddBlockTool = (context: { merge: boolean }) => tool({
                 return `Error: Failed to insert block at ${targetId}`;
             }
 
+            // insertBlock may not return the integer id immediately, fetch it
+            let blockId: number | undefined = newBlock.id;
+            if (blockId === undefined && newBlock.uuid) {
+                const fetchedBlock = await logseq.Editor.getBlock(newBlock.uuid);
+                blockId = fetchedBlock?.id;
+            }
+
             // Return the new block's ID so agent can use it immediately
-            return `Successfully added block (id:${newBlock.id}) ${anchor} ${targetId}.`;
+            const idStr = blockId !== undefined ? String(blockId) : 'unknown';
+            return `Successfully added block (id:${idStr}) ${anchor} ${targetId}.`;
 
         } catch (e) {
             console.error('[AddBlockTool] Error:', e);

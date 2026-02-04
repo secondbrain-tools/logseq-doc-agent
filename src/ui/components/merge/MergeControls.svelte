@@ -8,6 +8,7 @@
     import { MergeActionService } from "../../../application/services/merge-action.service";
     import { filterProperties } from "../../../domain/logseq/properties";
     import type { MergeEntity } from "../../../domain/merge/entity";
+    import { Services } from "../../../services";
     import DiffModal from "./DiffModal.svelte";
 
     let {
@@ -24,6 +25,15 @@
 
     // Tree state
     let mergeTree: MergeTreeItem[] = $state([]);
+
+    /**
+     * Refresh merge controls injection after any merge action
+     */
+    async function refreshInjection() {
+        // Small delay to let Logseq update the DOM
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        Services.instance.injectMergesUseCase.execute();
+    }
 
     onMount(() => {
         const blockDiv = parent.document.querySelector(
@@ -87,8 +97,41 @@
             }
 
             console.log("[MergeControls] Merge acceptance complete.");
+            await refreshInjection();
         } catch (e) {
             console.error("[MergeControls] Failed to accept merge:", e);
+            await logseq.UI.showMsg("Failed to accept merge", "error");
+        }
+    }
+
+    /**
+     * Quick accept: removes merge property from current block (or subtree with Shift/Ctrl).
+     */
+    async function handleQuickAccept(e: MouseEvent) {
+        e.stopPropagation();
+        e.preventDefault();
+
+        if (targetElement) {
+            targetElement.classList.remove("lda-merge-highlight");
+        }
+
+        try {
+            const withChildren = e.shiftKey || e.ctrlKey || e.metaKey;
+
+            if (withChildren) {
+                console.log("[MergeControls] Quick accept WITH children");
+                await mergeActionService.quickAcceptWithChildren(blockUuid);
+                await logseq.UI.showMsg(
+                    "Accepted block and children",
+                    "success",
+                );
+            } else {
+                console.log("[MergeControls] Quick accept (single block)");
+                await mergeActionService.quickAccept(blockUuid);
+            }
+            await refreshInjection();
+        } catch (e) {
+            console.error("[MergeControls] Failed to quick accept:", e);
             await logseq.UI.showMsg("Failed to accept merge", "error");
         }
     }
@@ -109,6 +152,7 @@
                     : [blockUuid];
 
             await mergeActionService.revertMerge(uuids);
+            await refreshInjection();
         } catch (e) {
             console.error("[MergeControls] Failed to revert merge:", e);
             await logseq.UI.showMsg("Failed to revert merge", "error");
@@ -156,19 +200,13 @@
                     // Update currentContent reference for UI
                     mergeData.currentContent = cleanContent;
 
-                    if (mergeData.newContent) {
-                        const [cleanNew, _] = filterProperties(
-                            mergeData.newContent,
+                    // Filter base content (original content before LLM changes)
+                    if (mergeData.base) {
+                        const [cleanBase, _] = filterProperties(
+                            mergeData.base,
                             patterns,
                         );
-                        mergeData.newContent = cleanNew;
-                    }
-                    if (mergeData.originalContent) {
-                        const [cleanOrg, _] = filterProperties(
-                            mergeData.originalContent,
-                            patterns,
-                        );
-                        mergeData.originalContent = cleanOrg;
+                        mergeData.base = cleanBase;
                     }
                 }
 
@@ -196,8 +234,8 @@
 <div class="lda-merge-controls">
     <button
         class="lda-merge-btn lda-merge-accept"
-        onclick={() => handleAccept()}
-        title="Accept Merge"
+        onclick={handleQuickAccept}
+        title="Accept Merge (Shift/Ctrl+Click for subtree)"
     >
         ✓
     </button>

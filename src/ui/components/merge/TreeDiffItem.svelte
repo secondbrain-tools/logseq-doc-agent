@@ -142,10 +142,9 @@
                         <!-- Show Inline Diff of Original vs New -->
                         <div class="diff-wrapper">
                             <InlineDiff
-                                originalContent={item.mergeData
-                                    ?.originalContent ?? item.content}
-                                modifiedContent={item.mergeData?.newContent ??
+                                originalContent={item.mergeData?.base ??
                                     item.content}
+                                modifiedContent={item.content}
                                 canToggle={true}
                                 {isExpanded}
                                 onToggle={(recursive) =>
@@ -222,11 +221,9 @@
                 <!-- Side by Side -->
                 <SideBySideDiff
                     originalContent={item.mergeData
-                        ? item.mergeData.originalContent
+                        ? item.mergeData.base
                         : item.content}
-                    modifiedContent={item.mergeData
-                        ? item.mergeData.newContent
-                        : item.content}
+                    modifiedContent={item.content}
                     showHeaders={false}
                     canToggle={true}
                     {isExpanded}
@@ -236,11 +233,9 @@
                 <!-- Inline (Default for others) -->
                 <InlineDiff
                     originalContent={item.mergeData
-                        ? item.mergeData.originalContent
+                        ? item.mergeData.base
                         : item.content}
-                    modifiedContent={item.mergeData
-                        ? item.mergeData.newContent
-                        : item.content}
+                    modifiedContent={item.content}
                     canToggle={true}
                     {isExpanded}
                     onToggle={() => handleInteraction()}

@@ -227,10 +227,12 @@ describe('Block Management Tools', () => {
                 'uuid-target',
                 expect.stringContaining('"type":"update"')
             );
+            // base should contain the original content
             expect(mockUpdateBlock).toHaveBeenCalledWith(
                 'uuid-target',
-                expect.stringContaining('"originalContent":"Old Content"')
+                expect.stringContaining('"base":"Old Content"')
             );
+            // LLM content should be in block body (after properties)
             expect(mockUpdateBlock).toHaveBeenCalledWith(
                 'uuid-target',
                 expect.stringContaining('Updated Content')

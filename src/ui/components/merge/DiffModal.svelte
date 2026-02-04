@@ -121,9 +121,10 @@
                         }
 
                         if (item.mergeData) {
+                            // Block body (item.content) is the working copy
                             edits[item.uuid] =
                                 item.mergeData.currentContent ||
-                                item.mergeData.newContent ||
+                                item.content || // Working copy from block body
                                 "";
                         } else {
                             edits[item.uuid] = item.content;
@@ -134,8 +135,8 @@
                     // Single block fallback
                     activeTree = [];
                     viewMode = "edit";
-                    editContent =
-                        mergeData.currentContent || mergeData.newContent || "";
+                    // mergeData doesn't have newContent anymore; use currentContent if set
+                    editContent = mergeData.currentContent || "";
                 }
             }
         } else {
@@ -270,9 +271,11 @@
 
         const getContent = (item: MergeTreeItem) => {
             if (source === "original") {
-                return item.mergeData?.originalContent || item.content || "";
+                // base is the original content before LLM changes
+                return item.mergeData?.base || item.content || "";
             } else {
-                return item.mergeData?.newContent || item.content || "";
+                // Block content is now the working copy (proposed)
+                return item.content || "";
             }
         };
 
@@ -505,18 +508,18 @@
                     <!-- Single Block Modes -->
                     {#if viewMode === "split"}
                         <SideBySideDiff
-                            originalContent={mergeData.originalContent || ""}
-                            modifiedContent={mergeData.newContent || ""}
+                            originalContent={mergeData.base || ""}
+                            modifiedContent={mergeData.currentContent || ""}
                         />
                     {:else if viewMode === "inline"}
                         <InlineDiff
-                            originalContent={mergeData.originalContent || ""}
-                            modifiedContent={mergeData.newContent || ""}
+                            originalContent={mergeData.base || ""}
+                            modifiedContent={mergeData.currentContent || ""}
                         />
                     {:else if viewMode === "edit"}
                         <ThreeWayDiff
-                            originalContent={mergeData.originalContent || ""}
-                            newContent={mergeData.newContent || ""}
+                            originalContent={mergeData.base || ""}
+                            newContent={mergeData.currentContent || ""}
                             bind:currentContent={editContent}
                         />
                     {/if}

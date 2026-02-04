@@ -44,20 +44,22 @@ export const createGetLogseqDocumentTool = (context: {
                 if (match && match[1]) {
                     try {
                         const mergeData = JSON.parse(match[1]);
-                        if (mergeData && mergeData.newContent) {
+                        if (mergeData) {
+                            // Block body is now the working copy (LLM content)
+                            const cleanedBody = cleanBlockContent(block.content);
+
                             if (context.mergeBoth) {
-                                // Show BOTH original and proposed
-                                // Original is in the block body (reversed logic)
-                                // New content is in property
+                                // Show BOTH base and proposed
+                                // Base is in merge property, proposed is in block body
                                 return {
                                     ...block,
-                                    content: `[ORIGINAL]\n${cleanBlockContent(block.content)}\n[PROPOSED]\n${mergeData.newContent}`
+                                    content: `[BASE]\n${mergeData.base || ''}\n[PROPOSED]\n${cleanedBody}`
                                 };
                             } else if (context.mergeDefault) {
-                                // Show proposed content ONLY
+                                // Show proposed content ONLY (which is now the block body)
                                 return {
                                     ...block,
-                                    content: mergeData.newContent
+                                    content: cleanedBody
                                 };
                             }
                         }

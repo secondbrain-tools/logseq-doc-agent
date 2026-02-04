@@ -29,38 +29,34 @@ export const createUpdateBlockTool = (context: { merge: boolean }) => tool({
             let newContent = "";
 
             if (context.merge) {
-                // Optimistic Merge Logic (REVERSED):
-                // 1. Keep the original content in the block body.
-                // 2. Store the NEW proposed content in the 'logseq-doc-agent.merge' property.
-                // 3. This allows the user to see the original content and approve the merge.
+                // New Merge Logic:
+                // 1. Store the ORIGINAL content in 'base' (only if not already set)
+                // 2. Write the LLM content directly to the block body
+                // 3. This makes the block body the "working copy"
 
-                const originalBody = currentContent; // The current content is the original
-
-                // Create merge entity with new content as the proposal
-                const mergeData: MergeEntity = {
-                    type: 'update',
-                    newContent: sanitizeContent(content), // Sanitize output content
-                    originalContent: originalBody // The original content
-                };
-
-                // We need to update the block properties WITHOUT changing the content body.
-                // However, logseq.Editor.updateBlock replaces the entire content.
-                // So we need to construct the content with existing properties (if any) + merge property + original body.
-
-                // Note: The user request says "Write updated content into the merge property."
-
-                // Let's parse the existing content to separate properties and body
+                // Parse the existing content to separate properties and body
                 const lines = currentContent.split('\n');
                 const propertyLines: string[] = [];
                 let bodyLines: string[] = [];
                 let inProperties = true;
                 const propertyRegex = /^.+::/;
+                let existingMergeData: MergeEntity | null = null;
 
                 for (const line of lines) {
                     if (inProperties) {
                         if (propertyRegex.test(line)) {
-                            // Filter out OLD merge properties if any, to avoid duplicates
-                            if (!line.startsWith('logseq-doc-agent.merge::')) {
+                            // Check for existing merge property
+                            if (line.startsWith('logseq-doc-agent.merge::')) {
+                                try {
+                                    const match = line.match(/logseq-doc-agent\.merge::\s*(.+)/);
+                                    if (match && match[1]) {
+                                        existingMergeData = JSON.parse(match[1]);
+                                    }
+                                } catch (e) {
+                                    // Ignore parse errors
+                                }
+                                // Don't add old merge property to output
+                            } else {
                                 propertyLines.push(line);
                             }
                         } else {
@@ -72,20 +68,28 @@ export const createUpdateBlockTool = (context: { merge: boolean }) => tool({
                     }
                 }
 
+                // Determine the base content
+                // If base is already set from previous update, preserve it
+                // Otherwise, use the current body as base
+                const currentBody = bodyLines.join('\n');
+                const base = existingMergeData?.base || currentBody;
+
+                // Create merge entity with base only (no newContent)
+                const mergeData: MergeEntity = {
+                    type: 'update',
+                    base: base
+                };
+
                 // Add the new merge property
                 propertyLines.push(`logseq-doc-agent.merge:: ${JSON.stringify(mergeData)}`);
 
-                // Reconstruct the content
-                // Properties first, then body
+                // Reconstruct the content with LLM content as the body
+                const sanitizedLLMContent = sanitizeContent(content);
                 if (propertyLines.length > 0) {
-                    newContent = propertyLines.join('\n') + '\n' + bodyLines.join('\n');
+                    newContent = propertyLines.join('\n') + '\n' + sanitizedLLMContent;
                 } else {
-                    // Should not happen as we just added a property, but for safety
-                    newContent = bodyLines.join('\n');
+                    newContent = sanitizedLLMContent;
                 }
-
-                // Trim ? Maybe not, to preserve original formatting as much as possible.
-                // But generally properties are at the top.
 
             } else {
                 // Overwrite logic

@@ -1,8 +1,7 @@
 export interface MergeEntity {
     type?: 'add' | 'update' | 'delete' | 'move';
-    newContent?: string;
-    originalContent?: string;
-    currentContent?: string;
+    base?: string;            // Original content before LLM changes (preserved across updates)
+    currentContent?: string;  // Used by UI for user edits
     originalParentUuid?: string;
     originalPriorSiblingUuid?: string;
 }

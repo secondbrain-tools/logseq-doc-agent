@@ -74,4 +74,42 @@ export class MergeActionService {
             );
         }
     }
+
+    /**
+     * Quick accept: removes merge property from current block, keeping content as-is.
+     */
+    async quickAccept(uuid: string): Promise<void> {
+        console.log(`[MergeActionService] Quick accept for block: ${uuid}`);
+        await logseq.Editor.removeBlockProperty(uuid, "logseq-doc-agent.merge");
+    }
+
+    /**
+     * Quick accept with children: removes merge property from block and all descendants.
+     */
+    async quickAcceptWithChildren(uuid: string): Promise<void> {
+        console.log(`[MergeActionService] Quick accept with children for block: ${uuid}`);
+
+        const block = await logseq.Editor.getBlock(uuid, { includeChildren: true });
+        if (!block) {
+            console.warn(`[MergeActionService] Block not found: ${uuid}`);
+            return;
+        }
+
+        // Collect all UUIDs (current block + descendants)
+        const uuids: string[] = [];
+        const traverse = (b: any) => {
+            if (b.uuid) uuids.push(b.uuid);
+            if (b.children && Array.isArray(b.children)) {
+                for (const child of b.children) {
+                    traverse(child);
+                }
+            }
+        };
+        traverse(block);
+
+        console.log(`[MergeActionService] Removing merge property from ${uuids.length} blocks.`);
+        for (const u of uuids) {
+            await logseq.Editor.removeBlockProperty(u, "logseq-doc-agent.merge");
+        }
+    }
 }

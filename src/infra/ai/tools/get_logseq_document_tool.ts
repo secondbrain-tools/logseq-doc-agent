@@ -11,7 +11,10 @@ import {
 // Access the global logseq object
 const getLogseq = () => (window as any).logseq;
 
-export const getLogseqDocument = tool({
+export const createGetLogseqDocumentTool = (context: {
+    mergeDefault: boolean,
+    mergeBoth: boolean
+}) => tool({
     description: 'Returns the active page or block from Logseq with each outline entry prefixed by its hierarchy id (1, 1.1, 1.1.1, ...).',
     inputSchema: z.object({}),
     execute: async (_args: any) => {
@@ -25,33 +28,45 @@ export const getLogseqDocument = tool({
             return 'No document currently active.';
         }
 
-        // According to user request: "selection is current page from: logseq.Editor.getCurrentPage"
-        // And "return a list of the items" -> assuming we need to fetch blocks for the page.
-        // The user snippet uses `blocks: LogseqBlock[]` in buildDocumentResponse.
-
         let blocks: LogseqBlock[] = [];
         if (currentPage.uuid) {
-            // Fetch blocks for the page. 
-            // We usually receive a tree. We might need to flatten it or the user snippet expects a specific format.
-            // The user snippet 'buildOutlineAnnotations' (not provided in the prompt but implied) 
-            // and 'formatBlocks' iterate over annotations.
-
-            // Wait, the user provided: 
-            // function buildDocumentResponse(selection: LogseqSelection, blocks: LogseqBlock[])
-
-            // Checking the user snippet again... 
-            // "const annotations = buildOutlineAnnotations(blocks)" -> This function was NOT provided in the snippet.
-            // "const blockLines = formatBlocks(annotations)"
-
-            // I need to implement `buildOutlineAnnotations` or ask the user.
-            // Given the instruction "can you implement this and complete it ? ask for further information if required?",
-            // I should try to infer a sensible default or ask.
-            // "with each outline entry prefixed by its hierarchy id (1, 1.1, 1.1.1, …)."
-
-            // Let's implement a simple `buildOutlineAnnotations` that assigns hierarchy IDs if not present.
-            // Getting the page blocks:
+            // Get blocks tree
             const pageBlocksTree = await logseq.Editor.getPageBlocksTree(currentPage.uuid);
+            // Flatten blocks and assign hierarchy IDs
             blocks = flattenBlocks(pageBlocksTree);
+        }
+
+        // Apply Merge Logic if enabled
+        if (context.mergeDefault || context.mergeBoth) {
+            blocks = blocks.map(block => {
+                const content = block.content || '';
+                const match = content.match(/logseq-doc-agent\.merge::\s*(.+)/);
+                if (match && match[1]) {
+                    try {
+                        const mergeData = JSON.parse(match[1]);
+                        if (mergeData && mergeData.newContent) {
+                            if (context.mergeBoth) {
+                                // Show BOTH original and proposed
+                                // Original is in the block body (reversed logic)
+                                // New content is in property
+                                return {
+                                    ...block,
+                                    content: `[ORIGINAL]\n${cleanBlockContent(block.content)}\n[PROPOSED]\n${mergeData.newContent}`
+                                };
+                            } else if (context.mergeDefault) {
+                                // Show proposed content ONLY
+                                return {
+                                    ...block,
+                                    content: mergeData.newContent
+                                };
+                            }
+                        }
+                    } catch (e) {
+                        // Ignore parse errors, keep original
+                    }
+                }
+                return block;
+            });
         }
 
         return buildDocumentResponse(currentPage, blocks);
@@ -170,7 +185,12 @@ export function formatBlockLines(annotation: OutlineAnnotation) {
     const idLabel = getHierarchyLabel(block);
     const roleLabel = tag === 'chapter' ? 'Chapter ' : tag === 'section' ? 'Section ' : '';
 
-    const basePrefix = `[${roleLabel}${idLabel}]`;
+    let finalLabel = idLabel;
+    if (block.id !== undefined && !idLabel.includes(`id:${block.id}`)) {
+        finalLabel = `${idLabel} #${block.id}`;
+    }
+
+    const basePrefix = `[${roleLabel}${finalLabel}]`;
     const text = cleanBlockContent(block.content) || '(empty block)';
     const lines = text.split('\n');
     const formatted = lines.map((line, index) => {

@@ -1,4 +1,4 @@
-import { getLogseqDocument } from './get_logseq_document_tool';
+import { createGetLogseqDocumentTool } from './get_logseq_document_tool';
 import { createUpdateBlockTool } from './update_block_tool';
 import { createAddBlockTool } from './add_block_tool';
 import { createDeleteBlockTool } from './delete_block_tool';
@@ -9,8 +9,15 @@ export const READONLY_TOOLS = ['getLogseqDocument'] as const;
 export const WRITE_TOOLS = ['updateBlock', 'addBlock', 'deleteBlock', 'moveBlock'] as const;
 export const ALL_TOOL_NAMES = [...READONLY_TOOLS, ...WRITE_TOOLS] as const;
 
-export const createTools = (context: { merge: boolean }) => ({
-    getLogseqDocument,
+export const createTools = (context: {
+    merge: boolean,
+    mergeDefault: boolean,
+    mergeBoth: boolean
+}) => ({
+    getLogseqDocument: createGetLogseqDocumentTool({
+        mergeDefault: context.mergeDefault,
+        mergeBoth: context.mergeBoth
+    }),
     updateBlock: createUpdateBlockTool(context),
     addBlock: createAddBlockTool(context),
     deleteBlock: createDeleteBlockTool(context),

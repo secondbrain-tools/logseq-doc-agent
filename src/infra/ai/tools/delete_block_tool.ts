@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { tool } from 'ai';
 import type { MergeEntity } from '../../../domain/merge/entity';
 
+import { sanitizeBlockId } from './tool-utils';
+
 /**
  * Creates the deleteBlock tool with injected context.
  */
@@ -13,7 +15,10 @@ export const createDeleteBlockTool = (context: { merge: boolean }) => tool({
     }),
     execute: async ({ id }: { id: number | string }) => {
         try {
-            const block = await logseq.Editor.getBlock(id);
+            // Sanitize ID: handle '#123' format from prompt or stringified numbers
+            const cleanId = sanitizeBlockId(id);
+
+            const block = await logseq.Editor.getBlock(cleanId);
             if (!block || !block.uuid) {
                 return `Error: Block not found for ID ${id}`;
             }

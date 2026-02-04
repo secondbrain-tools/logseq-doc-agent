@@ -11,6 +11,7 @@ describe('Block Management Tools', () => {
     const mockRemoveBlock = vi.fn();
     const mockMoveBlock = vi.fn();
     const mockGetBlock = vi.fn();
+    const mockGetPage = vi.fn(); // NEW
     const mockUpdateBlock = vi.fn();
     const mockUpsertBlockProperty = vi.fn();
 
@@ -23,6 +24,7 @@ describe('Block Management Tools', () => {
                 removeBlock: mockRemoveBlock,
                 moveBlock: mockMoveBlock,
                 getBlock: mockGetBlock,
+                getPage: mockGetPage, // NEW
                 updateBlock: mockUpdateBlock,
                 upsertBlockProperty: mockUpsertBlockProperty,
             },
@@ -70,6 +72,28 @@ describe('Block Management Tools', () => {
                 {}
             );
         });
+        it('should handle targetId with # prefix in addBlock', async () => {
+            const tool = createAddBlockTool({ merge: false });
+            mockGetBlock.mockResolvedValue({ uuid: 'uuid-target' });
+            mockInsertBlock.mockResolvedValue({ uuid: 'uuid-new', id: 999 });
+
+            await (tool as any).execute({ targetId: '#123', content: 'New Block' });
+
+            expect(mockGetBlock).toHaveBeenCalledWith(123);
+        });
+
+        it('should fallback to getPage if getBlock fails', async () => {
+            const tool = createAddBlockTool({ merge: false });
+            mockGetBlock.mockResolvedValue(null); // Block not found
+            mockGetPage.mockResolvedValue({ uuid: 'uuid-page' }); // Page found
+            mockInsertBlock.mockResolvedValue({ uuid: 'uuid-new', id: 999 });
+
+            await (tool as any).execute({ targetId: 99, content: 'Page Block' });
+
+            expect(mockGetBlock).toHaveBeenCalledWith(99);
+            expect(mockGetPage).toHaveBeenCalledWith(99);
+            expect(mockInsertBlock).toHaveBeenCalledWith('uuid-page', 'Page Block', {});
+        });
     });
 
     describe('deleteBlock', () => {
@@ -80,6 +104,16 @@ describe('Block Management Tools', () => {
             await (tool as any).execute({ id: 10 });
 
             expect(mockGetBlock).toHaveBeenCalledWith(10);
+            expect(mockRemoveBlock).toHaveBeenCalledWith('uuid-target');
+        });
+
+        it('should handle ID with # prefix in deleteBlock', async () => {
+            const tool = createDeleteBlockTool({ merge: false });
+            mockGetBlock.mockResolvedValue({ uuid: 'uuid-target' });
+
+            await (tool as any).execute({ id: '#999' });
+
+            expect(mockGetBlock).toHaveBeenCalledWith(999);
             expect(mockRemoveBlock).toHaveBeenCalledWith('uuid-target');
         });
 
@@ -159,6 +193,26 @@ describe('Block Management Tools', () => {
             expect(mockUpdateBlock).toHaveBeenCalledWith('uuid-target', 'Updated Content');
         });
 
+        it('should handle ID with # prefix as number (merge=false)', async () => {
+            const tool = createUpdateBlockTool({ merge: false });
+            mockGetBlock.mockResolvedValue({ uuid: 'uuid-target-hash' });
+
+            await (tool as any).execute({ id: '#123', content: 'Updated Content' });
+
+            expect(mockGetBlock).toHaveBeenCalledWith(123);
+            expect(mockUpdateBlock).toHaveBeenCalledWith('uuid-target-hash', 'Updated Content');
+        });
+
+        it('should handle numeric string ID as number (merge=false)', async () => {
+            const tool = createUpdateBlockTool({ merge: false });
+            mockGetBlock.mockResolvedValue({ uuid: 'uuid-target-num-str' });
+
+            await (tool as any).execute({ id: '456', content: 'Updated Content' });
+
+            expect(mockGetBlock).toHaveBeenCalledWith(456);
+            expect(mockUpdateBlock).toHaveBeenCalledWith('uuid-target-num-str', 'Updated Content');
+        });
+
         it('should update block with merge property (merge=true)', async () => {
             const tool = createUpdateBlockTool({ merge: true });
             mockGetBlock.mockResolvedValue({ uuid: 'uuid-target', content: 'Old Content' });
@@ -176,6 +230,17 @@ describe('Block Management Tools', () => {
             expect(mockUpdateBlock).toHaveBeenCalledWith(
                 'uuid-target',
                 expect.stringContaining('Updated Content')
+            );
+        });
+        it('should sanitize content (replace - with +)', async () => {
+            const tool = createUpdateBlockTool({ merge: false });
+            mockGetBlock.mockResolvedValue({ uuid: 'uuid-target' });
+
+            await (tool as any).execute({ id: 10, content: '- List item\n  - Nested item' });
+
+            expect(mockUpdateBlock).toHaveBeenCalledWith(
+                'uuid-target',
+                '+ List item\n  + Nested item'
             );
         });
     });

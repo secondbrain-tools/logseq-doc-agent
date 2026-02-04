@@ -45,8 +45,8 @@ export class Services {
         this.logseqApi = new LogseqApiImpl();
         this.sidebarInjector = new FrontendSidebarInjector();
         this.toolbarInjector = new FrontendToolbarInjector();
-        const aiAdapter = new VercelAIAdapter();
         const settingsAdapter = new LogseqSettingsAdapter();
+        const aiAdapter = new VercelAIAdapter(settingsAdapter);
         this.promptRepo = new LogseqPromptRepository(this.logseqApi);
         this.miniModelRunner = new MiniModelRunner(aiAdapter, settingsAdapter);
 

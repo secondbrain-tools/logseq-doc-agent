@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { tool } from 'ai';
 import type { MergeEntity } from '../../../domain/merge/entity';
 
+import { sanitizeBlockId, sanitizeContent } from './tool-utils';
+
 /**
  * Creates the addBlock tool with injected context.
  */
@@ -15,12 +17,19 @@ export const createAddBlockTool = (context: { merge: boolean }) => tool({
     }),
     execute: async ({ targetId, content, anchor = 'parent' }: { targetId: number | string, content: string, anchor?: 'parent' | 'before' | 'after' }) => {
         try {
-            const targetBlock = await logseq.Editor.getBlock(targetId);
+            let cleanTargetId = sanitizeBlockId(targetId);
+
+            let targetBlock = await logseq.Editor.getBlock(cleanTargetId);
+            if (!targetBlock) {
+                // Fallback: Check if it's a page
+                const page = await logseq.Editor.getPage(cleanTargetId);
+                if (page) {
+                    targetBlock = page as any; // Treating page as block for uuid access
+                }
+            }
+
             if (!targetBlock || !targetBlock.uuid) {
-                // If it's a page, getBlock might return it, typically we check if it is a block or page
-                // But getBlock usually works for both IDs if pages are treated as blocks
-                // If fails, maybe try getPage? But user usually provides block ID.
-                return `Error: Could not find target with ID ${targetId}`;
+                return `Error: Could not find target block or page with ID ${targetId}`;
             }
             const targetUuid = targetBlock.uuid;
 
@@ -35,14 +44,15 @@ export const createAddBlockTool = (context: { merge: boolean }) => tool({
             }
             // else 'parent' -> defaults (child)
 
-            let finalContent = content;
+            let finalContent = sanitizeContent(content);
 
             if (context.merge) {
                 const mergeData: MergeEntity = {
                     type: 'add'
                 };
                 // Prepend merge property to the content
-                finalContent = `logseq-doc-agent.merge:: ${JSON.stringify(mergeData)}\n${content}`;
+                // finalContent is already sanitized above
+                finalContent = `logseq-doc-agent.merge:: ${JSON.stringify(mergeData)}\n${finalContent}`;
             }
 
             const newBlock = await logseq.Editor.insertBlock(targetUuid, finalContent, options);

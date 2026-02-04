@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { tool } from 'ai';
 import type { MergeEntity } from '../../../domain/merge/entity';
 
+import { sanitizeBlockId, sanitizeContent } from './tool-utils';
+
 /**
  * Creates the updateBlock tool with injected context.
  */
@@ -14,7 +16,10 @@ export const createUpdateBlockTool = (context: { merge: boolean }) => tool({
     }),
     execute: async ({ id, content }: { id: number | string, content: string }) => {
         try {
-            const block = await logseq.Editor.getBlock(id);
+            // Sanitize ID: handle '#123' format from prompt or stringified numbers
+            const cleanId = sanitizeBlockId(id);
+
+            const block = await logseq.Editor.getBlock(cleanId);
             if (!block || !block.uuid) {
                 return `Error: Block not found for ID ${id}`;
             }
@@ -24,59 +29,67 @@ export const createUpdateBlockTool = (context: { merge: boolean }) => tool({
             let newContent = "";
 
             if (context.merge) {
-                // Optimistic Merge Logic:
-                // 1. Parse current content to separate properties and body
-                // 2. Filter out old logseq-doc-agent properties to avoid accumulation
-                // 3. Backup original body content into 'logseq-doc-agent.merge' property
-                // 4. Overwrite block content with NEW content immediately
+                // Optimistic Merge Logic (REVERSED):
+                // 1. Keep the original content in the block body.
+                // 2. Store the NEW proposed content in the 'logseq-doc-agent.merge' property.
+                // 3. This allows the user to see the original content and approve the merge.
 
+                const originalBody = currentContent; // The current content is the original
+
+                // Create merge entity with new content as the proposal
+                const mergeData: MergeEntity = {
+                    type: 'update',
+                    newContent: sanitizeContent(content), // Sanitize output content
+                    originalContent: originalBody // The original content
+                };
+
+                // We need to update the block properties WITHOUT changing the content body.
+                // However, logseq.Editor.updateBlock replaces the entire content.
+                // So we need to construct the content with existing properties (if any) + merge property + original body.
+
+                // Note: The user request says "Write updated content into the merge property."
+
+                // Let's parse the existing content to separate properties and body
                 const lines = currentContent.split('\n');
-                const cleanLines: string[] = []; // This will be the original body
                 const propertyLines: string[] = [];
+                let bodyLines: string[] = [];
                 let inProperties = true;
                 const propertyRegex = /^.+::/;
 
                 for (const line of lines) {
                     if (inProperties) {
                         if (propertyRegex.test(line)) {
-                            // Filter out our own agent properties
-                            if (!line.startsWith('logseq-doc-agent.') && !line.startsWith('logseq_doc_agent.')) {
+                            // Filter out OLD merge properties if any, to avoid duplicates
+                            if (!line.startsWith('logseq-doc-agent.merge::')) {
                                 propertyLines.push(line);
                             }
                         } else {
-                            // End of properties
                             inProperties = false;
-                            cleanLines.push(line);
+                            bodyLines.push(line);
                         }
                     } else {
-                        cleanLines.push(line);
+                        bodyLines.push(line);
                     }
                 }
 
-                const originalBody = cleanLines.join('\n').trim();
-
-                // Create merge entity with original content as backup
-                const mergeData: MergeEntity = {
-                    type: 'update',
-                    newContent: content, // Storing new content for reference/diffing
-                    originalContent: originalBody
-                };
-
-                // Add the merge property
+                // Add the new merge property
                 propertyLines.push(`logseq-doc-agent.merge:: ${JSON.stringify(mergeData)}`);
 
-                // Construct final content: preserved properties + new merge property + NEW content body
+                // Reconstruct the content
+                // Properties first, then body
                 if (propertyLines.length > 0) {
-                    newContent = propertyLines.join('\n') + '\n' + content;
+                    newContent = propertyLines.join('\n') + '\n' + bodyLines.join('\n');
                 } else {
-                    newContent = `logseq-doc-agent.merge:: ${JSON.stringify(mergeData)}\n` + content;
+                    // Should not happen as we just added a property, but for safety
+                    newContent = bodyLines.join('\n');
                 }
-                // Trim extra newlines if needed
-                newContent = newContent.trim();
+
+                // Trim ? Maybe not, to preserve original formatting as much as possible.
+                // But generally properties are at the top.
 
             } else {
                 // Overwrite logic
-                newContent = content;
+                newContent = sanitizeContent(content);
             }
 
             await logseq.Editor.updateBlock(uuid, newContent);

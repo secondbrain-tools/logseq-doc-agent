@@ -232,6 +232,7 @@ export class AgentRunner {
             if (toolDef && toolDef.execute) {
                 try {
                     // Ensure args is defined object (check input first per recent detailed logs)
+                    console.log('[AgentRunner] Raw ToolCall object:', JSON.stringify(tc));
                     let args = tc.input || tc.args || {};
                     if (typeof args === 'string') {
                         try {
@@ -242,6 +243,7 @@ export class AgentRunner {
                         }
                     }
 
+                    console.log(`[AgentRunner] Executing tool ${toolName} with args:`, JSON.stringify(args));
                     const result = await toolDef.execute(args, { messages: currentMessages }); // Pass context if needed
                     resultString = typeof result === 'string' ? result : JSON.stringify(result);
                 } catch (err: any) {

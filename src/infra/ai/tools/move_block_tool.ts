@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { tool } from 'ai';
 import type { MergeEntity } from '../../../domain/merge/entity';
 
+import { sanitizeBlockId } from './tool-utils';
+
 /**
  * Creates the moveBlock tool with injected context.
  */
@@ -15,8 +17,11 @@ export const createMoveBlockTool = (context: { merge: boolean }) => tool({
     }),
     execute: async ({ id, targetId, anchor = 'parent' }: { id: number | string, targetId: number | string, anchor?: 'parent' | 'before' | 'after' }) => {
         try {
-            const block = await logseq.Editor.getBlock(id);
-            const targetBlock = await logseq.Editor.getBlock(targetId);
+            const cleanId = sanitizeBlockId(id);
+            const cleanTargetId = sanitizeBlockId(targetId);
+
+            const block = await logseq.Editor.getBlock(cleanId);
+            const targetBlock = await logseq.Editor.getBlock(cleanTargetId);
 
             if (!block || !block.uuid) return `Error: Could not find block ${id}`;
             if (!targetBlock || !targetBlock.uuid) return `Error: Could not find target ${targetId}`;

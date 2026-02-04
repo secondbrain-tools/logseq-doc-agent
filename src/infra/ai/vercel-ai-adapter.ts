@@ -7,11 +7,15 @@ import { mapMessages } from './message-mapper';
 import { ModelFactory } from './model-factory';
 import { AgentRunner } from './agent-runner';
 
+import type { ISettingsPort } from '../../application/ports/settings-port';
+
 export class VercelAIAdapter implements IAIService {
     private modelFactory: ModelFactory;
+    private settingsAdapter: ISettingsPort;
 
-    constructor() {
+    constructor(settingsAdapter: ISettingsPort) {
         this.modelFactory = new ModelFactory();
+        this.settingsAdapter = settingsAdapter;
     }
 
     async streamAgent(
@@ -68,8 +72,16 @@ export class VercelAIAdapter implements IAIService {
         // Use ModelConfig via configureModel to handle middleware and provider options
         const { model, options } = this.modelFactory.configureModel(modelId, providerId, reasoningEffort);
 
+        // Fetch Merge Settings
+        const mergeDefault = this.settingsAdapter.get<boolean>('get_merged_content_default', true);
+        const mergeBoth = this.settingsAdapter.get<boolean>('get_merged_content_both', false);
+
         // Create tools and filter based on agent context
-        let toolsMap: Record<string, any> = createTools({ merge });
+        let toolsMap: Record<string, any> = createTools({
+            merge,
+            mergeDefault,
+            mergeBoth
+        });
         if (agentContext && agentContext.allowedTools) {
             toolsMap = filterTools(toolsMap, agentContext.allowedTools);
             console.log('[VercelAIAdapter] Filtered tools to:', Object.keys(toolsMap));

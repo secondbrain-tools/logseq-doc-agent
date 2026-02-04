@@ -62,8 +62,8 @@ export const createDeleteBlockTool = (context: { merge: boolean }) => tool({
                 const body = cleanLines.join('\n');
 
                 const mergeData: MergeEntity = {
-                    type: 'delete',
-                    originalContent: body // Storing original content just in case
+                    type: 'delete'
+                    // originalContent removed as per user request (tag is sufficient)
                 };
 
                 propertyLines.push(`logseq-doc-agent.merge:: ${JSON.stringify(mergeData)}`);

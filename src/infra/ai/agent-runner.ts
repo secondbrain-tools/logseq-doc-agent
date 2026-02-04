@@ -145,12 +145,13 @@ export class AgentRunner {
         }
 
         if (result.toolCalls && result.toolCalls.length > 0) {
+            console.log('[AgentRunner] Blocking result toolCalls:', JSON.stringify(result.toolCalls));
             for (const tc of result.toolCalls) {
                 const toolCallChunk = {
                     type: 'tool-call',
                     toolCallId: tc.toolCallId,
                     toolName: tc.toolName,
-                    args: (tc as any).args
+                    args: (tc as any).args || (tc as any).input // Fix: Map input to args if args is missing
                 };
                 controller.enqueue(toolCallChunk);
                 accumulatedToolCalls.push(toolCallChunk);

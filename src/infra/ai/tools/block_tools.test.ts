@@ -127,7 +127,11 @@ describe('Block Management Tools', () => {
             // Should add merge property and keep content
             expect(mockUpdateBlock).toHaveBeenCalledWith(
                 'uuid-target',
-                expect.stringContaining('logseq-doc-agent.merge:: {"type":"delete","originalContent":"Existing Content"}')
+                expect.stringContaining('logseq-doc-agent.merge:: {"type":"delete"}')
+            );
+            expect(mockUpdateBlock).toHaveBeenCalledWith(
+                'uuid-target',
+                expect.not.stringContaining('originalContent')
             );
         });
     });

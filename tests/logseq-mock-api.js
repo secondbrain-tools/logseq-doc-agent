@@ -21,6 +21,42 @@ export const logseq = {
         }),
         registerUIItem: (location, config) => {
             console.log(`[MockLogseq] registerUIItem: ${location}`, config);
+
+            // Map Logseq locations to Simulator DOM IDs
+            let targetId = null;
+            if (location === 'pagebar') targetId = 'sim-pagebar';
+            else if (location === 'toolbar') targetId = 'sim-toolbar';
+
+            if (targetId) {
+                // Defer slightly to ensure DOM is ready? 
+                // Usually registerUIItem is called early. 
+                // Sim app might be mounted. Try immediate, if fails rely on retry or document check.
+                const tryInject = () => {
+                    const target = document.getElementById(targetId);
+                    if (target) {
+                        const temp = document.createElement('div');
+                        temp.innerHTML = config.template;
+                        const el = temp.firstElementChild;
+                        if (el) {
+                            // Remove existing by ID to avoid dupes
+                            const existing = document.getElementById(el.id);
+                            if (existing) existing.remove();
+
+                            target.appendChild(el);
+                            console.log(`[MockLogseq] Injected ${el.id} into ${targetId}`);
+                        }
+                    }
+                };
+
+                // If document is ready, try. If not, wait.
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', tryInject);
+                } else {
+                    tryInject();
+                    // Also retry a bit later for React/Preact mount
+                    setTimeout(tryInject, 500);
+                }
+            }
         },
         openRightSidebar: () => {
             console.log('[MockLogseq] openRightSidebar');
@@ -39,6 +75,9 @@ export const logseq = {
             if (logseq.App._routeChangedCallback) {
                 logseq.App._routeChangedCallback({ path, template: template || 'page' });
             }
+        },
+        registerCommandPalette: (config, callback) => {
+            console.log('[MockLogseq] registerCommandPalette registered:', config);
         }
     },
     Editor: {
@@ -204,7 +243,7 @@ export const logseq = {
         q: async (query) => {
             console.log(`[MockLogseq] DB.q query: ${query}`);
             // Simple mock: if query is (property :propname), filter blocks having that property
-            const propMatch = query.match(/\(property :([\w-]+)\)/);
+            const propMatch = query.match(/\(property :([\w-.]+)\)/);
             if (propMatch) {
                 const propName = propMatch[1];
                 const results = [];
@@ -229,6 +268,14 @@ export const logseq = {
             }
 
             return [];
+        },
+        onChanged: (callback) => {
+            console.log('[MockLogseq] DB.onChanged registered');
+            // We could potentially store the callback to trigger DB changes manually
+            // logseq.DB._onChangedCallback = callback;
+            return () => {
+                console.log('[MockLogseq] DB.onChanged unsubscribed');
+            };
         },
     },
     UI: {

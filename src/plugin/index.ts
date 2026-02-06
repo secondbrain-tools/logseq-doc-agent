@@ -95,6 +95,9 @@ export const setupPlugin = async () => {
         }
     );
 
+    // Register Merge Toolbar Pagebar Item (placeholder for dynamic content)
+    services.injectMergesUseCase.registerPagebarItem();
+
     // Register Command Palette & Hotkey for Opening Chat
     logseq.App.registerCommandPalette({
         key: 'open-chat-palette',
@@ -205,4 +208,11 @@ export const setupPlugin = async () => {
             injectComponents();
         },
     });
+
+    // Initial injection on startup (after DOM is ready)
+    console.log('[src/plugin/index.ts] Scheduling initial injection...');
+    setTimeout(() => {
+        console.log('[src/plugin/index.ts] Running initial injection');
+        injectComponents();
+    }, 500);
 };

@@ -65,9 +65,7 @@ export class LogseqChatlogRepository implements IChatlogRepository {
 
     /**
      * Save a new chatlog or update an existing one
-     * Pages are stored under: $storageRoot/chatlogs/[title]
-     * ID is stored as a property for lookup
-     * Messages are nested: each message is a child of the previous one
+     * Messages are stored as JSON in FileStorage, page contains metadata + clickable link
      */
     async saveChatlog(
         id: string,
@@ -80,58 +78,73 @@ export class LogseqChatlogRepository implements IChatlogRepository {
         let pageName = await this.findPageById(id);
         const desiredPageName = `${this.getChatlogsPath()}/${title}`;
 
+        // Save messages to JSON file using FileStorage
+        const jsonFilePath = `chatlogs/${id}.json`;
+        const jsonData = {
+            id,
+            title,
+            model,
+            provider,
+            messages,
+            updated: new Date().toISOString()
+        };
+
+        const storage = this.logseqApi.getPluginStorage?.();
+        if (storage) {
+            try {
+                await storage.setItem(jsonFilePath, JSON.stringify(jsonData, null, 2));
+                console.log(`[LogseqChatlogRepository] Saved chatlog JSON to ${jsonFilePath}`);
+            } catch (e) {
+                console.error('[LogseqChatlogRepository] Error saving JSON file:', e);
+            }
+        } else {
+            console.warn('[LogseqChatlogRepository] FileStorage not available, chatlog data will not be persisted to file');
+        }
+
+        // Create or update page with metadata and clickable link
         if (!pageName) {
-            console.log('[LogseqChatlogRepository] Creating new page for chatlog since pagename not existing', pageName);
-            // Create new page under title path
+            console.log('[LogseqChatlogRepository] Creating new page for chatlog');
             pageName = desiredPageName;
             await this.logseqApi.createPage(pageName, {
                 [CHATLOG_PROPERTIES.ID]: id
             }, { createFirstBlock: false, redirect: false });
         } else if (pageName !== desiredPageName) {
-            // Rename page if title has changed
             console.log(`[LogseqChatlogRepository] Renaming chatlog page from "${pageName}" to "${desiredPageName}"`);
             await this.logseqApi.renamePage(pageName, desiredPageName, { silent: true });
             pageName = desiredPageName;
         }
 
-        // Get existing blocks to determine what to append
+        // Update page properties
+        try {
+            await this.logseqApi.upsertPageProperty(pageName, CHATLOG_PROPERTIES.UPDATED, new Date().toISOString());
+            await this.logseqApi.upsertPageProperty(pageName, CHATLOG_PROPERTIES.MODEL, model);
+            await this.logseqApi.upsertPageProperty(pageName, CHATLOG_PROPERTIES.PROVIDER, provider);
+        } catch (e) {
+            console.error('[LogseqChatlogRepository] Error updating page properties:', e);
+        }
+
+        // Add/update the clickable link block (first block after properties)
         const existingBlocks = await this.logseqApi.getPageBlocksTree(pageName);
-        const existingMsgCount = this.countNestedBlocks(existingBlocks);
+        const linkContent = `📁 [[../assets/storages/logseq-doc-agent/${jsonFilePath}][View chatlog data (${messages.length} messages)]]`;
 
-        // Only append new messages
-        const newMessages = messages.slice(existingMsgCount);
-
-        // Find deepest block to append as child (or use page if no blocks)
-        let parentBlockUuid: string | null = this.findDeepestBlockUuid(existingBlocks);
-
-        for (const msg of newMessages) {
-            const blockContent = this.formatMessageBlock(msg, model);
-
-            if (parentBlockUuid) {
-                // Insert as child of previous block
-                const newBlock = await this.logseqApi.insertBlock(parentBlockUuid, blockContent, { sibling: false });
-                if (newBlock?.uuid) {
-                    parentBlockUuid = newBlock.uuid;
-                }
-            } else {
-                // First block - append to page
-                const newBlock = await this.logseqApi.appendBlockInPage(pageName, blockContent);
-                if (newBlock?.uuid) {
-                    parentBlockUuid = newBlock.uuid;
-                }
+        // Find or create a block with the link 
+        let linkBlockExists = false;
+        for (const block of existingBlocks) {
+            if (block.content?.includes('View chatlog data') || block.content?.includes('📁')) {
+                await this.logseqApi.updateBlock(block.uuid, linkContent);
+                linkBlockExists = true;
+                break;
             }
         }
 
-        // Update the updated timestamp property on the page
-        try {
-            await this.logseqApi.upsertPageProperty(pageName, CHATLOG_PROPERTIES.UPDATED, new Date().toISOString());
-        } catch (e) {
-            console.error('[LogseqChatlogRepository] Error updating timestamp:', e);
+        if (!linkBlockExists) {
+            await this.logseqApi.appendBlockInPage(pageName, linkContent);
         }
     }
 
     /**
      * Load a chatlog by ID
+     * Loads messages from JSON file, with fallback to block parsing for legacy chatlogs
      */
     async loadChatlog(id: string): Promise<ChatlogEntry | null> {
         const pageName = await this.findPageById(id);
@@ -144,9 +157,6 @@ export class LogseqChatlogRepository implements IChatlogRepository {
         if (!page) {
             return null;
         }
-
-        const blocks = await this.logseqApi.getPageBlocksTree(pageName);
-        const messages = this.parseBlocksToMessages(blocks);
 
         // Extract title from page name (remove the chatlogs/ prefix)
         const chatlogsPath = this.getChatlogsPath();
@@ -161,6 +171,31 @@ export class LogseqChatlogRepository implements IChatlogRepository {
         };
 
         const props = page.properties || {};
+
+        // Try to load from JSON file first
+        let messages: Message[] = [];
+        const jsonFilePath = `chatlogs/${id}.json`;
+        const storage = this.logseqApi.getPluginStorage?.();
+
+        if (storage) {
+            try {
+                const jsonContent = await storage.getItem(jsonFilePath);
+                if (jsonContent) {
+                    const jsonData = JSON.parse(jsonContent);
+                    messages = jsonData.messages || [];
+                    console.log(`[LogseqChatlogRepository] Loaded ${messages.length} messages from JSON file`);
+                }
+            } catch (e) {
+                console.error('[LogseqChatlogRepository] Error loading JSON file:', e);
+            }
+        }
+
+        // Fallback to block parsing if no JSON file found (legacy chatlogs)
+        if (messages.length === 0) {
+            console.log('[LogseqChatlogRepository] Falling back to block parsing for legacy chatlog');
+            const blocks = await this.logseqApi.getPageBlocksTree(pageName);
+            messages = this.parseBlocksToMessages(blocks);
+        }
 
         const metadata: ChatlogMetadata = {
             id,

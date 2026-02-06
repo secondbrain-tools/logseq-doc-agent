@@ -423,7 +423,7 @@ export class ChatSidebarUseCase {
                         this.appendPartText(currentParts, 'reasoning', reasoningDelta);
                     }
 
-                    // Update the store
+                    // Update the messages store with new content
                     this.updateMessages(msgs => msgs.map(m => m.id === aiMsgId ? {
                         ...m,
                         content: currentText, // Keep simple content synced for legacy/simple views

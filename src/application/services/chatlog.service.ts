@@ -173,7 +173,13 @@ export class ChatlogService {
      * Load a chatlog by ID
      */
     async loadChatlog(id: string): Promise<ChatlogEntry | null> {
-        return this.repository.loadChatlog(id);
+        const entry = await this.repository.loadChatlog(id);
+        if (entry) {
+            // Cache the existing title so we don't regenerate it on next save
+            const state = this.getSaveState(id);
+            state.cachedTitle = entry.metadata.title;
+        }
+        return entry;
     }
 
     /**

@@ -395,11 +395,48 @@
 
     async function copySelectionToClipboard() {
         if (!contextMenu.selectedText) return;
+
+        // Ensure window has focus for clipboard access
+        try {
+            window.focus();
+        } catch (e) {
+            console.warn("Failed to focus window for clipboard copy:", e);
+        }
+
         try {
             await navigator.clipboard.writeText(contextMenu.selectedText);
             console.log("Selection copied to clipboard");
         } catch (err) {
-            console.error("Failed to copy selection:", err);
+            console.warn("Clipboard API failed, trying fallback:", err);
+            copyToClipboardFallback(contextMenu.selectedText);
+        }
+    }
+
+    // Fallback for when Clipboard API fails (common in iframes/extensions)
+    function copyToClipboardFallback(text: string) {
+        try {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+
+            // Ensure it's not visible but part of DOM
+            textArea.style.position = "fixed";
+            textArea.style.left = "-9999px";
+            textArea.style.top = "0";
+            document.body.appendChild(textArea);
+
+            textArea.focus();
+            textArea.select();
+
+            const successful = document.execCommand("copy");
+            document.body.removeChild(textArea);
+
+            if (successful) {
+                console.log("Copied to clipboard via fallback");
+            } else {
+                console.error("Fallback copy failed");
+            }
+        } catch (err) {
+            console.error("Fallback copy error:", err);
         }
     }
 
@@ -425,12 +462,20 @@
             }
         }
 
+        // Ensure window has focus for clipboard access
+        try {
+            window.focus();
+        } catch (e) {
+            console.warn("Failed to focus window for clipboard copy:", e);
+        }
+
         try {
             await navigator.clipboard.writeText(textToCopy);
             console.log("Copied to clipboard");
             // Ideally assume toast notification elsewhere or simple log
         } catch (err) {
-            console.error("Failed to copy:", err);
+            console.warn("Clipboard API failed, trying fallback:", err);
+            copyToClipboardFallback(textToCopy);
         }
     }
 

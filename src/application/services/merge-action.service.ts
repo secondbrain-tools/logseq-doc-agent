@@ -107,7 +107,7 @@ export class MergeActionService {
         };
         traverse(block);
 
-        console.log(`[MergeActionService] Removing merge property from ${uuids.length} blocks.`);
+
         for (const u of uuids) {
             await logseq.Editor.removeBlockProperty(u, "logseq-doc-agent.merge");
         }

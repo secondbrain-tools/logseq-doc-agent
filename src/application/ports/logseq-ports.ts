@@ -4,6 +4,18 @@
 
 import type { BlockEntity } from "@logseq/libs/dist/LSPlugin.user";
 
+/**
+ * Async storage interface for plugin file storage
+ */
+export interface IAsyncStorage {
+  getItem(key: string): Promise<string | undefined>;
+  setItem(key: string, value: string): Promise<void>;
+  removeItem(key: string): Promise<void>;
+  hasItem(key: string): Promise<boolean>;
+  allKeys(): Promise<Array<string>>;
+  clear(): Promise<void>;
+}
+
 export interface LogseqApi {
   getCurrentGraph(): Promise<any>;
   getCurrentPage(): Promise<any>;
@@ -15,6 +27,7 @@ export interface LogseqApi {
   renamePage(oldName: string, newName: string, options?: { silent?: boolean }): Promise<any>;
   deletePage(name: string): Promise<void>;
   deleteBlock(uuid: string): Promise<void>;
+  updateBlock(uuid: string, content: string): Promise<BlockEntity | null>;
   upsertPageProperty(pageName: string, key: string, value: string): Promise<void>;
   upsertBlockProperty(uuid: string, key: string, value: string): Promise<void>;
   getPageBlocksTree(pageName: string): Promise<BlockEntity[]>;
@@ -33,4 +46,8 @@ export interface LogseqApi {
     getBlockPropertyContent(uuid: string, propertyName: string): Promise<string | null>;
     getBlockText(uuid: string): Promise<string>;
   };
+  /**
+   * Get plugin file storage for saving/loading attachment files
+   */
+  getPluginStorage?(): IAsyncStorage | null;
 }

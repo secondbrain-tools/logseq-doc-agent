@@ -3,9 +3,10 @@ import { createUpdateBlockTool } from './update_block_tool';
 import { createAddBlockTool } from './add_block_tool';
 import { createDeleteBlockTool } from './delete_block_tool';
 import { createMoveBlockTool } from './move_block_tool';
+import { createGetBlockTool } from './get_block_tool';
 
 /** Tool categories for agent filtering */
-export const READONLY_TOOLS = ['getLogseqDocument'] as const;
+export const READONLY_TOOLS = ['getLogseqDocument', 'getBlock'] as const;
 export const WRITE_TOOLS = ['updateBlock', 'addBlock', 'deleteBlock', 'moveBlock'] as const;
 export const ALL_TOOL_NAMES = [...READONLY_TOOLS, ...WRITE_TOOLS] as const;
 
@@ -15,6 +16,10 @@ export const createTools = (context: {
     mergeBoth: boolean
 }) => ({
     getLogseqDocument: createGetLogseqDocumentTool({
+        mergeDefault: context.mergeDefault,
+        mergeBoth: context.mergeBoth
+    }),
+    getBlock: createGetBlockTool({
         mergeDefault: context.mergeDefault,
         mergeBoth: context.mergeBoth
     }),

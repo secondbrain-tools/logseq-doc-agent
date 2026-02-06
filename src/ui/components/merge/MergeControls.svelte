@@ -118,6 +118,10 @@
         try {
             const withChildren = e.shiftKey || e.ctrlKey || e.metaKey;
 
+            console.log(
+                `[MergeControls] Quick Accept Click. Modifiers: Shift=${e.shiftKey}, Ctrl=${e.ctrlKey}, Meta=${e.metaKey}. WithChildren=${withChildren}`,
+            );
+
             if (withChildren) {
                 console.log("[MergeControls] Quick accept WITH children");
                 await mergeActionService.quickAcceptWithChildren(blockUuid);

@@ -3,7 +3,7 @@
  */
 
 import type { BlockEntity } from '@logseq/libs/dist/LSPlugin.user';
-import type { LogseqApi } from '../../application/ports/logseq-ports';
+import type { LogseqApi, IAsyncStorage } from '../../application/ports/logseq-ports';
 import '@logseq/libs';
 
 /**
@@ -16,6 +16,27 @@ export class LogseqApiImpl implements LogseqApi {
 
     // @ts-ignore - logseq is a global object provided by Logseq
     this.api = (window as any).logseq;
+  }
+
+  /**
+   * Get plugin file storage for saving/loading attachment files
+   * Uses logseq.FileStorage which is an LSPluginFileStorage instance
+   */
+  getPluginStorage(): IAsyncStorage | null {
+    try {
+      // logseq.FileStorage is already an LSPluginFileStorage instance
+      const storage = this.api.FileStorage;
+      if (storage) {
+        console.log('[LogseqApiImpl] Using logseq.FileStorage');
+        return storage as IAsyncStorage;
+      } else {
+        console.warn('[LogseqApiImpl] logseq.FileStorage not available');
+        return null;
+      }
+    } catch (e) {
+      console.error('[LogseqApiImpl] Error accessing FileStorage:', e);
+      return null;
+    }
   }
 
   async getCurrentGraph(): Promise<any> {
@@ -71,6 +92,10 @@ export class LogseqApiImpl implements LogseqApi {
 
   async deleteBlock(uuid: string): Promise<void> {
     return this.api.Editor.removeBlock(uuid);
+  }
+
+  async updateBlock(uuid: string, content: string): Promise<BlockEntity | null> {
+    return this.api.Editor.updateBlock(uuid, content);
   }
 
   async upsertPageProperty(pageName: string, key: string, value: string): Promise<void> {

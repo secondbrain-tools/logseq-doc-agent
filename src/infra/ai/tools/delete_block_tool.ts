@@ -37,49 +37,25 @@ export const createDeleteBlockTool = (context: { merge: boolean }) => tool({
                 // similar to updateBlock but we don't need to stash "originalContent" 
                 // because we aren't changing the body, just adding a tag.
 
-                const lines = currentContent.split('\n');
-                const cleanLines: string[] = []; // Body
-                const propertyLines: string[] = [];
-                let inProperties = true;
-                const propertyRegex = /^.+::/;
-
-                for (const line of lines) {
-                    if (inProperties) {
-                        if (propertyRegex.test(line)) {
-                            // Filter out existing merge prop
-                            if (!line.startsWith('logseq-doc-agent.merge')) {
-                                propertyLines.push(line);
-                            }
-                        } else {
-                            inProperties = false;
-                            cleanLines.push(line);
-                        }
-                    } else {
-                        cleanLines.push(line);
-                    }
-                }
-
-                const body = cleanLines.join('\n');
+                // We actually don't need to do any parsing if we use upsertBlockProperty
+                // The content remains the same (effectively), we just add the property.
 
                 const mergeData: MergeEntity = {
                     type: 'delete'
                     // originalContent removed as per user request (tag is sufficient)
                 };
 
-                propertyLines.push(`logseq-doc-agent.merge:: ${JSON.stringify(mergeData)}`);
-
-                let newContent = propertyLines.join('\n');
-                if (body) {
-                    newContent += '\n' + body;
-                }
-
-                await logseq.Editor.updateBlock(uuid, newContent);
-                return `Marked block ${id} for deletion.`;
+                await logseq.Editor.upsertBlockProperty(uuid, 'logseq-doc-agent.merge', JSON.stringify(mergeData));
+                return `Marked block ${id} for deletion "${currentContent.substring(0, 50)}..."`;
 
             } else {
                 // Hard delete
+                // Fetch content before deleting for the result summary
+                const freshBlock = await logseq.Editor.getBlock(uuid);
+                const currentContent = freshBlock?.content || "";
+
                 await logseq.Editor.removeBlock(uuid);
-                return `Deleted block ${id}.`;
+                return `Deleted block ${id} "${currentContent.substring(0, 50)}..."`;
             }
 
         } catch (e) {

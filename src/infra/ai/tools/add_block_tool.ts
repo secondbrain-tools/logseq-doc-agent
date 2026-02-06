@@ -50,12 +50,20 @@ export const createAddBlockTool = (context: { merge: boolean }) => tool({
                 const mergeData: MergeEntity = {
                     type: 'add'
                 };
-                // Prepend merge property to the content
-                // finalContent is already sanitized above
-                finalContent = `logseq-doc-agent.merge:: ${JSON.stringify(mergeData)}\n${finalContent}`;
+                // Just use the content as is, we will add the property after insertion
             }
 
             const newBlock = await logseq.Editor.insertBlock(targetUuid, finalContent, options);
+
+            if (newBlock && context.merge) {
+                // insertBlock may not return uuid immediately in some versions, but usually does.
+                // If newBlock is the block entity
+                const blockUuid = newBlock.uuid;
+                if (blockUuid) {
+                    const mergeData: MergeEntity = { type: 'add' };
+                    await logseq.Editor.upsertBlockProperty(blockUuid, 'logseq-doc-agent.merge', JSON.stringify(mergeData));
+                }
+            }
 
             if (!newBlock) {
                 return `Error: Failed to insert block at ${targetId}`;

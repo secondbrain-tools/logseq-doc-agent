@@ -50,4 +50,9 @@ export interface LogseqApi {
    * Get plugin file storage for saving/loading attachment files
    */
   getPluginStorage?(): IAsyncStorage | null;
+
+  /**
+   * Get graph-specific file storage (usually in assets or logseq/storages of current graph)
+   */
+  getGraphStorage?(): IAsyncStorage | null;
 }

@@ -68,8 +68,13 @@ describe('Block Management Tools', () => {
 
             expect(mockInsertBlock).toHaveBeenCalledWith(
                 'uuid-target',
-                expect.stringContaining('logseq-doc-agent.merge:: {"type":"add"}'),
+                'New Block',
                 {}
+            );
+            expect(mockUpsertBlockProperty).toHaveBeenCalledWith(
+                'uuid-new',
+                'logseq-doc-agent.merge',
+                expect.stringContaining('{"type":"add"}')
             );
         });
         it('should handle targetId with # prefix in addBlock', async () => {
@@ -125,14 +130,14 @@ describe('Block Management Tools', () => {
             await (tool as any).execute({ id: 10 });
 
             // Should add merge property and keep content
-            expect(mockUpdateBlock).toHaveBeenCalledWith(
+            // Should add merge property via upsertBlockProperty
+            expect(mockUpsertBlockProperty).toHaveBeenCalledWith(
                 'uuid-target',
-                expect.stringContaining('logseq-doc-agent.merge:: {"type":"delete"}')
+                'logseq-doc-agent.merge',
+                expect.stringContaining('{"type":"delete"}')
             );
-            expect(mockUpdateBlock).toHaveBeenCalledWith(
-                'uuid-target',
-                expect.not.stringContaining('originalContent')
-            );
+            // updateBlock should NOT be called for delete (unless we decide to modify content, which we don't for now)
+            expect(mockUpdateBlock).not.toHaveBeenCalled();
         });
     });
 
@@ -172,16 +177,19 @@ describe('Block Management Tools', () => {
             expect(mockMoveBlock).toHaveBeenCalledWith('uuid-source', 'uuid-target', { children: true });
 
             // 2. Update with history
-            expect(mockUpdateBlock).toHaveBeenCalledWith(
+            expect(mockUpsertBlockProperty).toHaveBeenCalledWith(
                 'uuid-source',
+                'logseq-doc-agent.merge',
                 expect.stringContaining('"type":"move"')
             );
-            expect(mockUpdateBlock).toHaveBeenCalledWith(
+            expect(mockUpsertBlockProperty).toHaveBeenCalledWith(
                 'uuid-source',
+                'logseq-doc-agent.merge',
                 expect.stringContaining('"originalParentUuid":"uuid-parent"')
             );
-            expect(mockUpdateBlock).toHaveBeenCalledWith(
+            expect(mockUpsertBlockProperty).toHaveBeenCalledWith(
                 'uuid-source',
+                'logseq-doc-agent.merge',
                 expect.stringContaining('"originalPriorSiblingUuid":"uuid-sibling"')
             );
         });
@@ -223,16 +231,23 @@ describe('Block Management Tools', () => {
 
             await (tool as any).execute({ id: 10, content: 'Updated Content' });
 
-            expect(mockUpdateBlock).toHaveBeenCalledWith(
+            expect(mockUpsertBlockProperty).toHaveBeenCalledWith(
                 'uuid-target',
+                'logseq-doc-agent.merge',
                 expect.stringContaining('"type":"update"')
             );
             // base should contain the original content
-            expect(mockUpdateBlock).toHaveBeenCalledWith(
+            expect(mockUpsertBlockProperty).toHaveBeenCalledWith(
                 'uuid-target',
+                'logseq-doc-agent.merge',
                 expect.stringContaining('"base":"Old Content"')
             );
-            // LLM content should be in block body (after properties)
+
+            // updateBlock should be called with just the new content
+            expect(mockUpdateBlock).toHaveBeenCalledWith(
+                'uuid-target',
+                expect.not.stringContaining('logseq-doc-agent.merge::')
+            );
             expect(mockUpdateBlock).toHaveBeenCalledWith(
                 'uuid-target',
                 expect.stringContaining('Updated Content')

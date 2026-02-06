@@ -17,7 +17,8 @@ export interface IAIService {
         providerId: string,
         merge?: boolean,
         reasoningEffort?: 'none' | 'low' | 'medium' | 'high',
-        agentContext?: AgentContext
+        agentContext?: AgentContext,
+        signal?: AbortSignal
     ): Promise<ReadableStream<any>>;
 
     /**

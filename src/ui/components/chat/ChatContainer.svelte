@@ -13,6 +13,8 @@
         isMergeOn?: Writable<boolean>;
         focusSignal?: Writable<number>;
         expandSignal?: Writable<number>;
+        showContinueButton?: Writable<boolean>;
+        onContinue?: () => void;
         onSendMessage: (
             text: string,
             modelId: string,
@@ -28,6 +30,7 @@
         onLoadChatlog?: (id: string) => void;
         onListChatlogs?: () => Promise<ChatlogMetadata[]>;
         onDeleteChatlog?: (id: string) => void;
+        onStop?: () => void;
     }
 
     let props: Props = $props();

@@ -36,11 +36,11 @@ export const createUpdateBlockTool = (context: { merge: boolean }) => tool({
 
                 // Parse the existing content to separate properties and body
                 const lines = currentContent.split('\n');
-                const propertyLines: string[] = [];
                 let bodyLines: string[] = [];
                 let inProperties = true;
                 const propertyRegex = /^.+::/;
                 let existingMergeData: MergeEntity | null = null;
+                const existingProperties: string[] = [];
 
                 for (const line of lines) {
                     if (inProperties) {
@@ -55,9 +55,8 @@ export const createUpdateBlockTool = (context: { merge: boolean }) => tool({
                                 } catch (e) {
                                     // Ignore parse errors
                                 }
-                                // Don't add old merge property to output
                             } else {
-                                propertyLines.push(line);
+                                existingProperties.push(line);
                             }
                         } else {
                             inProperties = false;
@@ -80,23 +79,22 @@ export const createUpdateBlockTool = (context: { merge: boolean }) => tool({
                     base: base
                 };
 
-                // Add the new merge property
-                propertyLines.push(`logseq-doc-agent.merge:: ${JSON.stringify(mergeData)}`);
-
-                // Reconstruct the content with LLM content as the body
+                // Reconstruct the content with LLM content as the body + existing properties
                 const sanitizedLLMContent = sanitizeContent(content);
-                if (propertyLines.length > 0) {
-                    newContent = propertyLines.join('\n') + '\n' + sanitizedLLMContent;
+                if (existingProperties.length > 0) {
+                    newContent = existingProperties.join('\n') + '\n' + sanitizedLLMContent;
                 } else {
                     newContent = sanitizedLLMContent;
                 }
 
+                await logseq.Editor.updateBlock(uuid, newContent);
+                await logseq.Editor.upsertBlockProperty(uuid, 'logseq-doc-agent.merge', JSON.stringify(mergeData));
+
             } else {
                 // Overwrite logic
                 newContent = sanitizeContent(content);
+                await logseq.Editor.updateBlock(uuid, newContent);
             }
-
-            await logseq.Editor.updateBlock(uuid, newContent);
             return `Successfully updated block ${id}.`;
 
         } catch (e) {

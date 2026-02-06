@@ -44,6 +44,7 @@ describe('LogseqChatlogRepository - JSON File Storage', () => {
 
         // Add mock storage to API
         (mockApi as any).getPluginStorage = () => mockStorage;
+        (mockApi as any).getGraphStorage = () => mockStorage;
 
         repo = new LogseqChatlogRepository(mockApi, () => 'test-storage');
 
@@ -120,6 +121,7 @@ describe('LogseqChatlogRepository - JSON File Storage', () => {
         it('should still work when FileStorage is not available', async () => {
             // Remove storage
             (mockApi as any).getPluginStorage = () => null;
+            (mockApi as any).getGraphStorage = () => null;
 
             const messages: Message[] = [
                 { id: '1', role: 'user', content: 'Hello' }

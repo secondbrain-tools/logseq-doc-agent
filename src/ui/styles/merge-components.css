@@ -71,3 +71,20 @@
     border-radius: 4px;
     transition: background-color 0.3s ease;
 }
+
+/* Specific styles for merge types */
+.lda-merge-type-add {
+    background-color: rgba(46, 204, 113, 0.1) !important;
+    border-left: 3px solid #2ecc71;
+}
+
+.lda-merge-type-delete {
+    background-color: rgba(231, 76, 60, 0.1) !important;
+    border-left: 3px solid #e74c3c;
+    opacity: 0.8;
+}
+
+.lda-merge-type-delete .block-content {
+    text-decoration: line-through;
+    color: var(--ls-secondary-text-color);
+}

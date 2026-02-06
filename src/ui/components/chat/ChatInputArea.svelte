@@ -33,6 +33,7 @@
         onToggleContext: (id: string) => void;
         onModelChange: (modelId: string, providerId: string) => void;
         onAgentChange: (agentName: string) => void;
+        onStop?: () => void;
     }
 
     let {
@@ -54,6 +55,7 @@
         onToggleContext,
         onModelChange,
         onAgentChange,
+        onStop,
     }: Props = $props();
 
     // --- Local State ---
@@ -490,29 +492,53 @@
 
         <div class="lda-spacer"></div>
 
-        <!-- Send Button -->
-        <button
-            class="lda-btn-primary"
-            onclick={onSendMessage}
-            title="Send"
-            disabled={!inputText.trim()}
-            style={!inputText.trim() ? "opacity: 0.5; cursor: default;" : ""}
-        >
-            <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="15"
-                height="15"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
+        <!-- Send / Stop Button -->
+        {#if isLoading}
+            <button
+                class="lda-btn-primary lda-stop-btn"
+                onclick={onStop}
+                title="Stop Generation"
             >
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-                <polyline points="12 5 19 12 12 19"></polyline>
-            </svg>
-        </button>
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="15"
+                    height="15"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <rect x="6" y="6" width="12" height="12" rx="2" ry="2" />
+                </svg>
+            </button>
+        {:else}
+            <button
+                class="lda-btn-primary"
+                onclick={onSendMessage}
+                title="Send"
+                disabled={!inputText.trim()}
+                style={!inputText.trim()
+                    ? "opacity: 0.5; cursor: default;"
+                    : ""}
+            >
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="15"
+                    height="15"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                    <polyline points="12 5 19 12 12 19"></polyline>
+                </svg>
+            </button>
+        {/if}
     </div>
 </div>
 
@@ -742,5 +768,14 @@
     .lda-expanded-footer {
         display: flex;
         justify-content: flex-end;
+    }
+
+    .lda-stop-btn {
+        background-color: var(--ls-error-text-color, #ff4d4f);
+        border-color: var(--ls-error-text-color, #ff4d4f);
+        color: white;
+    }
+    .lda-stop-btn:hover {
+        opacity: 0.9;
     }
 </style>

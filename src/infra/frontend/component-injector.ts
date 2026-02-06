@@ -155,7 +155,30 @@ export class FrontendComponentInjector implements ComponentInjector {
     });
 
     console.log(`Found ${matchingElements.length} elements with property: ${property}`);
+    console.log(`Found ${matchingElements.length} elements with property: ${property}`);
     return matchingElements;
+  }
+
+  findBlockElements(uuids: string[]): HTMLElement[] {
+    const mainDocument = this.getMainDocument();
+    if (!mainDocument) {
+      console.error('Cannot access document');
+      return [];
+    }
+
+    const elements: HTMLElement[] = [];
+    console.log(`[ComponentInjector] Looking up ${uuids.length} blocks by UUID directly.`);
+
+    uuids.forEach(uuid => {
+      // Logseq's DOM uses blockid attribute on divs
+      const el = mainDocument.querySelector(`div[blockid="${uuid}"]`);
+      if (el) {
+        elements.push(el as HTMLElement);
+      }
+    });
+
+    console.log(`[ComponentInjector] Found ${elements.length} matching DOM elements.`);
+    return elements;
   }
 
   getBlockIdFromElement(element: HTMLElement): string | null {

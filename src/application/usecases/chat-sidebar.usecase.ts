@@ -18,6 +18,7 @@ export class ChatSidebarUseCase {
     public messages: Writable<Message[]> = writable([]);
     public isMergeOn: Writable<boolean> = writable(true);
     private isLoading: Writable<boolean> = writable(false);
+    private abortController: AbortController | null = null;
 
     // Chatlog state
     public currentChatlogId: Writable<string | null> = writable(null);
@@ -30,6 +31,8 @@ export class ChatSidebarUseCase {
     // Agent state
     public agents: Writable<AgentDefinition[]> = writable([]);
     public selectedAgent: Writable<string> = writable('');
+    public showContinueButton: Writable<boolean> = writable(false);
+    private lastReasoningEffort: 'none' | 'low' | 'medium' | 'high' | undefined;
 
     constructor(
         private sidebarInjector: SidebarInjector,
@@ -75,6 +78,15 @@ export class ChatSidebarUseCase {
     public focusSignal: Writable<number> = writable(0);
     // Signal for expand/collapse input request
     public expandSignal: Writable<number> = writable(0);
+
+    stopGeneration() {
+        if (this.abortController) {
+            console.log('[ChatSidebarUseCase] Stopping generation...');
+            this.abortController.abort();
+            this.abortController = null;
+            this.isLoading.set(false);
+        }
+    }
 
 
 
@@ -129,7 +141,10 @@ export class ChatSidebarUseCase {
 
             focusSignal: this.focusSignal,
             expandSignal: this.expandSignal,
+            showContinueButton: this.showContinueButton,
+            onContinue: () => this.continueGeneration(),
             onSendMessage: (text: string, modelId: string, providerId: string, merge: boolean, reasoningEffort?: 'none' | 'low' | 'medium' | 'high', agentName?: string, contextItems?: any[]) => this.handleUserMessage(text, modelId, providerId, merge, reasoningEffort, agentName, contextItems),
+            onStop: () => this.stopGeneration(),
             onClose: () => {
                 this.isChatOpen = false;
             },
@@ -174,7 +189,10 @@ export class ChatSidebarUseCase {
 
             focusSignal: this.focusSignal,
             expandSignal: this.expandSignal,
+            showContinueButton: this.showContinueButton,
+            onContinue: () => this.continueGeneration(),
             onSendMessage: (text: string, modelId: string, providerId: string, merge: boolean, reasoningEffort?: 'none' | 'low' | 'medium' | 'high', agentName?: string, contextItems?: any[]) => this.handleUserMessage(text, modelId, providerId, merge, reasoningEffort, agentName, contextItems),
+            onStop: () => this.stopGeneration(),
             onClose: () => {
                 this.isChatOpen = false;
             },
@@ -208,6 +226,7 @@ export class ChatSidebarUseCase {
         this.currentChatlogId.set(null);
         // Don't show default greeting - agent prompt provides context
         this.messages.set([]);
+        this.showContinueButton.set(false);
         this.isLoading.set(false);
         // Reload agents in case new ones were added
         this.loadAgents();
@@ -231,6 +250,7 @@ export class ChatSidebarUseCase {
             if (entry) {
                 this.currentChatlogId.set(id);
                 this.messages.set(entry.messages);
+                this.showContinueButton.set(false);
                 this.currentModel = entry.metadata.model || '';
                 this.currentProvider = entry.metadata.provider || '';
                 // Reload agents when loading chatlog
@@ -303,6 +323,12 @@ export class ChatSidebarUseCase {
     }
 
     private async handleUserMessage(text: string, modelId: string, providerId: string, merge: boolean, reasoningEffort?: 'none' | 'low' | 'medium' | 'high', agentName?: string, contextItems?: ContextItem[]) {
+        // Reset continue button when user types
+        this.showContinueButton.set(false);
+        this.lastReasoningEffort = reasoningEffort;
+        this.currentModel = modelId;
+        this.currentProvider = providerId;
+
         // 0. Inject Context
         const parts: any[] = [];
 
@@ -322,15 +348,10 @@ export class ChatSidebarUseCase {
                 }
             } catch (err) {
                 console.error("Failed to fetch context", err);
-                // proceed without context or maybe alert? proceeding for now.
             }
         }
 
         // 1. Add User Message
-        // We use fullText for content if there are no parts, but here we want to separate them.
-        // The user input 'text' goes to 'content'.
-
-        // If we have context parts, we MUST add the text as a content part too
         if (parts.length > 0) {
             parts.unshift({
                 type: "content",
@@ -344,6 +365,18 @@ export class ChatSidebarUseCase {
             parts: parts.length > 0 ? parts : undefined
         }]);
 
+        await this.executeAgentStream(modelId, providerId, merge, reasoningEffort, agentName);
+    }
+
+    public async continueGeneration() {
+        this.showContinueButton.set(false);
+        const merge = get(this.isMergeOn);
+        const agentName = get(this.selectedAgent);
+
+        await this.executeAgentStream(this.currentModel, this.currentProvider, merge, this.lastReasoningEffort, agentName);
+    }
+
+    private async executeAgentStream(modelId: string, providerId: string, merge: boolean, reasoningEffort?: 'none' | 'low' | 'medium' | 'high', agentName?: string) {
         // 2. Start Loading
         this.isLoading.set(true);
 
@@ -367,7 +400,10 @@ export class ChatSidebarUseCase {
             // Build agent context if agent is selected
             const agentContext = this.buildAgentContext(agentName);
 
-            const stream = await this.aiService.streamAgent(currentMessages, modelId, providerId, merge, reasoningEffort, agentContext);
+            // Init AbortController
+            this.abortController = new AbortController();
+
+            const stream = await this.aiService.streamAgent(currentMessages, modelId, providerId, merge, reasoningEffort, agentContext, this.abortController.signal);
 
             let currentText = "";
             let currentParts: any[] = [];
@@ -407,7 +443,7 @@ export class ChatSidebarUseCase {
                         });
 
                     } else if (partType === 'reasoning' || partType === 'reasoning-delta') {
-                        console.log(`[ChatSidebar] ${partType} chunk:`, chunk); // DEBUG LOG
+                        // console.log(`[ChatSidebar] ${partType} chunk:`, chunk); // DEBUG LOG
 
                         let reasoningDelta = "";
                         if (partType === 'reasoning') {
@@ -415,12 +451,13 @@ export class ChatSidebarUseCase {
                         } else {
                             // reasoning-delta fallback
                             reasoningDelta = (chunk as any).textDelta || (chunk as any).text || "";
-                            if (!reasoningDelta && (chunk as any).textDelta === undefined && (chunk as any).text === undefined) {
-                                console.warn('[ChatSidebar] Received reasoning-delta without textDelta or text', chunk);
-                            }
                         }
 
                         this.appendPartText(currentParts, 'reasoning', reasoningDelta);
+                    } else if (partType === 'control') {
+                        if ((chunk as any).value === 'max_cycles_reached') {
+                            this.showContinueButton.set(true);
+                        }
                     }
 
                     // Update the messages store with new content
@@ -431,18 +468,28 @@ export class ChatSidebarUseCase {
                     } : m));
                 }
             } catch (streamError) {
-                console.error('[ChatSidebar] Error consuming stream:', streamError);
-                throw streamError;
+                if ((streamError as any).name === 'AbortError') {
+                    console.log('[ChatSidebar] Stream aborted by user');
+                    // Add an indicator that it was stopped? Optional.
+                } else {
+                    console.error('[ChatSidebar] Error consuming stream:', streamError);
+                    throw streamError;
+                }
             }
 
         } catch (error) {
-            console.error('[ChatSidebar] Error getting AI response:', error);
-            this.updateMessages(msgs => msgs.map(m => m.id === aiMsgId ? {
-                ...m,
-                content: `**Error:** Failed to get response. ${(error as any).message || error}`
-            } : m));
+            if ((error as any).name === 'AbortError') {
+                console.log('[ChatSidebar] Generation aborted (catch block)');
+            } else {
+                console.error('[ChatSidebar] Error getting AI response:', error);
+                this.updateMessages(msgs => msgs.map(m => m.id === aiMsgId ? {
+                    ...m,
+                    content: `**Error:** Failed to get response. ${(error as any).message || error}`
+                } : m));
+            }
         } finally {
             this.isLoading.set(false);
+            this.abortController = null;
             // Auto-save chatlog after response
             this.requestSave(modelId, providerId);
         }

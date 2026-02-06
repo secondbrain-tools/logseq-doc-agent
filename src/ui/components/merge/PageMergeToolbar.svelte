@@ -9,52 +9,62 @@
     const mergeActionService = new MergeActionService();
 
     function toggleMenu(event: MouseEvent) {
-        console.log(
-            "[PageMergeToolbar] Toggle menu clicked. Current state:",
-            isOpen,
-        );
         if (!isOpen) {
-            // Calculate position for fixed popover to avoid overflow clipping
             const button = event.currentTarget as HTMLElement;
             const rect = button.getBoundingClientRect();
-            console.log("[PageMergeToolbar] Button rect:", rect);
+            const doc = button.ownerDocument || document;
 
-            // Perform calculation in Parent Window context
-            const win = button.ownerDocument?.defaultView || window;
-            const winWidth = win.innerWidth;
-            const clientWidth = win.document.documentElement.clientWidth;
+            // Find #main-content-container to anchor the menu relative to its right edge
+            const mainContainer = doc.getElementById("main-content-container");
+            const rightSidebar = doc.getElementById("right-sidebar"); // Check for right sidebar
 
-            console.log(
-                `[PageMergeToolbar] Debug: WinWidth=${winWidth} ClientWidth=${clientWidth} Rect: L=${rect.left} R=${rect.right}`,
-            );
+            let referenceRightEnd = 0;
 
-            // Strategy: Align Right Edge of Menu with Right Edge of Button
-            // (Standard for right-aligned toolbar)
-            const menuWidth = 200;
-            let leftPos = rect.right - menuWidth;
-
-            // Check if this puts it off-screen to the left or right?
-            // "Too wide on left" -> maybe it was sticking out too much?
-
-            // Safety Clamp using clientWidth (viewport without scrollbar)
-            const edge = clientWidth || winWidth;
-
-            // If rect.right is larger than edge (e.g. button is under scrollbar?), clamp it
-            if (leftPos + menuWidth > edge) {
-                leftPos = edge - menuWidth - 5;
+            if (mainContainer) {
+                const containerRect = mainContainer.getBoundingClientRect();
+                console.log(
+                    "[PageMergeToolbar] MainContainer Rect:",
+                    containerRect,
+                );
+                referenceRightEnd = containerRect.right;
+            } else {
+                referenceRightEnd = rect.right; // Fallback to button
             }
-            if (leftPos < 5) leftPos = 5;
 
-            // Use fixed positioning with explicit left/top
-            popupStyle = `top: ${rect.bottom + 6}px; left: ${leftPos}px; width: ${menuWidth}px;`;
+            // If right sidebar is open and overlaps/bounds the content?
+            if (rightSidebar) {
+                const rsRect = rightSidebar.getBoundingClientRect();
+                if (rsRect.width > 0 && rsRect.left < referenceRightEnd) {
+                    console.log(
+                        "[PageMergeToolbar] Right Sidebar detected at:",
+                        rsRect.left,
+                    );
+                    // If sidebar interacts with main container space, use its left edge as limit
+                    referenceRightEnd = rsRect.left;
+                }
+            }
+
+            // Switch to RIGHT positioning to support flexible menu width
+            // Right Gap = Window Width - Reference Right End + Padding
+            const win = doc.defaultView || window;
+            const winWidth = win.innerWidth;
+
+            // Gap from window right edge to our anchor point
+            // We want the menu's right edge to be at `referenceRightEnd - 10px`
+            // So `right` style value = winWidth - (referenceRightEnd - 10)
+            // = winWidth - referenceRightEnd + 10
+
+            let rightPos = winWidth - referenceRightEnd + 10;
+            if (rightPos < 10) rightPos = 10; // Safety clamp (don't stick off right screen)
 
             console.log(
-                "[PageMergeToolbar] Calculated popup style (Adaptive):",
-                popupStyle,
+                `[PageMergeToolbar] Calculated Right: ${rightPos} (RefRight: ${referenceRightEnd})`,
             );
+
+            popupStyle = `top: ${rect.bottom + 6}px; right: ${rightPos}px; left: auto;`;
+            console.log("[PageMergeToolbar] Final Style:", popupStyle);
         }
         isOpen = !isOpen;
-        console.log("[PageMergeToolbar] New state:", isOpen);
     }
 
     async function refreshInjection() {
@@ -165,33 +175,33 @@
         {/if}
     </button>
 
-    <!-- Dropdown / Second Row -->
+    <!-- Dropdown / Horizontal Popover -->
     {#if isOpen}
-        <div class="lda-page-merge-toolbar-popover" style={popupStyle}>
-            <div class="toolbar-header">
-                <span class="merge-count-label">{mergeCount} changes</span>
-                <button
-                    class="close-btn"
-                    onclick={() => (isOpen = false)}
-                    title="Close">×</button
-                >
-            </div>
-            <div class="toolbar-actions">
-                <button
-                    class="lda-toolbar-btn accept-all"
-                    onclick={handleAcceptAll}
-                    title="Accept all merge changes on this page"
-                >
-                    ✓ Accept All
-                </button>
-                <button
-                    class="lda-toolbar-btn revert-all"
-                    onclick={handleRevertAll}
-                    title="Revert all merge changes on this page"
-                >
-                    ✗ Revert All
-                </button>
-            </div>
+        <div
+            class="lda-page-merge-toolbar-popover horizontal-layout"
+            style={popupStyle}
+        >
+            <span class="merge-count-label"><b>{mergeCount}</b> changes</span>
+            <div class="sep"></div>
+            <button
+                class="lda-toolbar-btn accept-all compact"
+                onclick={handleAcceptAll}
+                title="Accept All"
+            >
+                ✓ Accept
+            </button>
+            <button
+                class="lda-toolbar-btn revert-all compact"
+                onclick={handleRevertAll}
+                title="Revert All"
+            >
+                ✗ Revert
+            </button>
+            <button
+                class="close-btn-compact"
+                onclick={() => (isOpen = false)}
+                title="Close">×</button
+            >
         </div>
     {/if}
 </div>
@@ -201,9 +211,6 @@
         display: inline-flex;
         align-items: center;
         align-self: center;
-        /* Aggressive vertical alignment fix */
-        margin-top: -5px;
-        height: 24px;
         vertical-align: middle;
     }
 
@@ -247,75 +254,52 @@
         text-align: center;
     }
 
-    /* Fixed Popover to escape toolbar overflow:hidden */
+    /* Horizontal Popover Style */
     .lda-page-merge-toolbar-popover {
         position: fixed;
-        width: 200px;
+        /* Width is auto now, governed by content but approx matched by JS */
+        min-width: 250px;
         background: var(--ls-primary-background-color, #fff);
         border: 1px solid var(--ls-border-color, #ddd);
         border-radius: 6px;
         box-shadow:
             0 10px 15px -3px rgba(0, 0, 0, 0.1),
             0 4px 6px -2px rgba(0, 0, 0, 0.05);
-        padding: 10px;
+        padding: 6px 10px;
         display: flex;
-        flex-direction: column;
-        gap: 10px;
-        cursor: default;
-        z-index: 99999; /* Ensure on top of everything */
-        /* Font scaling reset */
-        font-size: 0.9rem;
-        line-height: 1.4;
-    }
-
-    .toolbar-header {
-        display: flex;
-        justify-content: space-between;
+        flex-direction: row;
         align-items: center;
-        border-bottom: 1px solid var(--ls-border-color, #eee);
-        padding-bottom: 6px;
-    }
-
-    .close-btn {
-        background: none;
-        border: none;
-        cursor: pointer;
-        font-size: 1.4em;
-        line-height: 1;
-        color: var(--ls-secondary-text-color, #888);
-        padding: 0 4px;
-        margin-right: -4px;
-    }
-
-    .close-btn:hover {
-        color: var(--ls-primary-text-color, #333);
-    }
-
-    .toolbar-actions {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
+        gap: 8px;
+        cursor: default;
+        z-index: 99999;
+        font-size: 0.85rem;
+        white-space: nowrap;
     }
 
     .merge-count-label {
         color: var(--ls-secondary-text-color, #666);
         font-weight: 500;
-        font-size: 0.9em;
+    }
+
+    .sep {
+        width: 1px;
+        height: 16px;
+        background: var(--ls-border-color, #eee);
+        margin: 0 2px;
     }
 
     .lda-toolbar-btn {
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 6px;
-        padding: 6px 12px;
+        gap: 4px;
+        padding: 4px 8px;
         border: none;
         border-radius: 4px;
         font-size: 0.9em;
-        font-weight: 500;
+        font-weight: 600;
         cursor: pointer;
         transition: all 0.15s ease;
-        width: 100%;
         color: white;
     }
 
@@ -333,5 +317,19 @@
 
     .revert-all:hover {
         background: #dc2626;
+    }
+
+    .close-btn-compact {
+        background: none;
+        border: none;
+        color: var(--ls-secondary-text-color, #999);
+        font-size: 1.2em;
+        cursor: pointer;
+        margin-left: auto; /* Push to right? Or just end */
+        padding: 0 4px;
+        line-height: 1;
+    }
+    .close-btn-compact:hover {
+        color: var(--ls-primary-text-color);
     }
 </style>

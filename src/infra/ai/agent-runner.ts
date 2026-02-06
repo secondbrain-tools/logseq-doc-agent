@@ -6,7 +6,7 @@ import { streamText, generateText } from 'ai';
  * tool execution, and message history management.
  */
 export class AgentRunner {
-    private readonly MAX_LOOPS = 5;
+    private maxLoops: number;
 
     constructor(
         private model: any,
@@ -14,7 +14,11 @@ export class AgentRunner {
         private messages: any[],
         private disableStreaming: boolean,
         private options: any = {}
-    ) { }
+    ) {
+        // Use maxLoops from options if provided, otherwise default to 10 (or previously 5)
+        // Ensure it's at least 1
+        this.maxLoops = Math.max(1, options.maxLoops || 10);
+    }
 
     /**
      * Starts the agent execution loop and returns a readable stream of events.
@@ -38,7 +42,8 @@ export class AgentRunner {
      * @param loopCount - The current iteration of the loop (to prevent infinite loops).
      */
     private async runLoop(controller: ReadableStreamDefaultController, currentMessages: any[], loopCount: number) {
-        if (loopCount >= this.MAX_LOOPS) {
+        if (loopCount >= this.maxLoops) {
+            controller.enqueue({ type: 'control', value: 'max_cycles_reached' });
             controller.close();
             return;
         }

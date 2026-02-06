@@ -43,13 +43,24 @@
             targetElement = blockDiv.querySelector(".block-main-container");
             if (targetElement) {
                 targetElement.classList.add("lda-merge-highlight");
+
+                // Add type-specific classes
+                if (mergeData.type === "add") {
+                    targetElement.classList.add("lda-merge-type-add");
+                } else if (mergeData.type === "delete") {
+                    targetElement.classList.add("lda-merge-type-delete");
+                }
             }
         }
     });
 
     onDestroy(() => {
         if (targetElement) {
-            targetElement.classList.remove("lda-merge-highlight");
+            targetElement.classList.remove(
+                "lda-merge-highlight",
+                "lda-merge-type-add",
+                "lda-merge-type-delete",
+            );
         }
     });
 
@@ -60,7 +71,11 @@
         }>,
     ) {
         if (targetElement) {
-            targetElement.classList.remove("lda-merge-highlight");
+            targetElement.classList.remove(
+                "lda-merge-highlight",
+                "lda-merge-type-add",
+                "lda-merge-type-delete",
+            );
         }
         showDiffModal = false;
         try {
@@ -68,6 +83,16 @@
                 "[MergeControls] Accepting merge for block:",
                 blockUuid,
             );
+
+            // Handle DELETE type specially for Modal Accept as well
+            if (mergeData.type === "delete") {
+                console.log(
+                    "[MergeControls] Handling DELETE acceptance (via Modal)",
+                );
+                await mergeActionService.acceptDelete(blockUuid);
+                await refreshInjection();
+                return;
+            }
 
             // Fetch settings for patterns - need them for save as well
             const settings = (logseq.settings as any) || {};
@@ -112,10 +137,22 @@
         e.preventDefault();
 
         if (targetElement) {
-            targetElement.classList.remove("lda-merge-highlight");
+            targetElement.classList.remove(
+                "lda-merge-highlight",
+                "lda-merge-type-add",
+                "lda-merge-type-delete",
+            );
         }
 
         try {
+            // Handle DELETE type specially
+            if (mergeData.type === "delete") {
+                console.log("[MergeControls] Handling DELETE acceptance");
+                await mergeActionService.acceptDelete(blockUuid);
+                await refreshInjection();
+                return;
+            }
+
             const withChildren = e.shiftKey || e.ctrlKey || e.metaKey;
 
             console.log(
@@ -142,7 +179,11 @@
 
     async function handleRevert() {
         if (targetElement) {
-            targetElement.classList.remove("lda-merge-highlight");
+            targetElement.classList.remove(
+                "lda-merge-highlight",
+                "lda-merge-type-add",
+                "lda-merge-type-delete",
+            );
         }
         showDiffModal = false;
         try {
@@ -202,7 +243,12 @@
 
                 if (mergeData) {
                     // Update currentContent reference for UI
-                    mergeData.currentContent = cleanContent;
+                    // For DELETE, the proposed content is empty (removal), regardless of what's currently in the block
+                    if (mergeData.type === "delete") {
+                        mergeData.currentContent = "";
+                    } else {
+                        mergeData.currentContent = cleanContent;
+                    }
 
                     // Filter base content (original content before LLM changes)
                     if (mergeData.base) {

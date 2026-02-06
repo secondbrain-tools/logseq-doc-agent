@@ -84,6 +84,15 @@ export class MergeActionService {
     }
 
     /**
+     * Accepts a delete merge by removing the block.
+     * With children? Usually delete removes the tree.
+     */
+    async acceptDelete(uuid: string): Promise<void> {
+        console.log(`[MergeActionService] Accepting DELETE for block: ${uuid}`);
+        await logseq.Editor.removeBlock(uuid);
+    }
+
+    /**
      * Quick accept with children: removes merge property from block and all descendants.
      */
     async quickAcceptWithChildren(uuid: string): Promise<void> {

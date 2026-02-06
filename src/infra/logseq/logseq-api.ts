@@ -39,6 +39,25 @@ export class LogseqApiImpl implements LogseqApi {
     }
   }
 
+  /**
+   * Get graph-specific file storage
+   * Uses logseq.Assets.makeSandboxStorage() to ensure files are stored in the current graph
+   */
+  getGraphStorage(): IAsyncStorage | null {
+    try {
+      if (this.api.Assets && this.api.Assets.makeSandboxStorage) {
+        console.log('[LogseqApiImpl] Using logseq.Assets.makeSandboxStorage');
+        return this.api.Assets.makeSandboxStorage();
+      } else {
+        console.warn('[LogseqApiImpl] logseq.Assets.makeSandboxStorage not available');
+        return this.getPluginStorage(); // Fallback to FileStorage
+      }
+    } catch (e) {
+      console.error('[LogseqApiImpl] Error accessing Assets.makeSandboxStorage:', e);
+      return null;
+    }
+  }
+
   async getCurrentGraph(): Promise<any> {
     return this.api.App.getCurrentGraph();
   }

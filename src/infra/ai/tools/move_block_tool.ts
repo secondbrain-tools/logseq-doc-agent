@@ -62,30 +62,7 @@ export const createMoveBlockTool = (context: { merge: boolean }) => tool({
 
             if (context.merge) {
                 // Post-move: Update block with history
-                const currentContent = block.content || "";
-
-                // Standard property filtering
-                const lines = currentContent.split('\n');
-                const cleanLines: string[] = [];
-                const propertyLines: string[] = [];
-                let inProperties = true;
-                const propertyRegex = /^.+::/;
-
-                for (const line of lines) {
-                    if (inProperties) {
-                        if (propertyRegex.test(line)) {
-                            if (!line.startsWith('logseq-doc-agent.merge')) {
-                                propertyLines.push(line);
-                            }
-                        } else {
-                            inProperties = false;
-                            cleanLines.push(line);
-                        }
-                    } else {
-                        cleanLines.push(line);
-                    }
-                }
-                const body = cleanLines.join('\n');
+                // We don't need to touch content, just add the property
 
                 const mergeData: MergeEntity = {
                     type: 'move',
@@ -93,15 +70,14 @@ export const createMoveBlockTool = (context: { merge: boolean }) => tool({
                     originalPriorSiblingUuid
                 };
 
-                propertyLines.push(`logseq-doc-agent.merge:: ${JSON.stringify(mergeData)}`);
-
-                let newContent = propertyLines.join('\n');
-                if (body) newContent += '\n' + body;
-
-                await logseq.Editor.updateBlock(uuid, newContent);
+                await logseq.Editor.upsertBlockProperty(uuid, 'logseq-doc-agent.merge', JSON.stringify(mergeData));
             }
 
-            return `Successfully moved block ${id} ${anchor} ${targetId}.`;
+            // Fetch block content for summary
+            const movedBlock = await logseq.Editor.getBlock(uuid);
+            const content = movedBlock?.content || "";
+
+            return `Moved block ${id} "${content.substring(0, 50)}..." ${anchor} ${targetId}.`;
 
         } catch (e) {
             console.error('[MoveBlockTool] Error:', e);

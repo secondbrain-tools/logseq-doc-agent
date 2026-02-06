@@ -263,6 +263,23 @@ export const configureSettings = () => {
         enumChoices: ['none', 'low', 'medium', 'high'],
     });
 
+    // 2.5 Agent Configuration
+    settings.push({
+        key: 'heading_agent_config',
+        type: 'heading',
+        title: 'Agent Configuration',
+        description: '',
+        default: null
+    });
+
+    settings.push({
+        key: 'maxAgentCycles',
+        type: 'number',
+        title: 'Max Agent Cycles',
+        description: 'Maximum number of autonomous cycles (tool calls -> output -> continue) the agent can perform per request. Default: 10',
+        default: 10,
+    });
+
     // 3. Storage Settings
     settings.push({
         key: 'heading_storage',

@@ -30,6 +30,8 @@
         selectedAgent?: Writable<string>;
         focusSignal?: Writable<number>;
         expandSignal?: Writable<number>;
+        showContinueButton?: Writable<boolean>;
+        onContinue?: () => void;
         onSendMessage: (
             text: string,
             modelId: string,
@@ -45,6 +47,7 @@
         onLoadChatlog?: (id: string) => void;
         onListChatlogs?: () => Promise<ChatlogMetadata[]>;
         onDeleteChatlog?: (id: string) => void;
+        onStop?: () => void;
     }
 
     let {
@@ -56,11 +59,14 @@
         selectedAgent,
         focusSignal,
         expandSignal,
+        showContinueButton,
+        onContinue,
         onSendMessage,
         onNewChat,
         onLoadChatlog,
         onListChatlogs,
         onDeleteChatlog,
+        onStop,
     }: Props = $props();
 
     // --- Context ---
@@ -535,7 +541,60 @@
         }
     });
 
-    // --- Settings ---
+    // --- Merging Consecutive Tool Messages ---
+    let groupedMessages = $derived.by(() => {
+        const msgs = $messages;
+        if (!msgs || msgs.length === 0) return [];
+
+        const result: Message[] = [];
+        let current: Message | null = null;
+
+        // Helper to check if message relies on parts for its content
+        const isToolMsg = (m: Message) =>
+            m.parts &&
+            m.parts.some(
+                (p) => p.type === "tool_call" || p.type === "tool_result",
+            );
+
+        for (const msg of msgs) {
+            if (!current) {
+                current = {
+                    ...msg,
+                    parts: msg.parts ? [...msg.parts] : undefined,
+                };
+                continue;
+            }
+
+            // Check if 'current' is a merge candidate (Assistant with tools)
+            const currentIsMergeTarget =
+                current.role === "assistant" && isToolMsg(current);
+
+            if (currentIsMergeTarget) {
+                if (msg.role === "tool") {
+                    // Merge Tool Result into Assistant
+                    const currentParts = current.parts || [];
+                    const nextParts = msg.parts || [];
+                    current.parts = [...currentParts, ...nextParts];
+                    continue;
+                } else if (msg.role === "assistant" && isToolMsg(msg)) {
+                    // Merge consecutive Assistant Tool Calls
+                    const currentParts = current.parts || [];
+                    const nextParts = msg.parts || [];
+                    current.parts = [...currentParts, ...nextParts];
+                    continue;
+                }
+            }
+
+            // No merge
+            result.push(current);
+            current = { ...msg, parts: msg.parts ? [...msg.parts] : undefined };
+        }
+        if (current) result.push(current);
+        return result;
+    });
+
+    let displayMessages = $derived(groupedMessages);
+
     // --- Settings ---
     let maximizedWidth = $derived(
         $settingsStore?.maximizedChatWidth || "900px",
@@ -558,7 +617,7 @@
     <div bind:this={messageContainer} class="lda-chat-messages">
         <!-- Inner wrapper for content constraint & border application -->
         <div class="lda-messages-inner">
-            {#each $messages as msg, mIndex (msg.id)}
+            {#each displayMessages as msg, mIndex (msg.id)}
                 <MessageBubble
                     {msg}
                     onToggleCollapse={(pIndex) =>
@@ -566,6 +625,32 @@
                     onContextMenu={(e, m) => handleContextMenu(e, m)}
                 />
             {/each}
+
+            {#if showContinueButton && $showContinueButton}
+                <div class="flex justify-center p-2 animate-fade-in">
+                    <button
+                        class="px-3 py-1 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-md shadow-sm transition-colors flex items-center gap-2"
+                        onclick={onContinue}
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="w-4 h-4"
+                            viewBox="0 0 24 24"
+                            stroke-width="2"
+                            stroke="currentColor"
+                            fill="none"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            ><path
+                                stroke="none"
+                                d="M0 0h24v24H0z"
+                                fill="none"
+                            /><path d="M7 7v10l10 -5z" /></svg
+                        >
+                        Continue generating
+                    </button>
+                </div>
+            {/if}
 
             {#if $isLoading}
                 <div
@@ -601,6 +686,7 @@
             onAgentChange={(name) => {
                 if ($selectedAgent !== undefined) $selectedAgent = name;
             }}
+            {onStop}
         />
     </div>
 

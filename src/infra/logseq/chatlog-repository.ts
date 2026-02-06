@@ -78,7 +78,8 @@ export class LogseqChatlogRepository implements IChatlogRepository {
         let pageName = await this.findPageById(id);
         const desiredPageName = `${this.getChatlogsPath()}/${title}`;
 
-        // Save messages to JSON file using FileStorage
+        // Save messages to JSON file
+        // Prefer graph-specific storage (Assets), fallback to global plugin storage
         const jsonFilePath = `chatlogs/${id}.json`;
         const jsonData = {
             id,
@@ -89,7 +90,8 @@ export class LogseqChatlogRepository implements IChatlogRepository {
             updated: new Date().toISOString()
         };
 
-        const storage = this.logseqApi.getPluginStorage?.();
+        const storage = this.logseqApi.getGraphStorage?.() || this.logseqApi.getPluginStorage?.();
+
         if (storage) {
             try {
                 await storage.setItem(jsonFilePath, JSON.stringify(jsonData, null, 2));
@@ -98,7 +100,7 @@ export class LogseqChatlogRepository implements IChatlogRepository {
                 console.error('[LogseqChatlogRepository] Error saving JSON file:', e);
             }
         } else {
-            console.warn('[LogseqChatlogRepository] FileStorage not available, chatlog data will not be persisted to file');
+            console.warn('[LogseqChatlogRepository] Storage not available, chatlog data will not be persisted to file');
         }
 
         // Create or update page with metadata and clickable link
@@ -175,15 +177,19 @@ export class LogseqChatlogRepository implements IChatlogRepository {
         // Try to load from JSON file first
         let messages: Message[] = [];
         const jsonFilePath = `chatlogs/${id}.json`;
-        const storage = this.logseqApi.getPluginStorage?.();
 
-        if (storage) {
+        // Try graph storage first, then plugin storage
+        const storages = [this.logseqApi.getGraphStorage?.(), this.logseqApi.getPluginStorage?.()].filter(Boolean);
+
+        for (const storage of storages) {
+            if (!storage) continue;
             try {
                 const jsonContent = await storage.getItem(jsonFilePath);
                 if (jsonContent) {
                     const jsonData = JSON.parse(jsonContent);
                     messages = jsonData.messages || [];
                     console.log(`[LogseqChatlogRepository] Loaded ${messages.length} messages from JSON file`);
+                    break; // Found it, stop searching
                 }
             } catch (e) {
                 console.error('[LogseqChatlogRepository] Error loading JSON file:', e);

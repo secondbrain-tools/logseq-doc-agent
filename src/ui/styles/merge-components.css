@@ -1,6 +1,7 @@
-/* Container for the merge buttons */
+/* Container for the merge buttons (Interactive Menu) */
 .lda-merge-controls {
-    display: inline-flex;
+    display: none;
+    /* Hidden by default */
     align-items: center;
     gap: 4px;
     margin-left: 8px;
@@ -10,9 +11,177 @@
     border-radius: 4px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     border: 1px solid var(--ls-border-color);
+
+    /* Animation state */
+    opacity: 0;
+    transform: translateY(4px) scale(0.95);
+    transition: opacity 0.1s ease-out, transform 0.1s ease-out;
 }
 
-/* Base button styles */
+/* Indicator (Single Icon Preview) - Identical styling to controls but smaller */
+.lda-merge-indicator {
+    display: none;
+    /* Hidden by default */
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    margin-left: 8px;
+    vertical-align: middle;
+    background-color: var(--ls-primary-background-color);
+    padding: 2px;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--ls-border-color);
+
+    /* Animation state */
+    opacity: 0;
+    transform: translateY(4px) scale(0.95);
+    transition: opacity 0.1s ease-out, transform 0.1s ease-out;
+}
+
+/* ==========================================================================
+   STATE 1: DIRECT INTERACTION (Hovering block or controls)
+   -> SHOW CONTROLS, HIDE INDICATOR
+   ========================================================================== */
+
+/* Show controls when hovering the Block Main Container (Sibling) */
+.block-main-container:hover~.feedback-rating-container .lda-merge-controls,
+/* Show controls when hovering the controls themselves */
+.lda-merge-controls.lda-hover-persist,
+.lda-merge-controls:hover {
+    display: inline-flex;
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+}
+
+/* Ensure indicator is off when controls are on */
+.block-main-container:hover~.feedback-rating-container .lda-merge-indicator,
+.lda-merge-controls:hover~.lda-merge-indicator {
+    display: none !important;
+}
+
+/* ==========================================================================
+   STATE 2: REVEAL / PREVIEW (Shift Key OR Parent Action)
+   -> SHOW INDICATOR, HIDE CONTROLS (unless directly hovered)
+   ========================================================================== */
+
+/* 2a. Global Reveal (Shift/Ctrl) -> Show Diff Default */
+.lda-reveal-children .block-children .feedback-rating-container .lda-merge-indicator,
+.lda-reveal-children .block-children-container .feedback-rating-container .lda-merge-indicator {
+    display: inline-flex;
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+}
+
+/* Default: Show Diff Icon, Hide others */
+.lda-reveal-children .block-children .feedback-rating-container .lda-merge-indicator .lda-merge-diff,
+.lda-reveal-children .block-children-container .feedback-rating-container .lda-merge-indicator .lda-merge-diff {
+    display: flex;
+}
+
+.lda-reveal-children .block-children .feedback-rating-container .lda-merge-indicator .lda-merge-accept,
+.lda-reveal-children .block-children-container .feedback-rating-container .lda-merge-indicator .lda-merge-accept {
+    display: none;
+}
+
+.lda-reveal-children .block-children .feedback-rating-container .lda-merge-indicator .lda-merge-revert,
+.lda-reveal-children .block-children-container .feedback-rating-container .lda-merge-indicator .lda-merge-revert {
+    display: none;
+}
+
+
+/* 2b. Parent Accept Hover -> Show Accept Icon */
+.lda-action-accept .block-children .feedback-rating-container .lda-merge-indicator,
+.lda-action-accept .block-children-container .feedback-rating-container .lda-merge-indicator {
+    display: inline-flex;
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+
+.lda-action-accept .block-children .feedback-rating-container .lda-merge-indicator .lda-merge-accept,
+.lda-action-accept .block-children-container .feedback-rating-container .lda-merge-indicator .lda-merge-accept {
+    display: flex;
+}
+
+.lda-action-accept .block-children .feedback-rating-container .lda-merge-indicator .lda-merge-diff,
+.lda-action-accept .block-children-container .feedback-rating-container .lda-merge-indicator .lda-merge-diff {
+    display: none;
+}
+
+.lda-action-accept .block-children .feedback-rating-container .lda-merge-indicator .lda-merge-revert,
+.lda-action-accept .block-children-container .feedback-rating-container .lda-merge-indicator .lda-merge-revert {
+    display: none;
+}
+
+
+/* 2c. Parent Revert Hover -> Show Revert Icon */
+.lda-action-revert .block-children .feedback-rating-container .lda-merge-indicator,
+.lda-action-revert .block-children-container .feedback-rating-container .lda-merge-indicator {
+    display: inline-flex;
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+
+.lda-action-revert .block-children .feedback-rating-container .lda-merge-indicator .lda-merge-revert,
+.lda-action-revert .block-children-container .feedback-rating-container .lda-merge-indicator .lda-merge-revert {
+    display: flex;
+}
+
+.lda-action-revert .block-children .feedback-rating-container .lda-merge-indicator .lda-merge-diff,
+.lda-action-revert .block-children-container .feedback-rating-container .lda-merge-indicator .lda-merge-diff {
+    display: none;
+}
+
+.lda-action-revert .block-children .feedback-rating-container .lda-merge-indicator .lda-merge-accept,
+.lda-action-revert .block-children-container .feedback-rating-container .lda-merge-indicator .lda-merge-accept {
+    display: none;
+}
+
+
+/* 2d. Parent Diff Hover -> Show Diff Icon */
+.lda-action-diff .block-children .feedback-rating-container .lda-merge-indicator,
+.lda-action-diff .block-children-container .feedback-rating-container .lda-merge-indicator {
+    display: inline-flex;
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+
+.lda-action-diff .block-children .feedback-rating-container .lda-merge-indicator .lda-merge-diff,
+.lda-action-diff .block-children-container .feedback-rating-container .lda-merge-indicator .lda-merge-diff {
+    display: flex;
+}
+
+.lda-action-diff .block-children .feedback-rating-container .lda-merge-indicator .lda-merge-accept,
+.lda-action-diff .block-children-container .feedback-rating-container .lda-merge-indicator .lda-merge-accept {
+    display: none;
+}
+
+.lda-action-diff .block-children .feedback-rating-container .lda-merge-indicator .lda-merge-revert,
+.lda-action-diff .block-children-container .feedback-rating-container .lda-merge-indicator .lda-merge-revert {
+    display: none;
+}
+
+
+/* Conflict Resolution: Direct Hover always wins */
+/* If I am hovering the child block directly, I want the FULL CONTROLS, not the indicator */
+.block-children .block-main-container:hover~.feedback-rating-container .lda-merge-indicator,
+.block-children-container .block-main-container:hover~.feedback-rating-container .lda-merge-indicator {
+    display: none !important;
+}
+
+.block-children .block-main-container:hover~.feedback-rating-container .lda-merge-controls,
+.block-children-container .block-main-container:hover~.feedback-rating-container .lda-merge-controls {
+    display: inline-flex !important;
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+
+
+/* ==========================================================================
+   BUTTON STYLES
+   ========================================================================== */
 .lda-merge-btn {
     display: flex;
     align-items: center;
@@ -27,21 +196,19 @@
     background: transparent;
     color: var(--ls-primary-text-color);
     transition: background-color 0.1s ease, color 0.1s ease;
+    margin: 0 1px;
 }
 
 .lda-merge-btn:hover {
     background-color: var(--ls-secondary-background-color);
 }
 
-/* Specific button colors (using Logseq palette nuances if available, or fallbacks) */
 .lda-merge-accept {
     color: var(--ls-link-text-color);
-    /* Usually green or blue-ish depending on theme, or use specific succeed color if available */
 }
 
 .lda-merge-accept:hover {
     color: #2ecc71;
-    /* Explicit Green on hover */
     background-color: rgba(46, 204, 113, 0.1);
 }
 
@@ -51,7 +218,6 @@
 
 .lda-merge-revert:hover {
     color: #e74c3c;
-    /* Explicit Red */
     background-color: rgba(231, 76, 60, 0.1);
 }
 
@@ -61,7 +227,6 @@
 
 .lda-merge-diff:hover {
     color: #f39c12;
-    /* Orange-ish */
     background-color: rgba(243, 156, 18, 0.1);
 }
 

@@ -178,7 +178,7 @@ export class InjectMergesUseCase {
                             this.componentInjector.injectComponentWithPosition(
                                 mainContainer as HTMLElement,
                                 MergeControls,
-                                InjectionPosition.LastChild,
+                                InjectionPosition.NextSibling,
                                 {
                                     blockUuid: blockId,
                                     mergeData: mergeData
@@ -222,7 +222,7 @@ export class InjectMergesUseCase {
                                     this.componentInjector.injectComponentWithPosition(
                                         mainContainer as HTMLElement,
                                         MergeControls,
-                                        InjectionPosition.LastChild,
+                                        InjectionPosition.NextSibling,
                                         {
                                             blockUuid: blockId,
                                             mergeData: mergeData

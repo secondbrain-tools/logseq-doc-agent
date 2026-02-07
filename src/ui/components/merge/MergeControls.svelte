@@ -68,9 +68,9 @@
 
         const className = `lda-action-${hoveredAction}`;
 
-        // Accept always shows children (as requested: "always respects the childs")
-        // Others only show if Shift is pressed
-        const shouldShow = hoveredAction === "accept" || shiftPressed;
+        // Diff always shows children (for preview/comparison)
+        // Accept and Revert only show if Shift is pressed (destructive batch actions)
+        const shouldShow = hoveredAction === "diff" || shiftPressed;
 
         if (shouldShow) {
             blockContainer.classList.add(className);
@@ -128,7 +128,7 @@
             if (controlsDiv) {
                 controlsDiv.classList.remove("lda-hover-persist");
             }
-        }, 5000);
+        }, 500);
 
         const targetDoc = parent?.document || document;
         targetDoc.removeEventListener("keydown", handleKeyChange);

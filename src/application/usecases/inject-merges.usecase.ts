@@ -139,16 +139,19 @@ export class InjectMergesUseCase {
                     const mainContainer = element.querySelector('.block-main-container');
 
                     // Check for existing controls strictly within the intended target
+                    // We inject as NextSibling, so check the sibling container
                     let alreadyHasControls = false;
                     if (mainContainer) {
-                        if (mainContainer.querySelector('.lda-merge-controls')) {
-                            alreadyHasControls = true;
+                        const siblingContainer = mainContainer.nextElementSibling;
+                        if (siblingContainer?.classList.contains('feedback-rating-container')) {
+                            if (siblingContainer.querySelector('.lda-merge-controls')) {
+                                alreadyHasControls = true;
+                            }
                         }
                     } else {
                         // Fallback for non-standard blocks?
-                        if (element.querySelector('.lda-merge-controls')) {
-                            // This is risky as it might find children, but without main-container we have no choice
-                            // hopefully rare.
+                        if (element.querySelector(':scope > .feedback-rating-container .lda-merge-controls')) {
+                            // Use :scope to limit to direct children
                             alreadyHasControls = true;
                         }
                     }

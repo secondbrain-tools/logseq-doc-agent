@@ -144,3 +144,13 @@ We use **Session-based Short IDs** (e.g., `#a1b2`) for stable, concise block ref
     <button use:clickAction={() => doSomething()}>Click</button>
     ```
 *   **When to use**: Prefer actions for interactive elements in dynamic lists, modals, or any component where standard `onclick` fails silently.
+
+# UI Block Injection
+
+The Blockinjector offers UI injection methods (MutationObservers, Virtualization support, Parent-block scoping) for Logseq blocks.
+
+> [!IMPORTANT]
+> **You should read [Injection Mechanism](docs/injection-mechanism.md) if:**
+> - You need to implement a new feature that embeds UI into blocks.
+> - You are debugging issues with controls not appearing, disappearing on scroll, or appearing on the wrong blocks.
+> - You want to understand how we minimize DOM thrashing and ensure performance.

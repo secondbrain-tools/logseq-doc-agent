@@ -185,7 +185,8 @@
     .lda-modal-content {
         background: var(--ls-primary-background-color);
         border-radius: 8px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        box-shadow: 0 4px 12px
+            color-mix(in srgb, var(--ls-primary-text-color), transparent 85%);
         max-width: 95vw;
         max-height: 90vh; /* Constraint */
         display: flex; /* Always Flex */

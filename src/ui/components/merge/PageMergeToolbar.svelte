@@ -263,8 +263,8 @@
         border: 1px solid var(--ls-border-color, #ddd);
         border-radius: 6px;
         box-shadow:
-            0 10px 15px -3px rgba(0, 0, 0, 0.1),
-            0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            0 10px 15px -3px color-mix(in srgb, var(--ls-primary-text-color) 10%, transparent),
+            0 4px 6px -2px color-mix(in srgb, var(--ls-primary-text-color) 5%, transparent);
         padding: 6px 10px;
         display: flex;
         flex-direction: row;
@@ -304,19 +304,27 @@
     }
 
     .accept-all {
-        background: #22c55e;
+        background: var(--ls-success-text-color, #22c55e);
     }
 
     .accept-all:hover {
-        background: #16a34a;
+        background: color-mix(
+            in srgb,
+            var(--ls-success-text-color, #22c55e),
+            black 10%
+        );
     }
 
     .revert-all {
-        background: #ef4444;
+        background: var(--ls-error-text-color, #ef4444);
     }
 
     .revert-all:hover {
-        background: #dc2626;
+        background: color-mix(
+            in srgb,
+            var(--ls-error-text-color, #ef4444),
+            black 10%
+        );
     }
 
     .close-btn-compact {

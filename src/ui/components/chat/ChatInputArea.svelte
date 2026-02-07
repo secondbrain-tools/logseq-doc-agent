@@ -681,7 +681,8 @@
         background: var(--ls-primary-background-color);
         border: 1px solid var(--ls-border-color);
         border-radius: 4px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 4px 6px
+            color-mix(in srgb, var(--ls-primary-text-color), transparent 90%);
 
         z-index: 50;
         min-width: 220px;

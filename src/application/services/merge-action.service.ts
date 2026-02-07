@@ -59,19 +59,40 @@ export class MergeActionService {
     }
 
     /**
-     * Reverts a merge (removes the merge property).
+     * Reverts a merge.
+     * For "add" type: deletes the block entirely (since it was added by the agent).
+     * For other types: removes the merge property (keeping original content).
      */
     async revertMerge(uuids: string[]): Promise<void> {
         console.log(
-            `[MergeActionService] Reverting (removing merge property) for ${uuids.length} blocks.`,
+            `[MergeActionService] Reverting for ${uuids.length} blocks.`,
         );
 
         for (const uuid of uuids) {
-            // We don't restore text (original text is already there), just remove property.
-            await logseq.Editor.removeBlockProperty(
-                uuid,
-                "logseq-doc-agent.merge",
-            );
+            try {
+                // Fetch the merge property to check the type
+                const rawContent = await logseq.Editor.getBlockPropertyContent(uuid, 'logseq-doc-agent.merge');
+
+                if (rawContent) {
+                    const mergeData = JSON.parse(rawContent);
+
+                    if (mergeData.type === 'add') {
+                        // For "add" type, delete the block entirely
+                        console.log(`[MergeActionService] Block ${uuid} is type 'add', deleting...`);
+                        await logseq.Editor.removeBlock(uuid);
+                    } else {
+                        // For other types, just remove the property
+                        await logseq.Editor.removeBlockProperty(uuid, "logseq-doc-agent.merge");
+                    }
+                } else {
+                    // No merge property, just try to remove it anyway
+                    await logseq.Editor.removeBlockProperty(uuid, "logseq-doc-agent.merge");
+                }
+            } catch (e) {
+                console.warn(`[MergeActionService] Error reverting block ${uuid}:`, e);
+                // Fallback: just remove property
+                await logseq.Editor.removeBlockProperty(uuid, "logseq-doc-agent.merge");
+            }
         }
     }
 

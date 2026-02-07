@@ -37,7 +37,7 @@
   display: block;
   z-index: 1000;
   margin-top: 5px;
-  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1));
+  filter: drop-shadow(0 4px 6px color-mix(in srgb, var(--ls-primary-text-color), transparent 90%));
 }
 
 /* Rating popover structure */
@@ -109,13 +109,13 @@
   border: 1px solid var(--ls-border-color, #f3f4f6);
   border-radius: 8px;
   margin-bottom: 12px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--ls-primary-text-color), transparent 95%);
   overflow: hidden;
   transition: box-shadow 0.2s;
 }
 
 .lda-accordion-item:hover {
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 6px color-mix(in srgb, var(--ls-primary-text-color), transparent 95%);
 }
 
 .lda-accordion-header {
@@ -289,7 +289,7 @@
 .lda-search-input:focus {
   border-color: var(--ls-link-text-color, #3b82f6);
   outline: none;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ls-link-text-color, #3b82f6), transparent 90%);
 }
 
 .lda-filter-toggles {
@@ -418,7 +418,7 @@
 }
 
 .sidebar-drop-indicator:hover {
-  background-color: rgba(59, 130, 246, 0.1);
+  background-color: color-mix(in srgb, var(--ls-link-text-color, #3b82f6), transparent 90%);
 }
 
 /* --- Table Fallback --- */

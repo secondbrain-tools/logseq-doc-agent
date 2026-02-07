@@ -186,7 +186,7 @@
                 : 'ls-accent-agent'}"
             style="background-color: {msg.role === 'user'
                 ? 'var(--ls-link-text-color)'
-                : '#888'};"
+                : 'var(--ls-secondary-text-color)'};"
         ></div>
         <span class="font-bold"
             >{msg.personalityName || (msg.role === "user" ? "You" : "AI")}</span

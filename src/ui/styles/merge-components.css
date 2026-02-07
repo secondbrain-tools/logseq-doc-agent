@@ -9,7 +9,7 @@
     background-color: var(--ls-primary-background-color);
     padding: 2px 4px;
     border-radius: 4px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 1px 3px color-mix(in srgb, var(--ls-primary-text-color), transparent 90%);
     border: 1px solid var(--ls-border-color);
 
     /* Animation state */
@@ -30,7 +30,7 @@
     background-color: var(--ls-primary-background-color);
     padding: 2px;
     border-radius: 4px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 1px 3px color-mix(in srgb, var(--ls-primary-text-color), transparent 90%);
     border: 1px solid var(--ls-border-color);
 
     /* Animation state */
@@ -208,8 +208,8 @@
 }
 
 .lda-merge-accept:hover {
-    color: #2ecc71;
-    background-color: rgba(46, 204, 113, 0.1);
+    color: var(--ls-success-text-color, #2ecc71);
+    background-color: color-mix(in srgb, var(--ls-success-text-color, #2ecc71), transparent 90%);
 }
 
 .lda-merge-revert {
@@ -217,8 +217,8 @@
 }
 
 .lda-merge-revert:hover {
-    color: #e74c3c;
-    background-color: rgba(231, 76, 60, 0.1);
+    color: var(--ls-error-text-color, #e74c3c);
+    background-color: color-mix(in srgb, var(--ls-error-text-color, #e74c3c), transparent 90%);
 }
 
 .lda-merge-diff {
@@ -226,26 +226,26 @@
 }
 
 .lda-merge-diff:hover {
-    color: #f39c12;
-    background-color: rgba(243, 156, 18, 0.1);
+    color: var(--ls-warning-text-color, #f39c12);
+    background-color: color-mix(in srgb, var(--ls-warning-text-color, #f39c12), transparent 90%);
 }
 
 /* Highlight for the block main container */
 .lda-merge-highlight {
-    background-color: rgba(255, 0, 0, 0.05) !important;
+    background-color: color-mix(in srgb, var(--ls-error-text-color), transparent 95%) !important;
     border-radius: 4px;
     transition: background-color 0.3s ease;
 }
 
 /* Specific styles for merge types */
 .lda-merge-type-add {
-    background-color: rgba(46, 204, 113, 0.1) !important;
-    border-left: 3px solid #2ecc71;
+    background-color: color-mix(in srgb, var(--ls-success-text-color, #2ecc71), transparent 90%) !important;
+    border-left: 3px solid var(--ls-success-text-color, #2ecc71);
 }
 
 .lda-merge-type-delete {
-    background-color: rgba(231, 76, 60, 0.1) !important;
-    border-left: 3px solid #e74c3c;
+    background-color: color-mix(in srgb, var(--ls-error-text-color, #e74c3c), transparent 90%) !important;
+    border-left: 3px solid var(--ls-error-text-color, #e74c3c);
     opacity: 0.8;
 }
 

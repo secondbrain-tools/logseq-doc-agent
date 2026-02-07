@@ -513,7 +513,8 @@
         max-width: none !important;
         max-height: none !important;
         border-radius: 8px !important;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+        box-shadow: 0 4px 12px
+            color-mix(in srgb, var(--ls-primary-text-color), transparent 85%) !important;
     }
 
     :global(.lda-sidebar-maximized) .sidebar-item-content {

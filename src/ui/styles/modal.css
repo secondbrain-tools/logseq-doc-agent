@@ -4,7 +4,7 @@
     left: 0;
     width: 100vw;
     height: 100vh;
-    background: rgba(0, 0, 0, 0.5);
+    background: color-mix(in srgb, var(--ls-primary-text-color), transparent 50%);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -17,7 +17,7 @@
     background: var(--ls-primary-background-color);
     color: var(--ls-primary-text-color);
     border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--ls-primary-text-color), transparent 85%);
     width: 600px;
     /* Default width */
     max-width: 90vw;

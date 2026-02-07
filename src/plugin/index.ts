@@ -1,5 +1,5 @@
 import { mount } from 'svelte';
-import App from '../App.svelte';
+// App.svelte import removed
 import { Services } from '../services';
 import { setupSettings } from './settings-manager';
 import { LogseqSettingsAdapter } from '../infra/logseq/settings-adapter';
@@ -76,14 +76,6 @@ export const setupPlugin = async () => {
         }
     });
 
-
-    // Create the Svelte app (Iframe UI)
-    mount(App, {
-        target: document.body,
-        props: {
-            message: 'Hello from Logseq Plugin!'
-        }
-    });
 
     // Register Toolbar Chat Button
     services.toolbarInjector.injectToolbarItem(

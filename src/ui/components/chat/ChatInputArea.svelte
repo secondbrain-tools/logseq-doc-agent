@@ -142,6 +142,16 @@
             e.stopPropagation();
         }
 
+        // Search: Ctrl+F / Cmd+F
+        if ((e.ctrlKey || e.metaKey) && e.key === "f") {
+            if (isExpanded) {
+                e.preventDefault();
+                e.stopPropagation();
+                toggleSearch();
+                return;
+            }
+        }
+
         // Toggle Expansion: Alt + ArrowUp/ArrowDown
         if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
             e.preventDefault();
@@ -244,6 +254,104 @@
         } catch (e) {
             console.error("[UI] Error in toggleExpand:", e);
         }
+    }
+
+    // --- Search Logic ---
+    let isSearchOpen = $state(false);
+    let searchQuery = $state("");
+    let searchMatches: number[] = $state([]);
+    let searchMatchIndex = $state(-1);
+    let searchInputRef: HTMLInputElement | undefined = $state();
+
+    function performSearch() {
+        if (!searchQuery) {
+            searchMatches = [];
+            searchMatchIndex = -1;
+            return;
+        }
+
+        const matches: number[] = [];
+        const lowerQuery = searchQuery.toLowerCase();
+        const lowerText = inputText.toLowerCase();
+        let pos = lowerText.indexOf(lowerQuery);
+
+        while (pos !== -1) {
+            matches.push(pos);
+            pos = lowerText.indexOf(lowerQuery, pos + 1);
+        }
+
+        searchMatches = matches;
+
+        // If we have matches, try to find the one closest to current cursor or just pick first
+        if (matches.length > 0) {
+            // Find match after current selection start, or default to 0
+            const currentPos = expandedTextareaElement?.selectionStart || 0;
+            const nextMatchIdx = matches.findIndex((m) => m >= currentPos);
+            searchMatchIndex = nextMatchIdx !== -1 ? nextMatchIdx : 0;
+            searchMatchIndex = nextMatchIdx !== -1 ? nextMatchIdx : 0;
+            goToMatch(searchMatchIndex, true);
+        } else {
+            searchMatchIndex = -1;
+        }
+    }
+
+    function goToMatch(index: number, keepFocus = false) {
+        if (index < 0 || index >= searchMatches.length) return;
+
+        const start = searchMatches[index];
+        const end = start + searchQuery.length;
+
+        if (expandedTextareaElement) {
+            if (!keepFocus) {
+                expandedTextareaElement.focus();
+            }
+            expandedTextareaElement.setSelectionRange(start, end);
+            // setSelectionRange usually scrolls into view if focused
+            // If we are keeping focus on search input, we might need manual scrolling if off-screen,
+            // but for now let's see if this is sufficient.
+            if (keepFocus) {
+                // Try to scroll into view without focusing using blur/focus trick or just scrollTop
+                // For now, doing nothing extra. Browsers might not scroll if not focused.
+                // We can improve this if needed.
+                const lineHeight = 24; // approx
+                const lines = inputText.substring(0, start).split("\n").length;
+                const scrollPos = (lines - 1) * lineHeight;
+                // expandedTextareaElement.scrollTop = scrollPos; // Rough approximation
+            }
+        }
+    }
+
+    function findNext() {
+        if (searchMatches.length === 0) return;
+        searchMatchIndex = (searchMatchIndex + 1) % searchMatches.length;
+        goToMatch(searchMatchIndex);
+    }
+
+    function findPrev() {
+        if (searchMatches.length === 0) return;
+        searchMatchIndex =
+            (searchMatchIndex - 1 + searchMatches.length) %
+            searchMatches.length;
+        goToMatch(searchMatchIndex);
+    }
+
+    function toggleSearch() {
+        isSearchOpen = !isSearchOpen;
+        if (isSearchOpen) {
+            // Reset search when opening
+            searchQuery = "";
+            searchMatches = [];
+            searchMatchIndex = -1;
+            setTimeout(() => searchInputRef?.focus(), 50);
+        } else {
+            // Restore focus to textarea when closing
+            expandedTextareaElement?.focus();
+        }
+    }
+
+    function closeSearch() {
+        isSearchOpen = false;
+        expandedTextareaElement?.focus();
     }
 
     // --- Icons ---
@@ -557,6 +665,90 @@
                 bind:this={expandedTextareaElement}
                 onkeydown={handleKeydown}
             ></textarea>
+
+            {#if isExpanded && isSearchOpen}
+                <div class="lda-search-container">
+                    <input
+                        class="lda-search-input"
+                        type="text"
+                        placeholder="Find..."
+                        bind:value={searchQuery}
+                        bind:this={searchInputRef}
+                        oninput={() => performSearch()}
+                        onkeydown={(e) => {
+                            if (e.key === "Enter") {
+                                e.preventDefault();
+                                if (e.shiftKey) findPrev();
+                                else findNext();
+                            } else if (e.key === "Escape") {
+                                e.preventDefault();
+                                closeSearch();
+                            }
+                        }}
+                    />
+                    <span class="lda-search-info">
+                        {#if searchMatches.length > 0}
+                            {searchMatchIndex + 1} / {searchMatches.length}
+                        {:else if searchQuery}
+                            0 / 0
+                        {/if}
+                    </span>
+                    <button
+                        class="lda-search-btn"
+                        onclick={findPrev}
+                        title="Previous (Shift+Enter)"
+                        disabled={searchMatches.length === 0}
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                        >
+                            <polyline points="18 15 12 9 6 15"></polyline>
+                        </svg>
+                    </button>
+                    <button
+                        class="lda-search-btn"
+                        onclick={findNext}
+                        title="Next (Enter)"
+                        disabled={searchMatches.length === 0}
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                        >
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                        </svg>
+                    </button>
+                    <button
+                        class="lda-search-btn"
+                        onclick={closeSearch}
+                        title="Close (Esc)"
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                        >
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+            {/if}
 
             <div class="lda-expanded-footer">
                 <button

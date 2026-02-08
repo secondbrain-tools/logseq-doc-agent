@@ -550,6 +550,7 @@
         let current: Message | null = null;
 
         // Helper to check if message relies on parts for its content
+        // Modified to consider any message with parts as potentially having tools
         const isToolMsg = (m: Message) =>
             m.parts &&
             m.parts.some(
@@ -576,12 +577,34 @@
                     const nextParts = msg.parts || [];
                     current.parts = [...currentParts, ...nextParts];
                     continue;
-                } else if (msg.role === "assistant" && isToolMsg(msg)) {
-                    // Merge consecutive Assistant Tool Calls
-                    const currentParts = current.parts || [];
-                    const nextParts = msg.parts || [];
-                    current.parts = [...currentParts, ...nextParts];
-                    continue;
+                } else if (msg.role === "assistant") {
+                    // Merge consecutive Assistant Tool Calls OR Text follow-up
+                    if (isToolMsg(msg)) {
+                        // Merge subsequent tool calls
+                        const currentParts = current.parts || [];
+                        const nextParts = msg.parts || [];
+                        current.parts = [...currentParts, ...nextParts];
+                        continue;
+                    } else if (
+                        msg.content &&
+                        (!msg.parts || msg.parts.length === 0)
+                    ) {
+                        // MERGE TARGET: Assistant follows up tool with simple text
+                        // Convert text content to a part
+                        const textPart: MessagePart = {
+                            type: "content",
+                            text: msg.content,
+                        };
+                        const currentParts = current.parts || [];
+                        current.parts = [...currentParts, textPart];
+                        // Append content to main content string just in case, or leave it?
+                        // Usually main content is empty for tool calls, but for display we rely on parts.
+                        // Let's concatenate for safety if anyone reads .content directly
+                        current.content = current.content
+                            ? current.content + "\n" + msg.content
+                            : msg.content;
+                        continue;
+                    }
                 }
             }
 

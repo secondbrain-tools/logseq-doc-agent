@@ -427,3 +427,67 @@
     background-color: var(--ls-border-color);
     border-radius: 2px;
 }
+
+/* --- Search Bar Styles --- */
+.lda-search-container {
+    position: absolute;
+    top: 10px;
+    right: 20px;
+    /* Slight offset from scrollbar */
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--ls-primary-background-color);
+    border: 1px solid var(--ls-border-color);
+    border-radius: 6px;
+    padding: 4px 8px;
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--ls-primary-text-color), transparent 85%);
+    animation: fadeInScale 0.2s ease-out;
+}
+
+.lda-search-input {
+    border: 1px solid var(--ls-border-color);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 0.85rem;
+    color: var(--ls-primary-text-color);
+    background: var(--ls-secondary-background-color);
+    width: 150px;
+    outline: none;
+}
+
+.lda-search-input:focus {
+    border-color: var(--ls-link-text-color);
+    background: var(--ls-primary-background-color);
+}
+
+.lda-search-info {
+    font-size: 0.75rem;
+    color: var(--ls-tertiary-text-color);
+    min-width: 40px;
+    text-align: center;
+    user-select: none;
+}
+
+.lda-search-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px;
+    border-radius: 4px;
+    color: var(--ls-secondary-text-color);
+}
+
+.lda-search-btn:hover {
+    background-color: var(--ls-tertiary-background-color);
+    color: var(--ls-primary-text-color);
+}
+
+.lda-search-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+}

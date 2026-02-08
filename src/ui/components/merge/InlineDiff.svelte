@@ -9,6 +9,7 @@
         isExpanded = true,
         onToggle = (recursive: boolean) => {},
         onLineMerge = (content: string, type: "added" | "removed") => {},
+        mode = "lines",
     }: {
         originalContent?: string;
         modifiedContent?: string;
@@ -16,6 +17,7 @@
         isExpanded?: boolean;
         onToggle?: (recursive: boolean) => void;
         onLineMerge?: (content: string, type: "added" | "removed") => void;
+        mode?: "lines" | "words";
     } = $props();
 
     // Thresholds for intra-line highlighting
@@ -30,12 +32,60 @@
 
     type DiffLine = {
         content: string;
-        type: "common" | "added" | "removed" | "modified-old" | "modified-new";
+        type:
+            | "common"
+            | "added"
+            | "removed"
+            | "modified-old"
+            | "modified-new"
+            | "modified-unified";
         originalLineNumber?: number;
         newLineNumber?: number;
         intraLineParts?: IntraLinePart[];
+        unifiedParts?: UnifiedPart[];
     };
     let diffLines: DiffLine[] = $state([]);
+
+    type UnifiedPart = {
+        type: "common" | "added" | "removed" | "replacement";
+        text?: string;
+        removedText?: string;
+        addedText?: string;
+    };
+
+    function computeUnifiedParts(wordDiff: Diff.Change[]): UnifiedPart[] {
+        const parts: UnifiedPart[] = [];
+        let i = 0;
+        while (i < wordDiff.length) {
+            const current = wordDiff[i];
+
+            // Check for replacement (removed followed immediately by added)
+            if (
+                current.removed &&
+                i + 1 < wordDiff.length &&
+                wordDiff[i + 1].added
+            ) {
+                const next = wordDiff[i + 1];
+                parts.push({
+                    type: "replacement",
+                    removedText: current.value,
+                    addedText: next.value,
+                });
+                i += 2;
+                continue;
+            }
+
+            if (current.added) {
+                parts.push({ type: "added", text: current.value });
+            } else if (current.removed) {
+                parts.push({ type: "removed", text: current.value });
+            } else {
+                parts.push({ type: "common", text: current.value });
+            }
+            i++;
+        }
+        return parts;
+    }
 
     // Levenshtein distance for similarity calculation
     function levenshteinDistance(a: string, b: string): number {
@@ -212,7 +262,23 @@
                                 parts,
                             );
 
-                            if (showIntraLine) {
+                            if (mode === "words") {
+                                // Unified Word Mode
+                                const wordDiff = Diff.diffWordsWithSpace(
+                                    oldLine,
+                                    newLine,
+                                );
+                                const unifiedParts =
+                                    computeUnifiedParts(wordDiff);
+
+                                lines.push({
+                                    content: newLine, // Use new line for copy/action purposes if needed
+                                    type: "modified-unified",
+                                    originalLineNumber: oldCounter++,
+                                    newLineNumber: newCounter++,
+                                    unifiedParts: unifiedParts,
+                                });
+                            } else if (showIntraLine) {
                                 // Show as modified lines with intra-line highlighting
                                 lines.push({
                                     content: oldLine,
@@ -380,10 +446,35 @@
                             : line.type === "removed" ||
                                 line.type === "modified-old"
                               ? "-"
-                              : "\u00A0"}
+                              : line.type === "modified-unified"
+                                ? "~"
+                                : "\u00A0"}
                     </span>
                     <span class="text">
-                        {#if line.intraLineParts && line.intraLineParts.length > 0}
+                        {#if line.type === "modified-unified" && line.unifiedParts}
+                            {#each line.unifiedParts as part}
+                                {#if part.type === "replacement"}
+                                    <span class="unified-replacement">
+                                        <span class="unified-added"
+                                            >{part.addedText}</span
+                                        >
+                                        <span class="unified-removed"
+                                            >{part.removedText}</span
+                                        >
+                                    </span>
+                                {:else if part.type === "added"}
+                                    <span class="unified-added"
+                                        >{part.text}</span
+                                    >
+                                {:else if part.type === "removed"}
+                                    <span class="unified-removed"
+                                        >{part.text}</span
+                                    >
+                                {:else}
+                                    <span>{part.text}</span>
+                                {/if}
+                            {/each}
+                        {:else if line.intraLineParts && line.intraLineParts.length > 0}
                             {#each line.intraLineParts as part}
                                 <span class="intra-{part.type}"
                                     >{part.text}</span
@@ -397,7 +488,8 @@
                         <button
                             class="line-btn"
                             title={line.type === "added" ||
-                            line.type === "modified-new"
+                            line.type === "modified-new" ||
+                            line.type === "modified-unified"
                                 ? "Add Line"
                                 : "Restore Line"}
                             use:lineActionClick={() => {
@@ -406,14 +498,16 @@
                                 );
                                 const mergeType =
                                     line.type === "added" ||
-                                    line.type === "modified-new"
+                                    line.type === "modified-new" ||
+                                    line.type === "modified-unified"
                                         ? "added"
                                         : "removed";
                                 onLineMerge?.(line.content, mergeType);
                             }}
                         >
                             {line.type === "added" ||
-                            line.type === "modified-new"
+                            line.type === "modified-new" ||
+                            line.type === "modified-unified"
                                 ? "+"
                                 : "\u21A9"}
                         </button>
@@ -586,6 +680,51 @@
     .intra-added {
         background-color: rgba(100, 255, 100, 0.35);
         border-radius: 2px;
+    }
+
+    /* Unified / Stacked Styles */
+    .type-modified-unified {
+        background-color: rgba(255, 255, 200, 0.15); /* Slight yellow tint */
+    }
+    .type-modified-unified .marker {
+        color: #b80;
+    }
+
+    .unified-replacement {
+        display: inline-flex;
+        flex-direction: column;
+        vertical-align: middle;
+        margin: 0 2px;
+        line-height: 1.1;
+        background: rgba(0, 0, 0, 0.05); /* Slight box BG */
+        border-radius: 3px;
+        padding: 0 2px;
+    }
+
+    .unified-added {
+        color: #080;
+        background-color: rgba(100, 255, 100, 0.25);
+        border-radius: 2px;
+        font-size: 0.9em;
+    }
+
+    .unified-removed {
+        color: #c00;
+        background-color: rgba(255, 100, 100, 0.25);
+        border-radius: 2px;
+        text-decoration: line-through;
+        font-size: 0.8em;
+        opacity: 0.8;
+    }
+
+    /* Ensure non-replaced added/removed also look correct inline */
+    span > .unified-added {
+        background-color: rgba(100, 255, 100, 0.25);
+    }
+
+    span > .unified-removed {
+        background-color: rgba(255, 100, 100, 0.25);
+        text-decoration: line-through;
     }
 
     /* Text selection styles - override parent styles that make selection invisible */

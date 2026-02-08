@@ -22,9 +22,14 @@
     const dispatch = createEventDispatcher();
 
     // View Mode State
-    // 'split' | 'inline' | 'edit' | 'tree' (legacy) | 'split_edit'
-    let viewMode: "split" | "inline" | "edit" | "tree" | "split_edit" =
-        $state("split");
+    // 'split' | 'inline' | 'edit' | 'tree' (legacy) | 'split_edit' | 'unified'
+    let viewMode:
+        | "split"
+        | "inline"
+        | "edit"
+        | "tree"
+        | "split_edit"
+        | "unified" = $state("split");
 
     // Content state for single-block edit
     let editContent = $state("");
@@ -384,6 +389,13 @@
                     type="button">Inline</button
                 >
                 <button
+                    class="lda-toggle-btn {viewMode === 'unified'
+                        ? 'active'
+                        : ''}"
+                    use:genericClick={() => (viewMode = "unified")}
+                    type="button">Unified</button
+                >
+                <button
                     class="lda-toggle-btn {viewMode === 'edit' ? 'active' : ''}"
                     use:genericClick={() => (viewMode = "edit")}
                     type="button">Edit (Smart)</button
@@ -515,6 +527,12 @@
                         <InlineDiff
                             originalContent={mergeData.base || ""}
                             modifiedContent={mergeData.currentContent || ""}
+                        />
+                    {:else if viewMode === "unified"}
+                        <InlineDiff
+                            originalContent={mergeData.base || ""}
+                            modifiedContent={mergeData.currentContent || ""}
+                            mode="words"
                         />
                     {:else if viewMode === "edit"}
                         <ThreeWayDiff

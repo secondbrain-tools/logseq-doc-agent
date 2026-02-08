@@ -15,7 +15,7 @@
     }: {
         item: MergeTreeItem;
         currentContent?: string;
-        viewMode: "split" | "inline" | "edit" | "output" | "tree";
+        viewMode: "split" | "inline" | "edit" | "output" | "tree" | "unified";
         isExpanded?: boolean;
         onContentChange: (uuid: string, newContent: string) => void;
         onToggle: (uuid: string, recursive: boolean) => void;
@@ -228,6 +228,18 @@
                     canToggle={true}
                     {isExpanded}
                     onToggle={() => handleInteraction()}
+                />
+            {:else if viewMode === "unified"}
+                <!-- Unified Word Diff -->
+                <InlineDiff
+                    originalContent={item.mergeData
+                        ? item.mergeData.base
+                        : item.content}
+                    modifiedContent={item.content}
+                    canToggle={true}
+                    {isExpanded}
+                    onToggle={() => handleInteraction()}
+                    mode="words"
                 />
             {:else}
                 <!-- Inline (Default for others) -->

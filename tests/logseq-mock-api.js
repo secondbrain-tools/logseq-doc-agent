@@ -231,6 +231,46 @@ export const logseq = {
                 console.warn(`[MockLogseq] updateBlock: Block not found ${uuid}`);
             }
         },
+        removeBlock: async (uuid) => {
+            console.log(`[MockLogseq] removeBlock: ${uuid}`);
+            const state = blockState.value;
+            const block = state[uuid];
+            if (block) {
+                // Remove from state
+                delete state[uuid];
+
+                // Also need to remove from parent's children array if possible
+                // This is hard without back-references in this simple mock
+                // But for `updateBlock` testing we might just check if children are gone from the parent object we hold
+                // Ideally we find the parent page or block
+
+                // Iterate pages to find parent
+                for (const p of logseq._pages) {
+                    if (p.blocks) {
+                        const idx = p.blocks.findIndex(b => b.uuid === uuid);
+                        if (idx !== -1) {
+                            p.blocks.splice(idx, 1);
+                            return;
+                        }
+                        // Recursive search for block parent
+                        const removeFromChildren = (nodes) => {
+                            const idx = nodes.findIndex(n => n.uuid === uuid);
+                            if (idx !== -1) {
+                                nodes.splice(idx, 1);
+                                return true;
+                            }
+                            for (const n of nodes) {
+                                if (n.children && removeFromChildren(n.children)) return true;
+                            }
+                            return false;
+                        };
+                        if (removeFromChildren(p.blocks)) return;
+                    }
+                }
+            } else {
+                console.warn(`[MockLogseq] removeBlock: Block not found ${uuid}`);
+            }
+        },
         removeBlockProperty: async (uuid, propName) => {
             console.log(`[MockLogseq] removeBlockProperty: ${uuid}, ${propName}`);
             const state = blockState.value;

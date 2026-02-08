@@ -5,6 +5,7 @@ import type { MergeEntity } from '../../../domain/merge/entity';
 
 import { sanitizeBlockId, sanitizeContent } from './tool-utils';
 import { parseSubtree, formatResultTree, type ParsedBlock, type InsertedNode } from './subtree-parser';
+import { insertSubtreeRecursive } from './block-operations';
 
 /**
  * Creates the addBlock tool with injected context.
@@ -30,12 +31,7 @@ content: "Root content
   - Grandchild B
 - Second child"
 
-→ Creates nested structure. Returns markdown-style tree with IDs:
-  id:123 "Root conte..."
-  - id:124 "First chil..."
-    - id:125 "Grandchild..."
-    - id:126 "Grandchild..."
-  - id:127 "Second chi..."
+→ Creates nested structure. Returns markdown-style tree with IDs.
 
 On partial failure, returns tree built so far + error.`,
     inputSchema: z.object({
@@ -139,73 +135,11 @@ On partial failure, returns tree built so far + error.`,
 
 /**
  * Recursively inserts a parsed block tree into Logseq.
- * 
+ *
  * @param parentUuid The UUID of the parent block to insert under
  * @param node The ParsedBlock to insert
  * @param options Options for the insertBlock call (only used for root)
  * @param merge Whether to add merge metadata
  * @returns InsertedNode with IDs and any errors
  */
-async function insertSubtreeRecursive(
-    parentUuid: string,
-    node: ParsedBlock,
-    options: any,
-    merge: boolean
-): Promise<InsertedNode> {
-    const result: InsertedNode = {
-        id: 'unknown',
-        content: node.content,
-        children: []
-    };
-
-    try {
-        // Build insert options including properties
-        const insertOptions: any = { ...options };
-        if (Object.keys(node.properties).length > 0) {
-            insertOptions.properties = node.properties;
-        }
-
-        // Insert the block
-        const newBlock = await logseq.Editor.insertBlock(parentUuid, node.content, insertOptions);
-
-        if (!newBlock) {
-            result.error = 'Failed to insert block';
-            return result;
-        }
-
-        // Get the block ID
-        let blockId: number | undefined = newBlock.id;
-        if (blockId === undefined && newBlock.uuid) {
-            const fetchedBlock = await logseq.Editor.getBlock(newBlock.uuid);
-            blockId = fetchedBlock?.id;
-        }
-        result.id = blockId !== undefined ? blockId : 'unknown';
-
-        // Add merge metadata if enabled
-        if (merge && newBlock.uuid) {
-            const mergeData: MergeEntity = { type: 'add' };
-            await logseq.Editor.upsertBlockProperty(newBlock.uuid, 'logseq-doc-agent.merge', JSON.stringify(mergeData));
-        }
-
-        // Recursively insert children (children don't use the anchor options)
-        for (const child of node.children) {
-            const childResult = await insertSubtreeRecursive(
-                newBlock.uuid,
-                child,
-                {}, // Children are always inserted as children of their parent
-                merge
-            );
-            result.children.push(childResult);
-
-            // If child had an error, propagate it up
-            if (childResult.error && !result.error) {
-                result.error = `Child error: ${childResult.error}`;
-            }
-        }
-
-    } catch (e) {
-        result.error = String(e);
-    }
-
-    return result;
-}
+// Function moved to ./block-operations.ts

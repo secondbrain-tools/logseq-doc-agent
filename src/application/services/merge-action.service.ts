@@ -70,24 +70,68 @@ export class MergeActionService {
 
         for (const uuid of uuids) {
             try {
-                // Fetch the merge property to check the type
-                const rawContent = await logseq.Editor.getBlockPropertyContent(uuid, 'logseq-doc-agent.merge');
+                // 1. Fetch block to get properties
+                // Note: getBlockPropertyContent is explicitly avoided as it throws "Not existed method" errors in some contexts.
 
-                if (rawContent) {
-                    const mergeData = JSON.parse(rawContent);
+                let rawContent: string | null = null;
+                let mergeData: any = null;
 
+                const block = await logseq.Editor.getBlock(uuid);
+
+                if (block) {
+                    // Check properties object (handling Logseq normalization)
+                    if (block.properties) {
+                        // Kebab-case (original)
+                        if (block.properties['logseq-doc-agent.merge']) {
+                            const prop = block.properties['logseq-doc-agent.merge'];
+                            if (typeof prop === 'string') rawContent = prop;
+                            else mergeData = prop;
+                        }
+                        // CamelCase (normalized)
+                        else if (block.properties['logseqDocAgent.merge']) {
+                            const prop = block.properties['logseqDocAgent.merge'];
+                            if (typeof prop === 'string') rawContent = prop;
+                            else mergeData = prop;
+                        }
+                    }
+
+                    // Final fallback: Content Regex
+                    if (!mergeData && !rawContent && block.content) {
+                        const match = block.content.match(/logseq-doc-agent\.merge::\s*(.+)/);
+                        if (match && match[1]) {
+                            rawContent = match[1];
+                        }
+                    }
+                } else {
+                    console.warn(`[MergeActionService] Block ${uuid} could not be fetched.`);
+                }
+
+                if (!mergeData && rawContent) {
+                    try {
+                        mergeData = JSON.parse(rawContent);
+                    } catch (e) {
+                        console.warn(`[MergeActionService] Failed to parse merge data for ${uuid}`, e);
+                    }
+                }
+
+                if (mergeData) {
                     if (mergeData.type === 'add') {
                         // For "add" type, delete the block entirely
                         console.log(`[MergeActionService] Block ${uuid} is type 'add', deleting...`);
                         await logseq.Editor.removeBlock(uuid);
-                    } else {
-                        // For other types, just remove the property
-                        await logseq.Editor.removeBlockProperty(uuid, "logseq-doc-agent.merge");
+                        continue; // Done for this block
+                    } else if (mergeData.type === 'update') {
+                        // For "update" type, check if we have base content to restore
+                        if (mergeData.base !== undefined) {
+                            console.log(`[MergeActionService] Block ${uuid} is type 'update', restoring base content...`);
+                            await logseq.Editor.updateBlock(uuid, mergeData.base);
+                        }
                     }
-                } else {
-                    // No merge property, just try to remove it anyway
-                    await logseq.Editor.removeBlockProperty(uuid, "logseq-doc-agent.merge");
                 }
+
+                // Default: Just remove the property (cleans up 'update' markers or unknown types)
+                await logseq.Editor.removeBlockProperty(uuid, "logseq-doc-agent.merge");
+
             } catch (e) {
                 console.warn(`[MergeActionService] Error reverting block ${uuid}:`, e);
                 // Fallback: just remove property

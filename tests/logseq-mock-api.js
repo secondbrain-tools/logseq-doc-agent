@@ -91,9 +91,12 @@ export const logseq = {
             return { uuid: 'new-block-uuid-' + Date.now() };
         },
         insertBlock: async (srcBlock, content, options) => {
-            console.log(`[MockLogseq] insertBlock: ${srcBlock}`, content);
-            // Naive implementation: Appends to the same page as the srcBlock
-            // 1. Find the page containing srcBlock
+            console.log(`[MockLogseq] insertBlock: ${srcBlock}`, content, options);
+            // Generate a unique ID for the new block
+            const blockId = Math.floor(Math.random() * 100000);
+            const blockUuid = 'mock-block-' + Math.random().toString(36).substr(2, 5);
+
+            // Find the page containing srcBlock
             let targetPage = null;
             for (const p of logseq._pages) {
                 if (p.blocks && p.blocks.find(b => b.uuid === srcBlock)) {
@@ -104,23 +107,28 @@ export const logseq = {
 
             // If not found, try to use the last active page or just fail gracefully
             if (!targetPage) {
-                // Fallback: If we just created a block in appendBlockInPage, maybe we can assume it's the last page in _pages?
                 if (logseq._pages.length > 0) {
                     targetPage = logseq._pages[logseq._pages.length - 1];
                 }
             }
 
+            const newBlock = {
+                id: blockId,
+                uuid: blockUuid,
+                content: content,
+                properties: options?.properties || {}
+            };
+
             if (targetPage) {
-                const newBlock = {
-                    uuid: 'mock-block-' + Math.random().toString(36).substr(2, 5),
-                    content: content
-                };
                 if (!targetPage.blocks) targetPage.blocks = [];
                 targetPage.blocks.push(newBlock);
-                return newBlock;
             }
 
-            return { uuid: 'new-block-uuid-' + Date.now() };
+            // Also add to blockState for getBlock lookups
+            const state = blockState.value;
+            state[blockUuid] = newBlock;
+
+            return newBlock;
         },
         registerSlashCommand: (name, callback) => {
             console.log(`[MockLogseq] registerSlashCommand: /${name}`);
@@ -225,10 +233,6 @@ export const logseq = {
         },
         removeBlockProperty: async (uuid, propName) => {
             console.log(`[MockLogseq] removeBlockProperty: ${uuid}, ${propName}`);
-            // Mock removing property
-            // Just update content to remove the property line?
-            // Since we don't have perfect source text mapping, let's just ignore or clean content in memory.
-            // We can strip it from `block.content` if present.
             const state = blockState.value;
             const block = state[uuid];
             if (block && block.content) {
@@ -236,6 +240,20 @@ export const logseq = {
                 const lines = block.content.split('\n');
                 const newLines = lines.filter(l => !l.includes(propName));
                 block.content = newLines.join('\n');
+            }
+            if (block && block.properties) {
+                delete block.properties[propName];
+            }
+        },
+        upsertBlockProperty: async (uuid, propName, propValue) => {
+            console.log(`[MockLogseq] upsertBlockProperty: ${uuid}, ${propName} = ${propValue}`);
+            const state = blockState.value;
+            const block = state[uuid];
+            if (block) {
+                if (!block.properties) block.properties = {};
+                block.properties[propName] = propValue;
+            } else {
+                console.warn(`[MockLogseq] upsertBlockProperty: Block not found ${uuid}`);
             }
         },
     },

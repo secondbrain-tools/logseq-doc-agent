@@ -4,9 +4,8 @@ import {
     type LogseqBlock,
 } from './types';
 import {
-    flattenBlocks,
-    buildDocumentResponse,
-    cleanBlockContent
+    applyMergeLogicToTree,
+    buildDocumentResponse
 } from './get_logseq_document_tool';
 import type { LogseqSelection } from './types';
 import { sanitizeBlockId } from './tool-utils';
@@ -44,57 +43,12 @@ export const createGetBlockTool = (context: {
                 return `Error: Block with ID/UUID ${blockId} not found.`;
             }
 
-            // If we have a single block but it might have children we need to flatten it similarly to get_document
-            // However, getBlock returns a single entity. If includeChildren is true, it has a children array.
+            // Treat variable block as root of a forest of 1 tree
+            let blocks: LogseqBlock[] = [block];
 
-            let blocks: LogseqBlock[] = [];
-
-            // If it's a single block, we can treat it as a tree root for flattening
-            // But flattening expects an array of blocks.
-            // Let's create a temporary array containing just this block
-
-            if (subtree) {
-                // flattenBlocks expects a tree array.
-                // It also handles calculating hierarchy IDs.
-                // We pass [block] as the tree.
-                blocks = flattenBlocks([block]);
-            } else {
-                // Just the single block
-                // We still want consistent formatting, so we add hierarchyId manually if missing
-                blocks = [{
-                    ...block,
-                    hierarchyId: block.hierarchyId || '1'
-                }];
-            }
-
-            // Apply Merge Logic if enabled (Copied from get_logseq_document_tool)
+            // Apply Merge Logic if enabled
             if (context.mergeDefault || context.mergeBoth) {
-                blocks = blocks.map(b => {
-                    const content = b.content || '';
-                    const match = content.match(/logseq-doc-agent\.merge::\s*(.+)/);
-                    if (match && match[1]) {
-                        try {
-                            const mergeData = JSON.parse(match[1]);
-                            if (mergeData) {
-                                const cleanedBody = cleanBlockContent(b.content);
-                                if (context.mergeBoth) {
-                                    return {
-                                        ...b,
-                                        content: `[BASE]\n${mergeData.base || ''}\n[PROPOSED]\n${cleanedBody}`
-                                    };
-                                } else if (context.mergeDefault) {
-                                    return {
-                                        ...b,
-                                        content: cleanedBody
-                                    };
-                                }
-                            }
-                        } catch (e) {
-                            // Ignore parse errors
-                        }
-                    }
-                    return b;
-                });
+                blocks = applyMergeLogicToTree(blocks, context);
             }
 
             // Use the same response builder

@@ -4,18 +4,57 @@ import { tool } from 'ai';
 import type { MergeEntity } from '../../../domain/merge/entity';
 
 import { sanitizeBlockId, sanitizeContent } from './tool-utils';
+import { parseSubtree, formatResultTree, type ParsedBlock, type InsertedNode } from './subtree-parser';
 
 /**
  * Creates the addBlock tool with injected context.
  */
 export const createAddBlockTool = (context: { merge: boolean }) => tool({
-    description: 'Add a new block to Logseq. Can append as child or insert before/after a target.',
+    description: `Add blocks to Logseq. Supports single blocks or nested subtrees.
+
+**Subtree syntax** (when parse_subtrees=true, the default):
+- Lines starting with "- " become child blocks
+- Indentation (2 spaces or tab) creates nesting levels
+- Properties use "prop:: value" format on indented lines under the block
+- Text before the first "- " becomes the root block content
+
+**Example - Single block:**
+content: "My new block"
+→ Creates one block
+
+**Example - Subtree with properties:**
+content: "Root content
+- First child
+  status:: todo
+  - Grandchild A
+  - Grandchild B
+- Second child"
+
+→ Creates nested structure. Returns markdown-style tree with IDs:
+  id:123 "Root conte..."
+  - id:124 "First chil..."
+    - id:125 "Grandchild..."
+    - id:126 "Grandchild..."
+  - id:127 "Second chi..."
+
+On partial failure, returns tree built so far + error.`,
     inputSchema: z.object({
         targetId: z.union([z.number(), z.string()]).describe('The Logseq ID (integer) of the target block/page to add to'),
-        content: z.string().describe('The content of the new block'),
+        content: z.string().describe('Block content. Supports nested blocks using "- " list syntax with indentation.'),
         anchor: z.enum(['parent', 'before', 'after']).optional().describe('Where to insert relative to target. Default is "parent" (append as child).'),
+        parse_subtrees: z.boolean().optional().describe('If true (default), parse "- " lists as nested child blocks. If false, escape lists to preserve as literal text.'),
     }),
-    execute: async ({ targetId, content, anchor = 'parent' }: { targetId: number | string, content: string, anchor?: 'parent' | 'before' | 'after' }) => {
+    execute: async ({
+        targetId,
+        content,
+        anchor = 'parent',
+        parse_subtrees = true
+    }: {
+        targetId: number | string,
+        content: string,
+        anchor?: 'parent' | 'before' | 'after',
+        parse_subtrees?: boolean
+    }) => {
         try {
             let cleanTargetId = sanitizeBlockId(targetId);
 
@@ -33,52 +72,63 @@ export const createAddBlockTool = (context: { merge: boolean }) => tool({
             }
             const targetUuid = targetBlock.uuid;
 
-            // Logseq insertBlock options
-            const options: any = {};
+            // Logseq insertBlock options for the root block
+            const rootOptions: any = {};
             if (anchor === 'before') {
-                options.sibling = true;
-                options.before = true;
+                rootOptions.sibling = true;
+                rootOptions.before = true;
             } else if (anchor === 'after') {
-                options.sibling = true;
-                options.before = false;
+                rootOptions.sibling = true;
+                rootOptions.before = false;
             }
             // else 'parent' -> defaults (child)
 
-            let finalContent = sanitizeContent(content);
+            // If parse_subtrees is false, use the old behavior
+            if (!parse_subtrees) {
+                const finalContent = sanitizeContent(content);
+                const newBlock = await logseq.Editor.insertBlock(targetUuid, finalContent, rootOptions);
 
-            if (context.merge) {
-                const mergeData: MergeEntity = {
-                    type: 'add'
-                };
-                // Just use the content as is, we will add the property after insertion
-            }
-
-            const newBlock = await logseq.Editor.insertBlock(targetUuid, finalContent, options);
-
-            if (newBlock && context.merge) {
-                // insertBlock may not return uuid immediately in some versions, but usually does.
-                // If newBlock is the block entity
-                const blockUuid = newBlock.uuid;
-                if (blockUuid) {
-                    const mergeData: MergeEntity = { type: 'add' };
-                    await logseq.Editor.upsertBlockProperty(blockUuid, 'logseq-doc-agent.merge', JSON.stringify(mergeData));
+                if (newBlock && context.merge) {
+                    const blockUuid = newBlock.uuid;
+                    if (blockUuid) {
+                        const mergeData: MergeEntity = { type: 'add' };
+                        await logseq.Editor.upsertBlockProperty(blockUuid, 'logseq-doc-agent.merge', JSON.stringify(mergeData));
+                    }
                 }
+
+                if (!newBlock) {
+                    return `Error: Failed to insert block at ${targetId}`;
+                }
+
+                let blockId: number | undefined = newBlock.id;
+                if (blockId === undefined && newBlock.uuid) {
+                    const fetchedBlock = await logseq.Editor.getBlock(newBlock.uuid);
+                    blockId = fetchedBlock?.id;
+                }
+
+                const idStr = blockId !== undefined ? String(blockId) : 'unknown';
+                return `Successfully added block (id:${idStr}) ${anchor} ${targetId}.`;
             }
 
-            if (!newBlock) {
-                return `Error: Failed to insert block at ${targetId}`;
+            // Parse subtrees mode (default)
+            const parsedTree = parseSubtree(content);
+
+            // Insert the tree recursively
+            const insertedTree = await insertSubtreeRecursive(
+                targetUuid,
+                parsedTree,
+                rootOptions,
+                context.merge
+            );
+
+            // Format and return the result
+            const resultTree = formatResultTree(insertedTree);
+
+            if (insertedTree.error) {
+                return `Partial success (error occurred):\n${resultTree}`;
             }
 
-            // insertBlock may not return the integer id immediately, fetch it
-            let blockId: number | undefined = newBlock.id;
-            if (blockId === undefined && newBlock.uuid) {
-                const fetchedBlock = await logseq.Editor.getBlock(newBlock.uuid);
-                blockId = fetchedBlock?.id;
-            }
-
-            // Return the new block's ID so agent can use it immediately
-            const idStr = blockId !== undefined ? String(blockId) : 'unknown';
-            return `Successfully added block (id:${idStr}) ${anchor} ${targetId}.`;
+            return `Successfully added subtree ${anchor} ${targetId}:\n${resultTree}`;
 
         } catch (e) {
             console.error('[AddBlockTool] Error:', e);
@@ -86,3 +136,76 @@ export const createAddBlockTool = (context: { merge: boolean }) => tool({
         }
     },
 } as any);
+
+/**
+ * Recursively inserts a parsed block tree into Logseq.
+ * 
+ * @param parentUuid The UUID of the parent block to insert under
+ * @param node The ParsedBlock to insert
+ * @param options Options for the insertBlock call (only used for root)
+ * @param merge Whether to add merge metadata
+ * @returns InsertedNode with IDs and any errors
+ */
+async function insertSubtreeRecursive(
+    parentUuid: string,
+    node: ParsedBlock,
+    options: any,
+    merge: boolean
+): Promise<InsertedNode> {
+    const result: InsertedNode = {
+        id: 'unknown',
+        content: node.content,
+        children: []
+    };
+
+    try {
+        // Build insert options including properties
+        const insertOptions: any = { ...options };
+        if (Object.keys(node.properties).length > 0) {
+            insertOptions.properties = node.properties;
+        }
+
+        // Insert the block
+        const newBlock = await logseq.Editor.insertBlock(parentUuid, node.content, insertOptions);
+
+        if (!newBlock) {
+            result.error = 'Failed to insert block';
+            return result;
+        }
+
+        // Get the block ID
+        let blockId: number | undefined = newBlock.id;
+        if (blockId === undefined && newBlock.uuid) {
+            const fetchedBlock = await logseq.Editor.getBlock(newBlock.uuid);
+            blockId = fetchedBlock?.id;
+        }
+        result.id = blockId !== undefined ? blockId : 'unknown';
+
+        // Add merge metadata if enabled
+        if (merge && newBlock.uuid) {
+            const mergeData: MergeEntity = { type: 'add' };
+            await logseq.Editor.upsertBlockProperty(newBlock.uuid, 'logseq-doc-agent.merge', JSON.stringify(mergeData));
+        }
+
+        // Recursively insert children (children don't use the anchor options)
+        for (const child of node.children) {
+            const childResult = await insertSubtreeRecursive(
+                newBlock.uuid,
+                child,
+                {}, // Children are always inserted as children of their parent
+                merge
+            );
+            result.children.push(childResult);
+
+            // If child had an error, propagate it up
+            if (childResult.error && !result.error) {
+                result.error = `Child error: ${childResult.error}`;
+            }
+        }
+
+    } catch (e) {
+        result.error = String(e);
+    }
+
+    return result;
+}

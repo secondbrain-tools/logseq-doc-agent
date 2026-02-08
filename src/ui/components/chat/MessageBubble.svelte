@@ -91,9 +91,16 @@
     }
 
     // --- Grouping Logic ---
+    type ToolSubGroup = {
+        toolName: string;
+        parts: { part: MessagePart; index: number; result?: MessagePart }[];
+        count: number;
+        label: string;
+    };
+
     type ToolGroup = {
         type: "tool_group";
-        parts: { part: MessagePart; index: number; result?: MessagePart }[];
+        subgroups: ToolSubGroup[];
         collapsed: boolean;
         label: string;
     };
@@ -149,25 +156,69 @@
             return;
         }
 
-        const firstTool = group[0].part.toolName;
-        const allSame = group.every((g) => g.part.toolName === firstTool);
-        const label = allSame
-            ? `${group.length} × ${firstTool}`
-            : `${group.length} tools`;
+        // Identify subgroups
+        const subgroups: ToolSubGroup[] = [];
+        let currentSub: {
+            part: MessagePart;
+            index: number;
+            result?: MessagePart;
+        }[] = [];
+
+        for (const item of group) {
+            if (currentSub.length === 0) {
+                currentSub.push(item);
+            } else {
+                const prevName = currentSub[0].part.toolName;
+                if (item.part.toolName === prevName) {
+                    currentSub.push(item);
+                } else {
+                    // Flush sub
+                    subgroups.push({
+                        toolName: prevName,
+                        parts: currentSub,
+                        count: currentSub.length,
+                        label: `${currentSub.length} × ${prevName}`,
+                    });
+                    currentSub = [item];
+                }
+            }
+        }
+        // Flush last
+        if (currentSub.length > 0) {
+            const name = currentSub[0].part.toolName;
+            subgroups.push({
+                toolName: name,
+                parts: currentSub,
+                count: currentSub.length,
+                label: `${currentSub.length} × ${name}`,
+            });
+        }
+
+        const totalTools = group.length;
+        let label = "";
+
+        // If only 1 subgroup, use its label as the main label?
+        // Or if multiple, use "N tools".
+        if (subgroups.length === 1) {
+            label = subgroups[0].label;
+        } else {
+            label = `${totalTools} tools`;
+        }
 
         items.push({
             type: "tool_group",
-            parts: group,
+            subgroups,
             collapsed: true,
             label,
         });
     }
 
-    // Local state for groups (keyed by index of first item)
-    let groupStates = $state<Record<number, boolean>>({}); // index -> isExpanded
+    // Local state for groups (keyed by index of first item or unique key)
+    let groupStates = $state<Record<string, boolean>>({}); // key -> isExpanded
 
-    function toggleGroup(index: number) {
-        groupStates[index] = !groupStates[index];
+    function toggleGroup(key: string | number) {
+        const k = String(key);
+        groupStates[k] = !groupStates[k];
     }
 
     let isThinking = $derived(
@@ -256,7 +307,7 @@
                             <!-- Single Tool Call Card -->
                             <div
                                 class="mb-2 border rounded text-xs lda-tool-call"
-                                style="background: var(--ls-secondary-background-color); border-color: var(--ls-border-color); width: fit-content; max-width: 16rem;"
+                                style="background: var(--ls-secondary-background-color); border-color: var(--ls-border-color); width: fit-content; max-width: min(16rem, 100%);"
                             >
                                 <!-- Header -->
                                 <button
@@ -380,152 +431,190 @@
                             </div>
                         {/if}
                     {:else if item.type === "tool_group"}
-                        {@const groupKey = item.parts[0].index}
-                        {@const isGroupExpanded =
-                            groupStates[groupKey] ?? false}
+                        {@const groupKey = item.subgroups[0].parts[0].index}
+                        {@const isMulti = item.subgroups.length > 1}
 
-                        <!-- Tool Group Container -->
-                        <!-- CHANGED: Refined styling for group 'stack' look -->
-                        <div
-                            class="mb-2 relative"
-                            style="width: fit-content; max-width: 16rem;"
-                        >
-                            <!-- Stack effect layers (pseudoish) -->
-                            {#if !isGroupExpanded}
-                                <div
-                                    class="absolute top-1 left-1 w-full h-full rounded border"
-                                    style="background: var(--ls-secondary-background-color); border-color: var(--ls-border-color); opacity: 0.5; z-index: 0;"
-                                ></div>
-                            {/if}
-
-                            <button
-                                class="flex items-center gap-2 p-2 rounded border text-xs cursor-pointer hover:bg-opacity-80 transition hover:shadow-sm relative z-10"
-                                style="background: var(--ls-secondary-background-color); border-color: var(--ls-border-color); color: var(--ls-primary-text-color); width: 100%; min-width: 10rem;"
-                                onclick={() => toggleGroup(groupKey)}
+                        {#snippet ToolGroupCard(
+                            subgroup: ToolSubGroup,
+                            key: string | number,
+                        )}
+                            {@const isGroupExpanded =
+                                groupStates[String(key)] ?? false}
+                            <div
+                                class="mb-2 relative"
+                                style="width: fit-content; max-width: min(16rem, 100%);"
                             >
-                                <span class="font-mono">🔨</span>
-                                <span class="font-bold flex-1 text-left"
-                                    >{item.label}</span
-                                >
-                                <span
-                                    class="text-[10px] transform transition-transform {isGroupExpanded
-                                        ? 'rotate-180'
-                                        : ''}">▼</span
-                                >
-                            </button>
+                                <!-- Stack effect layers -->
+                                {#if !isGroupExpanded}
+                                    <div
+                                        class="absolute top-1 left-1 w-full h-full rounded border"
+                                        style="background: var(--ls-secondary-background-color); border-color: var(--ls-border-color); opacity: 0.5; z-index: 0;"
+                                    ></div>
+                                {/if}
 
-                            {#if isGroupExpanded}
-                                <div
-                                    class="pl-4 mt-2 border-l-2 flex flex-col gap-2 lda-animate-fadeIn"
-                                    style="border-color: var(--ls-border-color);"
+                                <button
+                                    class="flex items-center gap-2 p-2 rounded border text-xs cursor-pointer hover:bg-opacity-80 transition hover:shadow-sm relative z-10"
+                                    style="background: var(--ls-secondary-background-color); border-color: var(--ls-border-color); color: var(--ls-primary-text-color); width: 100%; min-width: 0;"
+                                    onclick={() => toggleGroup(key)}
                                 >
-                                    {#each item.parts as p}
-                                        <!-- Render Individual Tool Call inside Group -->
-                                        {@const part = p.part}
-                                        {@const summary = getToolSummary(
-                                            part,
-                                            p.result,
-                                        )}
-                                        {@const isCollapsed =
-                                            part.isCollapsed ?? true}
+                                    <span class="font-mono">🔨</span>
+                                    <span class="font-bold flex-1 text-left"
+                                        >{subgroup.label}</span
+                                    >
+                                    <span
+                                        class="text-[10px] transform transition-transform {isGroupExpanded
+                                            ? 'rotate-180'
+                                            : ''}">▼</span
+                                    >
+                                </button>
 
-                                        <div
-                                            class="border rounded text-xs lda-tool-call"
-                                            style="background: var(--ls-secondary-background-color); border-color: var(--ls-border-color); width: fit-content; max-width: 16rem;"
-                                        >
-                                            <button
-                                                type="button"
-                                                class="flex justify-between items-center w-full p-2 cursor-pointer focus:outline-none hover:opacity-80 transition-opacity gap-3"
-                                                style="background: none; border: none; color: var(--ls-primary-text-color); text-align: left;"
-                                                onclick={() =>
-                                                    onToggleCollapse(p.index)}
+                                {#if isGroupExpanded}
+                                    <div
+                                        class="pl-4 mt-2 border-l-2 flex flex-col gap-2 lda-animate-fadeIn"
+                                        style="border-color: var(--ls-border-color);"
+                                    >
+                                        {#each subgroup.parts as p}
+                                            {@const part = p.part}
+                                            {@const summary = getToolSummary(
+                                                part,
+                                                p.result,
+                                            )}
+                                            {@const isCollapsed =
+                                                part.isCollapsed ?? true}
+
+                                            <div
+                                                class="border rounded text-xs lda-tool-call"
+                                                style="background: var(--ls-secondary-background-color); border-color: var(--ls-border-color); width: 100%; max-width: 100%;"
                                             >
-                                                <div
-                                                    class="flex items-center gap-2 font-mono overflow-hidden"
+                                                <button
+                                                    type="button"
+                                                    class="flex justify-between items-center w-full p-2 cursor-pointer focus:outline-none hover:opacity-80 transition-opacity gap-3"
+                                                    style="background: none; border: none; color: var(--ls-primary-text-color); text-align: left;"
+                                                    onclick={() =>
+                                                        onToggleCollapse(
+                                                            p.index,
+                                                        )}
                                                 >
-                                                    <span>🔨</span>
                                                     <div
-                                                        class="flex items-baseline gap-2 overflow-hidden"
+                                                        class="flex items-center gap-2 font-mono overflow-hidden"
                                                     >
-                                                        <span
-                                                            class="font-bold whitespace-nowrap"
-                                                            >{part.toolName}</span
+                                                        <span>🔨</span>
+                                                        <div
+                                                            class="flex items-baseline gap-2 overflow-hidden"
                                                         >
-                                                        {#if summary}
-                                                            <!-- CHANGED: text-[10px] for details -->
                                                             <span
-                                                                class="opacity-60 truncate font-normal text-[10px]"
-                                                                >{summary}</span
+                                                                class="font-bold whitespace-nowrap"
+                                                                >{part.toolName}</span
+                                                            >
+                                                            {#if summary}
+                                                                <span
+                                                                    class="opacity-60 truncate font-normal text-[10px]"
+                                                                    >{summary}</span
+                                                                >
+                                                            {/if}
+                                                        </div>
+                                                        {#if p.result}
+                                                            <span
+                                                                class="text-green-500"
+                                                                style="color: var(--ls-success-text-color);"
+                                                                >✔</span
                                                             >
                                                         {/if}
                                                     </div>
-                                                    {#if p.result}
-                                                        <span
-                                                            class="text-green-500"
-                                                            style="color: var(--ls-success-text-color);"
-                                                            >✔</span
-                                                        >
-                                                    {/if}
-                                                </div>
-                                                <div
-                                                    class="font-bold text-lg leading-none ml-auto pl-2"
-                                                >
-                                                    {isCollapsed ? "+" : "−"}
-                                                </div>
-                                            </button>
+                                                    <div
+                                                        class="font-bold text-lg leading-none ml-auto pl-2"
+                                                    >
+                                                        {isCollapsed
+                                                            ? "+"
+                                                            : "−"}
+                                                    </div>
+                                                </button>
 
-                                            {#if !isCollapsed}
-                                                <div
-                                                    class="p-2 border-t lda-animate-fadeIn"
-                                                    style="border-color: var(--ls-border-color);"
-                                                >
-                                                    {#if part.toolArgs}
-                                                        <div class="mb-2">
-                                                            <div
-                                                                class="font-semibold mb-1 opacity-70"
-                                                            >
-                                                                Parameters:
+                                                {#if !isCollapsed}
+                                                    <div
+                                                        class="p-2 border-t lda-animate-fadeIn"
+                                                        style="border-color: var(--ls-border-color);"
+                                                    >
+                                                        {#if part.toolArgs}
+                                                            <div class="mb-2">
+                                                                <div
+                                                                    class="font-semibold mb-1 opacity-70"
+                                                                >
+                                                                    Parameters:
+                                                                </div>
+                                                                <pre
+                                                                    class="overflow-x-auto p-2 rounded border custom-scrollbar"
+                                                                    style="background: var(--ls-primary-background-color); border-color: var(--ls-border-color); color: var(--ls-primary-text-color); max-height: 200px;">{JSON.stringify(
+                                                                        part.toolArgs,
+                                                                        null,
+                                                                        2,
+                                                                    )}</pre>
                                                             </div>
-                                                            <pre
-                                                                class="overflow-x-auto p-2 rounded border custom-scrollbar"
-                                                                style="background: var(--ls-primary-background-color); border-color: var(--ls-border-color); color: var(--ls-primary-text-color); max-height: 200px;">{JSON.stringify(
-                                                                    part.toolArgs,
-                                                                    null,
-                                                                    2,
-                                                                )}</pre>
-                                                        </div>
-                                                    {/if}
-                                                    {#if p.result}
-                                                        <div class="mt-2">
-                                                            <div
-                                                                class="font-semibold mb-1 opacity-70"
-                                                            >
-                                                                Result:
-                                                            </div>
-                                                            <pre
-                                                                class="overflow-x-auto p-2 rounded border custom-scrollbar"
-                                                                style="background: var(--ls-tertiary-background-color, #f5f5f5); border-color: var(--ls-border-color); color: var(--ls-primary-text-color); max-height: 200px;">{typeof p
-                                                                    .result
-                                                                    .toolResult ===
-                                                                "string"
-                                                                    ? p.result
-                                                                          .toolResult
-                                                                    : JSON.stringify(
-                                                                          p
+                                                        {/if}
+                                                        {#if p.result}
+                                                            <div class="mt-2">
+                                                                <div
+                                                                    class="font-semibold mb-1 opacity-70"
+                                                                >
+                                                                    Result:
+                                                                </div>
+                                                                <pre
+                                                                    class="overflow-x-auto p-2 rounded border custom-scrollbar"
+                                                                    style="background: var(--ls-tertiary-background-color, #f5f5f5); border-color: var(--ls-border-color); color: var(--ls-primary-text-color); max-height: 200px;">{typeof p
+                                                                        .result
+                                                                        .toolResult ===
+                                                                    "string"
+                                                                        ? p
                                                                               .result
-                                                                              .toolResult,
-                                                                          null,
-                                                                          2,
-                                                                      )}</pre>
-                                                        </div>
-                                                    {/if}
-                                                </div>
-                                            {/if}
-                                        </div>
-                                    {/each}
-                                </div>
-                            {/if}
-                        </div>
+                                                                              .toolResult
+                                                                        : JSON.stringify(
+                                                                              p
+                                                                                  .result
+                                                                                  .toolResult,
+                                                                              null,
+                                                                              2,
+                                                                          )}</pre>
+                                                            </div>
+                                                        {/if}
+                                                    </div>
+                                                {/if}
+                                            </div>
+                                        {/each}
+                                    </div>
+                                {/if}
+                            </div>
+                        {/snippet}
+
+                        {#if isMulti}
+                            {@const isExpanded =
+                                groupStates[String(groupKey)] ?? false}
+                            <div class="mb-2 pl-2">
+                                <button
+                                    class="text-xs font-medium flex items-center hover:underline focus:outline-none"
+                                    style="color: var(--ls-secondary-text-color); background: none; border: none; cursor: pointer;"
+                                    onclick={() => toggleGroup(groupKey)}
+                                >
+                                    <span class="mr-1"
+                                        >{isExpanded ? "▼" : "▶"}</span
+                                    >
+                                    {item.label}
+                                </button>
+                                {#if isExpanded}
+                                    <div
+                                        class="pl-2 mt-2 flex flex-col gap-2 lda-animate-fadeIn"
+                                    >
+                                        {#each item.subgroups as subgroup, subIndex}
+                                            {@render ToolGroupCard(
+                                                subgroup,
+                                                `${groupKey}_${subIndex}`,
+                                            )}
+                                        {/each}
+                                    </div>
+                                {/if}
+                            </div>
+                        {:else}
+                            {@render ToolGroupCard(item.subgroups[0], groupKey)}
+                        {/if}
                     {/if}
                 {/each}
             {/if}

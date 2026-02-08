@@ -140,45 +140,6 @@
             ].includes(e.key)
         ) {
             e.stopPropagation();
-
-            if (["PageUp", "PageDown"].includes(e.key)) {
-                const ta = e.target as HTMLTextAreaElement;
-                const isScrollable = ta.scrollHeight > ta.clientHeight;
-                e.preventDefault();
-
-                if (!isScrollable) {
-                    if (e.key === "PageUp") {
-                        ta.setSelectionRange(0, 0);
-                    } else {
-                        ta.setSelectionRange(ta.value.length, ta.value.length);
-                    }
-                } else {
-                    const pageHeight = ta.clientHeight;
-                    // Manual Scrolling since preventDefault is active
-                    if (e.key === "PageUp") {
-                        const newTop = Math.max(0, ta.scrollTop - pageHeight);
-                        ta.scrollTop = newTop;
-                        // Optional: Clamp cursor to start if at top
-                        if (newTop === 0) ta.setSelectionRange(0, 0);
-                    } else {
-                        const newTop = Math.min(
-                            ta.scrollHeight - pageHeight,
-                            ta.scrollTop + pageHeight,
-                        );
-                        ta.scrollTop = newTop;
-                        // Optional: Clamp cursor to end if at bottom
-                        const atBottom =
-                            Math.abs(
-                                ta.scrollHeight - newTop - ta.clientHeight,
-                            ) < 2;
-                        if (atBottom)
-                            ta.setSelectionRange(
-                                ta.value.length,
-                                ta.value.length,
-                            );
-                    }
-                }
-            }
         }
 
         // Toggle Expansion: Alt + ArrowUp/ArrowDown
@@ -764,6 +725,7 @@
         border: 1px solid var(--ls-border-color);
         border-radius: 6px;
         padding: 1rem;
+        overflow-y: auto;
     }
 
     .lda-expanded-footer {

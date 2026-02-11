@@ -48,16 +48,10 @@ function parseProperties(lines) {
     const rest = [];
     const propRegex = /^\s*([^:]+)::\s*(.+)$/;
 
-    let parsingProps = true;
     for (const line of lines) {
-        if (parsingProps) {
-            const match = line.match(propRegex);
-            if (match) {
-                props[match[1].trim()] = match[2].trim();
-            } else {
-                parsingProps = false;
-                rest.push(line);
-            }
+        const match = line.match(propRegex);
+        if (match) {
+            props[match[1].trim()] = match[2].trim();
         } else {
             rest.push(line);
         }

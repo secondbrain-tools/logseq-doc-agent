@@ -35,6 +35,10 @@
     // Track the last known external prop value to detect EXTERNAL changes only
     let lastKnownCurrentContent = $state(currentContent);
 
+    // Stable content for Unified Diff view to prevent cycles.
+    // We want the Diff to be static (Base vs Incoming) while we toggle parts to generate Output.
+    let stableUnifiedContent = $state(item.content);
+
     $effect(() => {
         // Only sync when currentContent changes from OUTSIDE (parent update)
         // NOT when it matches what we just sent via onContentChange
@@ -44,6 +48,8 @@
         ) {
             lastKnownCurrentContent = currentContent;
             editContent = currentContent;
+            // NOTE: We do NOT update stableUnifiedContent here to preserve the "Original Proposal" view
+            // unless the Item ID changes, which tears down component.
         }
     });
 
@@ -231,15 +237,31 @@
                 />
             {:else if viewMode === "unified"}
                 <!-- Unified Word Diff -->
+                {console.log("[TreeDiffItem] Rendering Unified Mode", {
+                    base: item.mergeData?.base,
+                    current: item.content,
+                    stable: stableUnifiedContent,
+                }) || ""}
                 <InlineDiff
                     originalContent={item.mergeData
                         ? item.mergeData.base
                         : item.content}
-                    modifiedContent={item.content}
+                    modifiedContent={stableUnifiedContent}
                     canToggle={true}
                     {isExpanded}
                     onToggle={() => handleInteraction()}
                     mode="words"
+                    onContentChange={(newContent) => {
+                        console.log(
+                            "[TreeDiffItem] Unified content change",
+                            newContent.length,
+                            newContent === item.content
+                                ? "(unchanged)"
+                                : "(changed)",
+                        );
+                        editContent = newContent;
+                        onContentChange(item.uuid, newContent);
+                    }}
                 />
             {:else}
                 <!-- Inline (Default for others) -->

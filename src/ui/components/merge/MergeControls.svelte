@@ -14,11 +14,19 @@
     let {
         blockUuid,
         mergeData,
-    }: { blockUuid: string; mergeData: MergeEntity } = $props();
+        mode = "block", // 'block' | 'selection'
+    }: {
+        blockUuid?: string; // Optional in selection mode
+        mergeData?: MergeEntity; // Optional in selection mode
+        mode?: "block" | "selection";
+    } = $props();
 
     const dispatch = createEventDispatcher();
-    const mergeTreeService = new MergeTreeService();
-    const mergeActionService = new MergeActionService();
+    // Services only needed for block mode
+    const mergeTreeService =
+        mode === "block" ? new MergeTreeService() : (null as any);
+    const mergeActionService =
+        mode === "block" ? new MergeActionService() : (null as any);
 
     let targetElement: HTMLElement | null = null;
     let controlsDiv: HTMLElement;
@@ -167,6 +175,8 @@
     }
 
     onMount(() => {
+        if (mode === "selection") return;
+
         const blockDiv = parent.document.querySelector(
             `div[blockid="${blockUuid}"]`,
         );
@@ -180,9 +190,9 @@
                 targetElement.addEventListener("mouseleave", handleMouseLeave);
 
                 // Add type-specific classes
-                if (mergeData.type === "add") {
+                if (mergeData && mergeData.type === "add") {
                     targetElement.classList.add("lda-merge-type-add");
-                } else if (mergeData.type === "delete") {
+                } else if (mergeData && mergeData.type === "delete") {
                     targetElement.classList.add("lda-merge-type-delete");
                 }
             }
@@ -237,7 +247,7 @@
             );
 
             // Handle DELETE type specially for Modal Accept as well
-            if (mergeData.type === "delete") {
+            if (mergeData && mergeData.type === "delete") {
                 console.log(
                     "[MergeControls] Handling DELETE acceptance (via Modal)",
                 );
@@ -288,6 +298,11 @@
         e.stopPropagation();
         e.preventDefault();
 
+        if (mode === "selection") {
+            dispatch("accept");
+            return;
+        }
+
         if (targetElement) {
             targetElement.classList.remove(
                 "lda-merge-highlight",
@@ -298,7 +313,7 @@
 
         try {
             // Handle DELETE type specially
-            if (mergeData.type === "delete") {
+            if (mergeData && mergeData.type === "delete") {
                 console.log("[MergeControls] Handling DELETE acceptance");
                 await mergeActionService.acceptDelete(blockUuid);
                 await refreshInjection();
@@ -329,7 +344,13 @@
         }
     }
 
-    async function handleRevert() {
+    async function handleRevert(e?: MouseEvent) {
+        if (e && mode === "selection") {
+            e.stopPropagation();
+            e.preventDefault();
+            dispatch("revert");
+            return;
+        }
         if (targetElement) {
             targetElement.classList.remove(
                 "lda-merge-highlight",
@@ -450,15 +471,17 @@
     >
         ✓
     </button>
-    <button
-        class="lda-merge-btn lda-merge-diff"
-        onclick={handleDiff}
-        onmouseenter={(e) => handleActionHover("diff", true, e)}
-        onmouseleave={() => handleActionHover("diff", false)}
-        title="Show Diff"
-    >
-        ↔
-    </button>
+    {#if mode === "block"}
+        <button
+            class="lda-merge-btn lda-merge-diff"
+            onclick={handleDiff}
+            onmouseenter={(e) => handleActionHover("diff", true, e)}
+            onmouseleave={() => handleActionHover("diff", false)}
+            title="Show Diff"
+        >
+            ↔
+        </button>
+    {/if}
     <button
         class="lda-merge-btn lda-merge-revert"
         onclick={handleRevert}
@@ -486,7 +509,7 @@
     >
     <button
         class="lda-merge-btn lda-merge-revert"
-        onclick={handleRevert}
+        onclick={() => handleRevert()}
         title="Revert (Preview)">✗</button
     >
 </div>
@@ -497,5 +520,5 @@
     {mergeTree}
     on:close={() => (showDiffModal = false)}
     on:accept={handleAccept}
-    on:revert={handleRevert}
+    on:revert={() => handleRevert()}
 />

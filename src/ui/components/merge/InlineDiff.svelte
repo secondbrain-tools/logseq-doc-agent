@@ -1,6 +1,16 @@
 <script lang="ts">
-    import { onMount } from "svelte";
+    import { onMount, tick, untrack } from "svelte";
     import * as Diff from "diff";
+    import MergeControls from "./MergeControls.svelte";
+    import {
+        calculateDiffLines,
+        generateContentFromDiff,
+        getPartId,
+        type DiffLine,
+        type UnifiedPart,
+        type IntraLinePart,
+        type PartDecisions,
+    } from "./diff-utils";
 
     let {
         originalContent = "",
@@ -10,6 +20,7 @@
         onToggle = (recursive: boolean) => {},
         onLineMerge = (content: string, type: "added" | "removed") => {},
         mode = "lines",
+        onContentChange,
     }: {
         originalContent?: string;
         modifiedContent?: string;
@@ -18,357 +29,256 @@
         onToggle?: (recursive: boolean) => void;
         onLineMerge?: (content: string, type: "added" | "removed") => void;
         mode?: "lines" | "words";
+        onContentChange?: (newContent: string) => void;
     } = $props();
 
-    // Thresholds for intra-line highlighting
-    const SIMILARITY_THRESHOLD = 0.6; // Treat as modified if similarity >= this
-    const CHANGE_RATIO_THRESHOLD = 0.5; // Show intra-line if change ratio <= this
-    const MAX_LENGTH_THRESHOLD = 300; // Skip intra-line for very long lines
-
-    type IntraLinePart = {
-        text: string;
-        type: "common" | "added" | "removed";
-    };
-
-    type DiffLine = {
-        content: string;
-        type:
-            | "common"
-            | "added"
-            | "removed"
-            | "modified-old"
-            | "modified-new"
-            | "modified-unified";
-        originalLineNumber?: number;
-        newLineNumber?: number;
-        intraLineParts?: IntraLinePart[];
-        unifiedParts?: UnifiedPart[];
-    };
     let diffLines: DiffLine[] = $state([]);
 
-    type UnifiedPart = {
-        type: "common" | "added" | "removed" | "replacement";
-        text?: string;
-        removedText?: string;
-        addedText?: string;
-    };
+    // State for Unified Mode Decisions
+    // Key: part.id ("lineIndex-partIndex")
+    // Value: "accept" (keep new/add) | "revert" (keep old/remove)
+    let partDecisions = $state<PartDecisions>({});
 
-    function computeUnifiedParts(wordDiff: Diff.Change[]): UnifiedPart[] {
-        const parts: UnifiedPart[] = [];
-        let i = 0;
-        while (i < wordDiff.length) {
-            const current = wordDiff[i];
-
-            // Check for replacement (removed followed immediately by added)
-            if (
-                current.removed &&
-                i + 1 < wordDiff.length &&
-                wordDiff[i + 1].added
-            ) {
-                const next = wordDiff[i + 1];
-                parts.push({
-                    type: "replacement",
-                    removedText: current.value,
-                    addedText: next.value,
-                });
-                i += 2;
-                continue;
-            }
-
-            if (current.added) {
-                parts.push({ type: "added", text: current.value });
-            } else if (current.removed) {
-                parts.push({ type: "removed", text: current.value });
-            } else {
-                parts.push({ type: "common", text: current.value });
-            }
-            i++;
-        }
-        return parts;
-    }
-
-    // Levenshtein distance for similarity calculation
-    function levenshteinDistance(a: string, b: string): number {
-        if (a.length === 0) return b.length;
-        if (b.length === 0) return a.length;
-
-        const matrix: number[][] = [];
-        for (let i = 0; i <= b.length; i++) {
-            matrix[i] = [i];
-        }
-        for (let j = 0; j <= a.length; j++) {
-            matrix[0][j] = j;
-        }
-        for (let i = 1; i <= b.length; i++) {
-            for (let j = 1; j <= a.length; j++) {
-                if (b.charAt(i - 1) === a.charAt(j - 1)) {
-                    matrix[i][j] = matrix[i - 1][j - 1];
-                } else {
-                    matrix[i][j] = Math.min(
-                        matrix[i - 1][j - 1] + 1,
-                        matrix[i][j - 1] + 1,
-                        matrix[i - 1][j] + 1,
-                    );
-                }
-            }
-        }
-        return matrix[b.length][a.length];
-    }
-
-    function similarity(a: string, b: string): number {
-        const maxLen = Math.max(a.length, b.length);
-        if (maxLen === 0) return 1;
-        return 1 - levenshteinDistance(a, b) / maxLen;
-    }
-
-    // Compute intra-line diff parts
-    function computeIntraLineParts(
-        oldLine: string,
-        newLine: string,
-    ): { oldParts: IntraLinePart[]; newParts: IntraLinePart[] } {
-        const wordDiff = Diff.diffWordsWithSpace(oldLine, newLine);
-        const oldParts: IntraLinePart[] = [];
-        const newParts: IntraLinePart[] = [];
-
-        for (const part of wordDiff) {
-            if (part.added) {
-                newParts.push({ text: part.value, type: "added" });
-            } else if (part.removed) {
-                oldParts.push({ text: part.value, type: "removed" });
-            } else {
-                oldParts.push({ text: part.value, type: "common" });
-                newParts.push({ text: part.value, type: "common" });
-            }
-        }
-
-        return { oldParts, newParts };
-    }
-
-    // Check if intra-line highlighting is worth showing
-    function shouldShowIntraLine(
-        oldLine: string,
-        newLine: string,
-        parts: { oldParts: IntraLinePart[]; newParts: IntraLinePart[] },
-    ): boolean {
-        const maxLen = Math.max(oldLine.length, newLine.length);
-
-        // Skip if line is too long
-        if (maxLen > MAX_LENGTH_THRESHOLD) return false;
-
-        // Calculate change ratio
-        let changedChars = 0;
-        for (const part of parts.oldParts) {
-            if (part.type === "removed") changedChars += part.text.length;
-        }
-        for (const part of parts.newParts) {
-            if (part.type === "added") changedChars += part.text.length;
-        }
-
-        const changeRatio = changedChars / (2 * maxLen); // Normalize by both lines
-        return changeRatio <= CHANGE_RATIO_THRESHOLD;
-    }
+    // Selection State
+    let selectionToolbar = $state<{
+        visible: boolean;
+        x: number;
+        y: number;
+        selectedIds: string[]; // List of part IDs in the selection
+    }>({
+        visible: false,
+        x: 0,
+        y: 0,
+        selectedIds: [],
+    });
 
     function calculateDiff() {
-        if (!originalContent && !modifiedContent) return;
-
-        const oldText = originalContent || "";
-        const newText = modifiedContent || "";
-
-        const changes = Diff.diffLines(oldText, newText, {
-            newlineIsToken: false,
+        console.log("[InlineDiff] calculateDiff running", {
+            originalLen: originalContent.length,
+            modifiedLen: modifiedContent.length,
+            mode,
         });
+        const currentDecisions = untrack(() => partDecisions);
+        const result = calculateDiffLines(
+            originalContent,
+            modifiedContent,
+            mode,
+            currentDecisions,
+        );
+        diffLines = result.diffLines;
 
-        // Step A: Collect raw line changes
-        type RawLine = {
-            content: string;
-            type: "common" | "added" | "removed";
-        };
-        const rawLines: RawLine[] = [];
+        // Only update if decisions changed (deep check might be needed if loop persists)
+        // For now logging result
+        partDecisions = result.newDecisions;
+    }
 
-        changes.forEach((part) => {
-            const partLines = part.value.split("\n");
-            if (
-                partLines.length > 0 &&
-                partLines[partLines.length - 1] === ""
-            ) {
-                partLines.pop();
-            }
+    // Effect to regenerate content when decisions change
+    $effect(() => {
+        // Trigger on partDecisions change
+        if (onContentChange && mode === "words") {
+            generateFinalContent();
+        }
+    });
 
-            const type: RawLine["type"] = part.added
-                ? "added"
-                : part.removed
-                  ? "removed"
-                  : "common";
-            partLines.forEach((line) => {
-                rawLines.push({ content: line, type });
-            });
-        });
+    let lastEmittedContent = $state("");
 
-        // Step B: Detect replacement blocks and pair lines
-        let lines: DiffLine[] = [];
-        let oldCounter = 1;
-        let newCounter = 1;
-        let i = 0;
+    function generateFinalContent() {
+        console.log("[InlineDiff] generateFinalContent running");
+        const content = generateContentFromDiff(diffLines, partDecisions);
 
-        while (i < rawLines.length) {
-            const current = rawLines[i];
+        // Prevent infinite loops/redundant updates
+        // We track what we last emitted to avoid re-emitting the same string.
+        // We DO NOT compare against modifiedContent in Unified mode because modifiedContent
+        // might be the "Base/Proposal" which is static, while 'content' includes reverts.
 
-            if (current.type === "common") {
-                lines.push({
-                    content: current.content,
-                    type: "common",
-                    originalLineNumber: oldCounter++,
-                    newLineNumber: newCounter++,
-                });
-                i++;
-            } else if (current.type === "removed") {
-                // Collect consecutive removed lines
-                const removedLines: string[] = [];
-                let j = i;
-                while (j < rawLines.length && rawLines[j].type === "removed") {
-                    removedLines.push(rawLines[j].content);
-                    j++;
-                }
+        // Normalize for safety against newline issues
+        const normalizedContent = content.replace(/\n$/, "");
+        const normalizedLast = lastEmittedContent.replace(/\n$/, "");
 
-                // Collect consecutive added lines that follow
-                const addedLines: string[] = [];
-                while (j < rawLines.length && rawLines[j].type === "added") {
-                    addedLines.push(rawLines[j].content);
-                    j++;
-                }
+        if (onContentChange && normalizedContent !== normalizedLast) {
+            console.log(
+                "[InlineDiff] Content changed from last emit, updating:",
+                {
+                    generated: content,
+                    last: lastEmittedContent,
+                    diffLines: diffLines.length,
+                },
+            );
+            lastEmittedContent = content;
+            onContentChange(content);
+        } else {
+            console.log(
+                "[InlineDiff] Content matches last emit, skipping update",
+            );
+        }
+    }
 
-                // If we have both removed and added, it's a replacement block
-                if (removedLines.length > 0 && addedLines.length > 0) {
-                    // Pair lines by index and similarity
-                    const maxPairs = Math.min(
-                        removedLines.length,
-                        addedLines.length,
-                    );
+    function handleSelectionAction(action: "accept" | "revert") {
+        const { selectedIds } = selectionToolbar;
+        if (selectedIds.length === 0) return;
 
-                    for (let k = 0; k < maxPairs; k++) {
-                        const oldLine = removedLines[k];
-                        const newLine = addedLines[k];
-                        const sim = similarity(oldLine, newLine);
+        // Apply decision to all selected parts
+        const newDecisions = { ...partDecisions };
+        for (const id of selectedIds) {
+            newDecisions[id] = action;
+        }
+        partDecisions = newDecisions;
 
-                        if (sim >= SIMILARITY_THRESHOLD) {
-                            // Treat as modified - compute intra-line diff
-                            const parts = computeIntraLineParts(
-                                oldLine,
-                                newLine,
-                            );
-                            const showIntraLine = shouldShowIntraLine(
-                                oldLine,
-                                newLine,
-                                parts,
-                            );
+        // Hide toolbar
+        selectionToolbar.visible = false;
+        selectionToolbar.selectedIds = [];
+        window.getSelection()?.removeAllRanges();
+    }
 
-                            if (mode === "words") {
-                                // Unified Word Mode
-                                const wordDiff = Diff.diffWordsWithSpace(
-                                    oldLine,
-                                    newLine,
-                                );
-                                const unifiedParts =
-                                    computeUnifiedParts(wordDiff);
-
-                                lines.push({
-                                    content: newLine, // Use new line for copy/action purposes if needed
-                                    type: "modified-unified",
-                                    originalLineNumber: oldCounter++,
-                                    newLineNumber: newCounter++,
-                                    unifiedParts: unifiedParts,
-                                });
-                            } else if (showIntraLine) {
-                                // Show as modified lines with intra-line highlighting
-                                lines.push({
-                                    content: oldLine,
-                                    type: "modified-old",
-                                    originalLineNumber: oldCounter++,
-                                    intraLineParts: parts.oldParts,
-                                });
-                                lines.push({
-                                    content: newLine,
-                                    type: "modified-new",
-                                    newLineNumber: newCounter++,
-                                    intraLineParts: parts.newParts,
-                                });
-                            } else {
-                                // Change too significant - show as separate removed/added
-                                lines.push({
-                                    content: oldLine,
-                                    type: "removed",
-                                    originalLineNumber: oldCounter++,
-                                });
-                                lines.push({
-                                    content: newLine,
-                                    type: "added",
-                                    newLineNumber: newCounter++,
-                                });
-                            }
-                        } else {
-                            // Low similarity - show as separate removed/added
-                            lines.push({
-                                content: oldLine,
-                                type: "removed",
-                                originalLineNumber: oldCounter++,
-                            });
-                            lines.push({
-                                content: newLine,
-                                type: "added",
-                                newLineNumber: newCounter++,
-                            });
-                        }
-                    }
-
-                    // Handle remaining unpaired removed lines
-                    for (let k = maxPairs; k < removedLines.length; k++) {
-                        lines.push({
-                            content: removedLines[k],
-                            type: "removed",
-                            originalLineNumber: oldCounter++,
-                        });
-                    }
-
-                    // Handle remaining unpaired added lines
-                    for (let k = maxPairs; k < addedLines.length; k++) {
-                        lines.push({
-                            content: addedLines[k],
-                            type: "added",
-                            newLineNumber: newCounter++,
-                        });
-                    }
-                } else {
-                    // Pure removed lines (no following added)
-                    for (const line of removedLines) {
-                        lines.push({
-                            content: line,
-                            type: "removed",
-                            originalLineNumber: oldCounter++,
-                        });
-                    }
-                    // Pure added lines (no preceding removed)
-                    for (const line of addedLines) {
-                        lines.push({
-                            content: line,
-                            type: "added",
-                            newLineNumber: newCounter++,
-                        });
-                    }
-                }
-
-                i = j;
-            } else if (current.type === "added") {
-                // Pure added line (not part of a replacement block)
-                lines.push({
-                    content: current.content,
-                    type: "added",
-                    newLineNumber: newCounter++,
-                });
-                i++;
-            }
+    function handlePartClick(e: MouseEvent, partId: string) {
+        // If the user is selecting text (range not collapsed), ignore click (it's a selection end)
+        // But the click event happens after mouseup.
+        const selection = window.getSelection();
+        if (selection && !selection.isCollapsed) {
+            return;
         }
 
-        diffLines = lines;
+        e.stopPropagation();
+
+        console.log("[InlineDiff] Click part:", partId);
+
+        const currentDecision = partDecisions[partId];
+        // Toggle logic:
+        // If current is 'accept' (default for added/replacement) -> 'revert'
+        // If current is 'revert' -> 'accept'
+        // Missing decision implies 'accept' for added/replacement, 'revert' for removed?
+        // Actually for Added, default is Accepted. For Removed, default is Accepted (meaning removal accepted -> text gone).
+        // Wait, if Removed part is "Accepted", it means we ACCEPT the REMOVAL -> Text is gone.
+        // If Removed part is "Reverted", it means we REVERT the REMOVAL -> Text is restored.
+
+        // Let's rely on current state map. If undefined, it acts as "accept" (change applied).
+
+        const nextDecision = currentDecision === "revert" ? "accept" : "revert";
+
+        console.log(
+            "[InlineDiff] Toggling",
+            partId,
+            "from",
+            currentDecision,
+            "to",
+            nextDecision,
+        );
+        console.log(
+            "[InlineDiff] Current decisions before update:",
+            JSON.stringify(partDecisions),
+        );
+
+        // Update
+        const newDecisions = { ...partDecisions };
+        newDecisions[partId] = nextDecision;
+        partDecisions = newDecisions;
+        console.log(
+            "[InlineDiff] Decisions after update:",
+            JSON.stringify(partDecisions),
+        );
+    }
+
+    function updateSelectionToolbar() {
+        if (mode !== "words") return;
+
+        const selection = window.getSelection();
+        if (!selection || selection.isCollapsed || selection.rangeCount === 0) {
+            selectionToolbar.visible = false;
+            return;
+        }
+
+        const range = selection.getRangeAt(0);
+        let container: Node | null = range.commonAncestorContainer;
+        if (container.nodeType === 3) container = container.parentElement;
+
+        const element = container as HTMLElement;
+        if (!element.closest(".diff-viewer")) {
+            selectionToolbar.visible = false;
+            return;
+        }
+
+        // Gather part IDs
+        const partIds = new Set<string>();
+
+        // Helper to get part ID from a node or its parents
+        const getPartIdFromNode = (node: Node | null): string | null => {
+            let curr = node;
+            while (curr && curr !== element && curr.nodeType === 1) {
+                const pid = (curr as HTMLElement).dataset?.partId;
+                if (pid) return pid;
+                curr = curr.parentElement;
+            }
+            // Also check if node itself is text, check parent
+            if (node && node.nodeType === 3 && node.parentElement) {
+                return node.parentElement.dataset?.partId || null;
+            }
+            return null;
+        };
+
+        const walker = document.createTreeWalker(
+            range.commonAncestorContainer,
+            NodeFilter.SHOW_TEXT,
+            {
+                acceptNode: (node) => {
+                    if (selection.containsNode(node, true))
+                        return NodeFilter.FILTER_ACCEPT;
+                    return NodeFilter.FILTER_SKIP;
+                },
+            },
+        );
+
+        // Check common ancestor first if it's a text node in a part
+        if (range.commonAncestorContainer.nodeType === 3) {
+            const pId = getPartIdFromNode(range.commonAncestorContainer);
+            if (pId) partIds.add(pId);
+        }
+
+        while (walker.nextNode()) {
+            const pId = getPartIdFromNode(walker.currentNode);
+            if (pId) partIds.add(pId);
+        }
+
+        // Fallbacks
+        const startId = getPartIdFromNode(range.startContainer);
+        if (startId) partIds.add(startId);
+        const endId = getPartIdFromNode(range.endContainer);
+        if (endId) partIds.add(endId);
+
+        if (partIds.size > 0) {
+            const rect = range.getBoundingClientRect();
+            // Ensure toolbar doesn't go off-screen
+            const toolbarX = Math.max(10, rect.left + rect.width / 2);
+            const toolbarY = Math.max(10, rect.top - 40);
+
+            selectionToolbar = {
+                visible: true,
+                x: toolbarX,
+                y: toolbarY,
+                selectedIds: Array.from(partIds),
+            };
+        } else {
+            selectionToolbar.visible = false;
+        }
+    }
+
+    function handleSelectionChange() {
+        // Debounce slightly
+        setTimeout(updateSelectionToolbar, 10);
+    }
+
+    function getDecisionClass(
+        partId: string | undefined,
+        type: "added" | "removed" | "replacement",
+    ): string {
+        if (!partId) return "";
+        const decision = partDecisions[partId];
+        // console.log("[InlineDiff] getDecisionClass", partId, decision); // Commented out to avoid spam, uncomment if needed
+        if (!decision) return ""; // Default state (accepted-ish for added, refined for removed?)
+
+        if (decision === "revert") {
+            return "reverted";
+        }
+        return "accepted";
     }
 
     $effect(() => {
@@ -378,13 +288,19 @@
 
     onMount(() => {
         calculateDiff();
+        document.addEventListener("selectionchange", handleSelectionChange);
+        return () => {
+            document.removeEventListener(
+                "selectionchange",
+                handleSelectionChange,
+            );
+        };
     });
 
     function manualClick(node: HTMLElement, fn: (recursive: boolean) => void) {
         const handler = (e: MouseEvent) => {
             e.preventDefault();
             e.stopPropagation();
-            console.log("[InlineDiff] Toggle clicked via manual handler");
             fn(e.shiftKey);
         };
         node.addEventListener("click", handler);
@@ -396,9 +312,7 @@
     }
 
     function lineActionClick(node: HTMLElement, fn: () => void) {
-        console.log("[InlineDiff] lineActionClick action bounds");
         const handler = (e: MouseEvent) => {
-            console.log("[InlineDiff] Button clicked!", e);
             e.preventDefault();
             e.stopPropagation();
             fn();
@@ -410,14 +324,48 @@
             },
         };
     }
+
+    // Action to handle clicks on unified parts in Logseq environment
+    // where Svelte's onclick might fail in nested loops.
+    function unifiedPartClickAction(
+        node: HTMLElement,
+        fn: (e: MouseEvent) => void,
+    ) {
+        const handler = (e: MouseEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            fn(e);
+        };
+        node.addEventListener("click", handler);
+        return {
+            update(newFn: (e: MouseEvent) => void) {
+                fn = newFn;
+            },
+            destroy() {
+                node.removeEventListener("click", handler);
+            },
+        };
+    }
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
-    class="diff-viewer"
+    class="diff-viewer {mode}"
     draggable="false"
     ondragstart={(e) => e.preventDefault()}
 >
+    {#if selectionToolbar.visible}
+        <div
+            class="selection-toolbar"
+            style="top: {selectionToolbar.y}px; left: {selectionToolbar.x}px;"
+        >
+            <MergeControls
+                mode="selection"
+                on:accept={() => handleSelectionAction("accept")}
+                on:revert={() => handleSelectionAction("revert")}
+            />
+        </div>
+    {/if}
     <div class="diff-body">
         {#each isExpanded ? diffLines : diffLines.slice(0, 1) as line, i}
             <div class="diff-line type-{line.type}">
@@ -454,21 +402,64 @@
                         {#if line.type === "modified-unified" && line.unifiedParts}
                             {#each line.unifiedParts as part}
                                 {#if part.type === "replacement"}
-                                    <span class="unified-replacement">
+                                    <button
+                                        type="button"
+                                        class="unified-diff-btn unified-replacement {getDecisionClass(
+                                            part.id,
+                                            part.type,
+                                        )}"
+                                        data-part-id={part.id}
+                                        title={getDecisionClass(
+                                            part.id,
+                                            part.type,
+                                        ) === "reverted"
+                                            ? "Reverted (Click to Accept)"
+                                            : "Accepted (Click to Revert)"}
+                                        use:unifiedPartClickAction={(e) =>
+                                            handlePartClick(e, part.id!)}
+                                    >
                                         <span class="unified-added"
                                             >{part.addedText}</span
                                         >
                                         <span class="unified-removed"
                                             >{part.removedText}</span
                                         >
-                                    </span>
+                                    </button>
                                 {:else if part.type === "added"}
-                                    <span class="unified-added"
-                                        >{part.text}</span
+                                    <button
+                                        type="button"
+                                        class="unified-diff-btn unified-added {getDecisionClass(
+                                            part.id,
+                                            part.type,
+                                        )}"
+                                        data-part-id={part.id}
+                                        title={getDecisionClass(
+                                            part.id,
+                                            part.type,
+                                        ) === "reverted"
+                                            ? "Reverted (Click to Accept)"
+                                            : "Accepted (Click to Revert)"}
+                                        use:unifiedPartClickAction={(e) =>
+                                            handlePartClick(e, part.id!)}
+                                        >{part.text}</button
                                     >
                                 {:else if part.type === "removed"}
-                                    <span class="unified-removed"
-                                        >{part.text}</span
+                                    <button
+                                        type="button"
+                                        class="unified-diff-btn unified-removed {getDecisionClass(
+                                            part.id,
+                                            part.type,
+                                        )}"
+                                        data-part-id={part.id}
+                                        title={getDecisionClass(
+                                            part.id,
+                                            part.type,
+                                        ) === "reverted"
+                                            ? "Reverted (Click to Accept)"
+                                            : "Accepted (Click to Revert)"}
+                                        use:unifiedPartClickAction={(e) =>
+                                            handlePartClick(e, part.id!)}
+                                        >{part.text}</button
                                     >
                                 {:else}
                                     <span>{part.text}</span>
@@ -699,6 +690,49 @@
         background: rgba(0, 0, 0, 0.05); /* Slight box BG */
         border-radius: 3px;
         padding: 0 2px;
+        cursor: pointer; /* Clickable */
+    }
+
+    /* Decision Styles */
+    /* Reverted Replacement: Swap focus. */
+    .unified-replacement.reverted .unified-added {
+        opacity: 0.3;
+        text-decoration: line-through;
+        order: 2; /* Move to bottom visual? Or just style? */
+    }
+    .unified-replacement.reverted .unified-removed {
+        opacity: 1;
+        text-decoration: none;
+        color: inherit;
+        order: 1;
+        background-color: transparent;
+    }
+
+    /* Reverted Added: Hide or Strikethrough */
+    .unified-added.reverted {
+        text-decoration: line-through;
+        color: var(--ls-tertiary-text-color);
+        background-color: transparent;
+        opacity: 0.6;
+    }
+
+    /* Reverted Removed (Restored): Normal Text */
+    .unified-removed.reverted {
+        text-decoration: none;
+        color: inherit;
+        background-color: transparent;
+        opacity: 1;
+    }
+
+    .selection-toolbar {
+        position: fixed; /* Fixed to viewport usually better for floating toolbars on top */
+        z-index: 1000;
+        transform: translate(-50%, -100%); /* Center and move above */
+        background: var(--ls-secondary-background-color);
+        border: 1px solid var(--ls-border-color);
+        border-radius: 4px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        padding: 2px;
     }
 
     .unified-added {
@@ -735,5 +769,12 @@
     .diff-viewer ::-moz-selection {
         background-color: rgba(0, 120, 215, 0.3);
         color: inherit;
+    }
+    /* Interactive Feedback */
+    .unified-replacement:hover,
+    .unified-added:hover,
+    .unified-removed:hover {
+        filter: brightness(0.9);
+        outline: 1px dashed rgba(0, 0, 0, 0.3);
     }
 </style>

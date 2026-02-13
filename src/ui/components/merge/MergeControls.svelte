@@ -452,10 +452,33 @@
         );
         showDiffModal = true;
     }
+
+    /**
+     * Manual click action to ensure events are caught even when portaled to
+     * a different document (e.g. Logseq Main Window vs Plugin Iframe).
+     * Svelte's delegated events often fail in these cross-context scenarios.
+     */
+    function clickAction(node: HTMLElement, fn: (e: MouseEvent) => void) {
+        const handler = (e: MouseEvent) => {
+            // e.preventDefault(); // Optional, depending on button type
+            // e.stopPropagation(); // Let caller handle prop check if needed, or do it here?
+            // Usually we want to stop propagation for tools.
+            fn(e);
+        };
+        node.addEventListener("click", handler);
+        return {
+            destroy() {
+                node.removeEventListener("click", handler);
+            },
+        };
+    }
 </script>
 
 <div
     class="lda-merge-controls"
+    style={mode === "selection"
+        ? "display: inline-flex; opacity: 1; transform: none;"
+        : ""}
     role="group"
     bind:this={controlsDiv}
     onmouseenter={(e) => handleMouseEnter(e)}
@@ -464,7 +487,7 @@
     <!-- Normal Interactive Controls -->
     <button
         class="lda-merge-btn lda-merge-accept"
-        onclick={handleQuickAccept}
+        use:clickAction={handleQuickAccept}
         onmouseenter={(e) => handleActionHover("accept", true, e)}
         onmouseleave={() => handleActionHover("accept", false)}
         title="Accept Merge"
@@ -474,7 +497,7 @@
     {#if mode === "block"}
         <button
             class="lda-merge-btn lda-merge-diff"
-            onclick={handleDiff}
+            use:clickAction={handleDiff}
             onmouseenter={(e) => handleActionHover("diff", true, e)}
             onmouseleave={() => handleActionHover("diff", false)}
             title="Show Diff"
@@ -484,7 +507,7 @@
     {/if}
     <button
         class="lda-merge-btn lda-merge-revert"
-        onclick={handleRevert}
+        use:clickAction={handleRevert}
         onmouseenter={(e) => handleActionHover("revert", true, e)}
         onmouseleave={() => handleActionHover("revert", false)}
         title="Discard Merge"
@@ -499,17 +522,17 @@
 <div class="lda-merge-indicator">
     <button
         class="lda-merge-btn lda-merge-accept"
-        onclick={handleQuickAccept}
+        use:clickAction={handleQuickAccept}
         title="Accept (Preview)">✓</button
     >
     <button
         class="lda-merge-btn lda-merge-diff"
-        onclick={handleDiff}
+        use:clickAction={handleDiff}
         title="Diff (Preview)">↔</button
     >
     <button
         class="lda-merge-btn lda-merge-revert"
-        onclick={() => handleRevert()}
+        use:clickAction={(e) => handleRevert(e)}
         title="Revert (Preview)">✗</button
     >
 </div>

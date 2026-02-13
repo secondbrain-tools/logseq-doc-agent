@@ -52,6 +52,8 @@
         selectedIds: [],
     });
 
+    let viewerRef: HTMLElement;
+
     function calculateDiff() {
         console.log("[InlineDiff] calculateDiff running", {
             originalLen: originalContent.length,
@@ -115,7 +117,15 @@
 
     function handleSelectionAction(action: "accept" | "revert") {
         const { selectedIds } = selectionToolbar;
-        if (selectedIds.length === 0) return;
+        console.log("[InlineDiff] handleSelectionAction called", {
+            action,
+            selectedIds,
+        });
+
+        if (selectedIds.length === 0) {
+            console.warn("[InlineDiff] No selected IDs to act on");
+            return;
+        }
 
         // Apply decision to all selected parts
         const newDecisions = { ...partDecisions };
@@ -124,10 +134,18 @@
         }
         partDecisions = newDecisions;
 
+        console.log(
+            "[InlineDiff] Updated decisions:",
+            JSON.stringify(partDecisions),
+        );
+
         // Hide toolbar
         selectionToolbar.visible = false;
         selectionToolbar.selectedIds = [];
-        window.getSelection()?.removeAllRanges();
+
+        // Clear browser selection to give visual feedback that action is done
+        const sel = window.getSelection();
+        if (sel) sel.removeAllRanges();
     }
 
     function handlePartClick(e: MouseEvent, partId: string) {
@@ -178,24 +196,55 @@
         );
     }
 
-    function updateSelectionToolbar() {
+    function updateSelectionToolbar(providedRanges?: Range[]) {
+        // console.log("[InlineDiff] updateSelectionToolbar check. Mode:", mode);
         if (mode !== "words") return;
 
-        const selection = window.getSelection();
-        if (!selection || selection.isCollapsed || selection.rangeCount === 0) {
+        let ranges: Range[] = providedRanges || [];
+
+        if (!providedRanges) {
+            const selection = window.getSelection();
+            if (
+                selection &&
+                !selection.isCollapsed &&
+                selection.rangeCount > 0
+            ) {
+                for (let i = 0; i < selection.rangeCount; i++) {
+                    ranges.push(selection.getRangeAt(i));
+                }
+            }
+        }
+
+        if (ranges.length === 0) {
+            console.log(
+                "[InlineDiff] Selection invalid or collapsed (and no provided ranges), bailing.",
+            );
             selectionToolbar.visible = false;
             return;
         }
 
-        const range = selection.getRangeAt(0);
+        const range = ranges[0];
         let container: Node | null = range.commonAncestorContainer;
         if (container.nodeType === 3) container = container.parentElement;
 
         const element = container as HTMLElement;
-        if (!element.closest(".diff-viewer")) {
+        const closestViewer = element.closest(".diff-viewer");
+
+        console.log("[InlineDiff] Selection scope check:", {
+            element,
+            closestViewer,
+            viewerRef,
+            match: closestViewer === viewerRef,
+        });
+
+        // Ensure the selection is inside THIS viewer instance
+        if (!closestViewer || closestViewer !== viewerRef) {
+            // console.log("[InlineDiff] Selection outside this viewer instance");
             selectionToolbar.visible = false;
             return;
         }
+
+        // ... rest of logic
 
         // Gather part IDs
         const partIds = new Set<string>();
@@ -215,13 +264,20 @@
             return null;
         };
 
-        const walker = document.createTreeWalker(
+        // Use the document of the range's container to create the TreeWalker
+        // This handles cases where nodes are in parent document (iframe scenario)
+        const doc = range.commonAncestorContainer.ownerDocument || document;
+
+        const walker = doc.createTreeWalker(
             range.commonAncestorContainer,
             NodeFilter.SHOW_TEXT,
             {
                 acceptNode: (node) => {
-                    if (selection.containsNode(node, true))
+                    // If we have a valid selection object, use containsNode (more precise for partial nodes)
+                    // If not (passed ranges manually), use intersectsNode
+                    if (range.intersectsNode(node)) {
                         return NodeFilter.FILTER_ACCEPT;
+                    }
                     return NodeFilter.FILTER_SKIP;
                 },
             },
@@ -244,11 +300,23 @@
         const endId = getPartIdFromNode(range.endContainer);
         if (endId) partIds.add(endId);
 
+        console.log("[InlineDiff] updateSelectionToolbar flow", {
+            foundPartIds: Array.from(partIds),
+            rangeContainer: range.commonAncestorContainer,
+            rangeText: range.toString(),
+        });
+
         if (partIds.size > 0) {
             const rect = range.getBoundingClientRect();
             // Ensure toolbar doesn't go off-screen
             const toolbarX = Math.max(10, rect.left + rect.width / 2);
-            const toolbarY = Math.max(10, rect.top - 40);
+            const toolbarY = Math.max(10, rect.top - 8);
+
+            console.log("[InlineDiff] Showing toolbar at", {
+                x: toolbarX,
+                y: toolbarY,
+                rect,
+            });
 
             selectionToolbar = {
                 visible: true,
@@ -257,13 +325,32 @@
                 selectedIds: Array.from(partIds),
             };
         } else {
+            console.log("[InlineDiff] No part IDs found in selection, hiding.");
             selectionToolbar.visible = false;
         }
     }
 
     function handleSelectionChange() {
+        // console.log("[InlineDiff] selectionchange event");
         // Debounce slightly
-        setTimeout(updateSelectionToolbar, 10);
+        setTimeout(() => updateSelectionToolbar(), 10);
+    }
+
+    // Helper to get selection even if we are in an iframe (Logseq plugin)
+    function getSafeSelection(): Selection | null {
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0) return sel;
+
+        // Try parent if we are in an iframe
+        if (window.parent && window.parent !== window) {
+            try {
+                const parentSel = window.parent.getSelection();
+                if (parentSel && parentSel.rangeCount > 0) return parentSel;
+            } catch (e) {
+                // Ignore cross-origin errors
+            }
+        }
+        return sel;
     }
 
     function getDecisionClass(
@@ -287,8 +374,10 @@
     });
 
     onMount(() => {
+        console.log("[InlineDiff] onMount, viewerRef:", viewerRef);
         calculateDiff();
         document.addEventListener("selectionchange", handleSelectionChange);
+
         return () => {
             document.removeEventListener(
                 "selectionchange",
@@ -346,18 +435,109 @@
             },
         };
     }
+
+    function selectionTriggerAction(node: HTMLElement) {
+        const handleMouse = (e: MouseEvent) => {
+            // Use the window context of the event, which is where the DOM/Selection lives!
+            // This is critical for Logseq plugins where JS runs in iframe but DOM might be in main window.
+            const targetWindow = e.view || window;
+            const sel = targetWindow.getSelection();
+
+            const ranges: Range[] = [];
+            if (sel && !sel.isCollapsed && sel.rangeCount > 0) {
+                for (let i = 0; i < sel.rangeCount; i++) {
+                    try {
+                        ranges.push(sel.getRangeAt(i).cloneRange());
+                    } catch (e) {
+                        /* ignore */
+                    }
+                }
+            }
+
+            console.log("[InlineDiff] Action MouseUp (Sync)", {
+                node,
+                rangesFound: ranges.length,
+                selType: sel?.type,
+                targetWindowSame: targetWindow === window,
+                targetWindowParent: targetWindow === window.parent,
+            });
+
+            // Pass ranges directly to avoid race condition where selection is cleared
+            updateSelectionToolbar(ranges);
+        };
+        const handleKey = (e: KeyboardEvent) => {
+            // For keyboard events, e.view is also valid
+            const targetWindow = e.view || window;
+            const sel = targetWindow.getSelection();
+            const ranges: Range[] = [];
+            if (sel && !sel.isCollapsed && sel.rangeCount > 0) {
+                for (let i = 0; i < sel.rangeCount; i++) {
+                    try {
+                        ranges.push(sel.getRangeAt(i).cloneRange());
+                    } catch (e) {
+                        /* ignore */
+                    }
+                }
+            }
+            console.log("[InlineDiff] Action KeyUp (Sync)", {
+                key: e.key,
+                rangesFound: ranges.length,
+            });
+            updateSelectionToolbar(ranges);
+        };
+
+        // Use capture=true to catch event before bubbling handlers might clear selection
+        node.addEventListener("mouseup", handleMouse, true);
+        node.addEventListener("keyup", handleKey, true);
+
+        return {
+            destroy() {
+                node.removeEventListener("mouseup", handleMouse, true);
+                node.removeEventListener("keyup", handleKey, true);
+            },
+        };
+    }
+
+    function portal(node: HTMLElement) {
+        // Logseq context: Mount to the document where the viewer lives (Main Window),
+        // not the plugin iframe document.
+        const targetBody = viewerRef?.ownerDocument?.body || document.body;
+
+        console.log("[InlineDiff] Portal mounting to:", {
+            targetBody,
+            isIframeBody: targetBody === document.body,
+            viewerRefExists: !!viewerRef,
+        });
+
+        targetBody.appendChild(node);
+        return {
+            destroy() {
+                if (node.parentElement === targetBody) {
+                    targetBody.removeChild(node);
+                }
+            },
+        };
+    }
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
+    bind:this={viewerRef}
     class="diff-viewer {mode}"
     draggable="false"
     ondragstart={(e) => e.preventDefault()}
+    use:selectionTriggerAction
 >
     {#if selectionToolbar.visible}
         <div
+            use:portal
             class="selection-toolbar"
-            style="top: {selectionToolbar.y}px; left: {selectionToolbar.x}px;"
+            style="top: {selectionToolbar.y}px; left: {selectionToolbar.x}px; position: fixed; z-index: 2147483647;"
+            role="toolbar"
+            tabindex="-1"
+            use:manualClick={(recursive) => {
+                /* no-op, just for stop prop handled in action */
+            }}
         >
             <MergeControls
                 mode="selection"
@@ -402,8 +582,9 @@
                         {#if line.type === "modified-unified" && line.unifiedParts}
                             {#each line.unifiedParts as part}
                                 {#if part.type === "replacement"}
-                                    <button
-                                        type="button"
+                                    <span
+                                        role="button"
+                                        tabindex="0"
                                         class="unified-diff-btn unified-replacement {getDecisionClass(
                                             part.id,
                                             part.type,
@@ -424,10 +605,11 @@
                                         <span class="unified-removed"
                                             >{part.removedText}</span
                                         >
-                                    </button>
+                                    </span>
                                 {:else if part.type === "added"}
-                                    <button
-                                        type="button"
+                                    <span
+                                        role="button"
+                                        tabindex="0"
                                         class="unified-diff-btn unified-added {getDecisionClass(
                                             part.id,
                                             part.type,
@@ -441,11 +623,12 @@
                                             : "Accepted (Click to Revert)"}
                                         use:unifiedPartClickAction={(e) =>
                                             handlePartClick(e, part.id!)}
-                                        >{part.text}</button
+                                        >{part.text}</span
                                     >
                                 {:else if part.type === "removed"}
-                                    <button
-                                        type="button"
+                                    <span
+                                        role="button"
+                                        tabindex="0"
                                         class="unified-diff-btn unified-removed {getDecisionClass(
                                             part.id,
                                             part.type,
@@ -459,7 +642,7 @@
                                             : "Accepted (Click to Revert)"}
                                         use:unifiedPartClickAction={(e) =>
                                             handlePartClick(e, part.id!)}
-                                        >{part.text}</button
+                                        >{part.text}</span
                                     >
                                 {:else}
                                     <span>{part.text}</span>
@@ -514,7 +697,10 @@
     .diff-viewer {
         display: flex;
         flex-direction: column;
-        width: 100%;
+        width: fit-content;
+        min-width: 60%;
+        max-width: 100%;
+        margin: 0 auto;
         height: 100%;
         border: 1px solid var(--ls-border-color);
         border-radius: 4px;
@@ -726,13 +912,19 @@
 
     .selection-toolbar {
         position: fixed; /* Fixed to viewport usually better for floating toolbars on top */
-        z-index: 1000;
+        z-index: 1000; /* Max Z-Index to ensure it floats above everything (modals, etc.) */
+        /*display: flex;*/
         transform: translate(-50%, -100%); /* Center and move above */
-        background: var(--ls-secondary-background-color);
-        border: 1px solid var(--ls-border-color);
+        background: var(--ls-secondary-background-color, #fff);
+
         border-radius: 4px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-        padding: 2px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        /* padding: 4px;^
+        /* visibility: visible;*/
+    }
+
+    .selection-toolbar > :global(.lda-merge-controls) {
+        margin-left: 0px;
     }
 
     .unified-added {

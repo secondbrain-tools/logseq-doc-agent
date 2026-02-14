@@ -33,11 +33,12 @@ export type DiffLine = {
     newLineNumber?: number;
     intraLineParts?: IntraLinePart[];
     unifiedParts?: UnifiedPart[];
-    lineIndex?: number; // Added to track line index for selection mapping
-    isPureAdded?: boolean; // Track pure added lines
-    isPureRemoved?: boolean; // Track pure removed lines
-    // Helpers for internal logic
-    tempId?: string;
+    lineIndex?: number;
+    isPureAdded?: boolean;
+    isPureRemoved?: boolean;
+    id?: string; // Unique ID for this line's decision
+    blockId?: string; // Shared ID for all lines in a replacement block (for block-level toggle)
+    blockRole?: "new" | "old"; // Which side of the block this line belongs to
 };
 
 export type PartDecisions = Record<string, "accept" | "revert">;
@@ -253,6 +254,7 @@ export function calculateDiffLines(
             }
 
             // Collect consecutive added lines that follow
+            const addedStart = j;
             const addedLines: string[] = [];
             while (j < rawLines.length && rawLines[j].type === "added") {
                 addedLines.push(rawLines[j].content);
@@ -261,6 +263,10 @@ export function calculateDiffLines(
 
             // If we have both removed and added, it's a replacement block
             if (removedLines.length > 0 && addedLines.length > 0) {
+                const baseBlockId = `block-${i}`;
+                let currentBlockId = baseBlockId;
+                let blockLineCounter = 0;
+
                 // Pair lines by index and similarity
                 const maxPairs = Math.min(
                     removedLines.length,
@@ -268,11 +274,15 @@ export function calculateDiffLines(
                 );
 
                 for (let k = 0; k < maxPairs; k++) {
+                    // Update blockId for this pair (so each pair is distinct toggle)
+                    // But keep using the LAST pair's ID for the tail loops below
+                    currentBlockId = `${baseBlockId}-p${k}`;
+
                     const oldLine = removedLines[k];
                     const newLine = addedLines[k];
                     const sim = similarity(oldLine, newLine);
 
-                    if (sim >= SIMILARITY_THRESHOLD) {
+                    if (sim >= SIMILARITY_THRESHOLD && mode === "words") {
                         // Treat as modified - compute intra-line diff
                         const parts = computeIntraLineParts(
                             oldLine,
@@ -292,10 +302,9 @@ export function calculateDiffLines(
                             );
                             const unifiedParts = computeUnifiedParts(
                                 wordDiff,
-                                oldCounter, // Use unique line number instead of block start index 'i' to avoid ID collisions
+                                oldCounter,
                             );
 
-                            // Initialize decisions for these parts (default: accept)
                             for (const part of unifiedParts) {
                                 if (
                                     part.id &&
@@ -313,9 +322,9 @@ export function calculateDiffLines(
                                 newLineNumber: newCounter++,
                                 unifiedParts: unifiedParts,
                                 lineIndex: i,
+                                blockId: currentBlockId,
                             });
                         } else if (showIntraLine) {
-                            // Show as modified lines with intra-line highlighting
                             lines.push({
                                 content: oldLine,
                                 type: "modified-old",
@@ -329,90 +338,110 @@ export function calculateDiffLines(
                                 intraLineParts: parts.newParts,
                             });
                         } else {
-                            // Change too significant - show as separate removed/added
+                            // Change too significant — individual IDs, shared blockId
+                            const oldId = `${currentBlockId}-r${blockLineCounter++}`;
+                            const newId = `${currentBlockId}-a${blockLineCounter++}`;
                             lines.push({
                                 content: oldLine,
                                 type: "removed",
                                 originalLineNumber: oldCounter++,
+                                id: oldId,
+                                blockId: currentBlockId,
+                                blockRole: "old",
                             });
                             lines.push({
                                 content: newLine,
                                 type: "added",
                                 newLineNumber: newCounter++,
-                                lineIndex: i, // Use i to track
-                                isPureAdded: true, // Mark for selection
+                                id: newId,
+                                blockId: currentBlockId,
+                                blockRole: "new",
                             });
-                            // Init pure added decision
-                            const lineId = getLineId(i);
-                            if (!newDecisions[lineId]) {
-                                newDecisions[lineId] = "accept";
-                            }
+                            if (!newDecisions[oldId]) newDecisions[oldId] = "accept";
+                            if (!newDecisions[newId]) newDecisions[newId] = "accept";
                         }
                     } else {
-                        // Low similarity - show as separate removed/added
+                        // Low similarity — individual IDs, shared blockId
+                        const oldId = `${currentBlockId}-r${blockLineCounter++}`;
+                        const newId = `${currentBlockId}-a${blockLineCounter++}`;
                         lines.push({
                             content: oldLine,
                             type: "removed",
                             originalLineNumber: oldCounter++,
-                            lineIndex: i,
-                            isPureRemoved: true,
+                            id: oldId,
+                            blockId: currentBlockId,
+                            blockRole: "old",
                         });
-                        // Init pure removed decision
-                        const removedId = getLineId(i);
-                        if (!newDecisions[removedId])
-                            newDecisions[removedId] = "accept";
-
                         lines.push({
                             content: newLine,
                             type: "added",
                             newLineNumber: newCounter++,
-                            lineIndex: i + 1,
-                            isPureAdded: true,
+                            id: newId,
+                            blockId: currentBlockId,
+                            blockRole: "new",
                         });
-                        // We need a unique ID for this added line. Resuing i is risky if we push multiple.
-                        const addedId = `added-${newCounter}`;
-                        if (!newDecisions[addedId]) {
-                            newDecisions[addedId] = "accept";
-                        }
-                        // Store the ID in the line object for lookup
-                        lines[lines.length - 1].lineIndex = -1; // Marker
-                        (lines[lines.length - 1] as any).tempId = addedId;
+                        if (!newDecisions[oldId]) newDecisions[oldId] = "accept";
+                        if (!newDecisions[newId]) newDecisions[newId] = "accept";
                     }
                 }
 
-                // Handle remaining unpaired removed lines
+                // Handle remaining unpaired removed lines — share blockId with last pair (or base if none)
                 for (let k = maxPairs; k < removedLines.length; k++) {
+                    const lineId = `${currentBlockId}-r${blockLineCounter++}`;
                     lines.push({
                         content: removedLines[k],
                         type: "removed",
                         originalLineNumber: oldCounter++,
+                        id: lineId,
+                        blockId: currentBlockId,
+                        blockRole: "old",
+                        isPureRemoved: true,
                     });
+                    if (!newDecisions[lineId]) newDecisions[lineId] = "accept";
                 }
 
-                // Handle remaining unpaired added lines
+                // Handle remaining unpaired added lines — share blockId with last pair (or base if none)
                 for (let k = maxPairs; k < addedLines.length; k++) {
+                    const lineId = `${currentBlockId}-a${blockLineCounter++}`;
                     lines.push({
                         content: addedLines[k],
                         type: "added",
                         newLineNumber: newCounter++,
+                        id: lineId,
+                        blockId: currentBlockId,
+                        blockRole: "new",
+                        isPureAdded: true,
                     });
+                    if (!newDecisions[lineId]) newDecisions[lineId] = "accept";
                 }
             } else {
                 // Pure removed lines (no following added)
+                let relIndex = 0;
                 for (const line of removedLines) {
+                    const lineId = getLineId(i + relIndex);
                     lines.push({
                         content: line,
                         type: "removed",
                         originalLineNumber: oldCounter++,
+                        id: lineId,
+                        isPureRemoved: true,
                     });
+                    if (!newDecisions[lineId]) newDecisions[lineId] = "accept";
+                    relIndex++;
                 }
                 // Pure added lines (no preceding removed)
+                relIndex = 0;
                 for (const line of addedLines) {
+                    const lineId = getLineId(addedStart + relIndex);
                     lines.push({
                         content: line,
                         type: "added",
                         newLineNumber: newCounter++,
+                        id: lineId,
+                        isPureAdded: true,
                     });
+                    if (!newDecisions[lineId]) newDecisions[lineId] = "accept";
+                    relIndex++;
                 }
             }
 
@@ -425,6 +454,7 @@ export function calculateDiffLines(
                 newLineNumber: newCounter++,
                 lineIndex: i,
                 isPureAdded: true,
+                id: getLineId(i),
             });
             const addedId = getLineId(i);
             if (!newDecisions[addedId]) newDecisions[addedId] = "accept";
@@ -467,25 +497,27 @@ export function generateContentFromDiff(diffLines: DiffLine[], decisions: PartDe
                 }
             }
             content += lineText + "\n";
+        } else if (line.blockRole && line.id) {
+            // Line in a replacement block: each line has its own decision
+            const decision = decisions[line.id] || "accept";
+            if (line.blockRole === "new") {
+                // New line: include if accepted
+                if (decision === "accept") content += line.content + "\n";
+            } else {
+                // Old line: include if reverted
+                if (decision === "revert") content += line.content + "\n";
+            }
         } else if (line.isPureAdded) {
-            // Check decision
-            const id =
-                (line as any).tempId ||
-                getLineId(
-                    line.lineIndex !== undefined ? line.lineIndex : 0,
-                );
+            // Unpaired added line
+            const id = line.id || getLineId(line.lineIndex !== undefined ? line.lineIndex : 0);
             const decision = decisions[id] || "accept";
             if (decision === "accept") {
                 content += line.content + "\n";
             }
         } else if (line.isPureRemoved) {
-            // Check decision
-            const id = getLineId(
-                line.lineIndex !== undefined ? line.lineIndex : 0,
-            );
+            // Unpaired removed line
+            const id = line.id || getLineId(line.lineIndex !== undefined ? line.lineIndex : 0);
             const decision = decisions[id] || "accept";
-            // If accepted (removal confirmed), drop it.
-            // If reverted (removal rejected), keep it.
             if (decision === "revert") {
                 content += line.content + "\n";
             }

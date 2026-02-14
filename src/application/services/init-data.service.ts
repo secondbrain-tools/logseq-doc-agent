@@ -58,7 +58,7 @@ export class InitDataService {
         let page = await this.logseqApi.getPage(name);
         if (!page) {
             console.log(`[InitDataService] Page '${name}' not found. Creating...`);
-            await this.logseqApi.UI.showMsg(`Creating storage page: ${name}`, 'info');
+            //await this.logseqApi.UI.showMsg(`Creating storage page: ${name}`, 'info');
             page = await this.logseqApi.createPage(name, properties, { createFirstBlock: false });
             return { page, isNew: true };
         } else {

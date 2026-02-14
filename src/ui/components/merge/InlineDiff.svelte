@@ -127,10 +127,41 @@
             return;
         }
 
+        // Helper to find part type by ID
+        const findPartType = (
+            id: string,
+        ): "added" | "removed" | "replacement" | "common" | null => {
+            for (const line of diffLines) {
+                if (line.id === id) return line.type as any; // Pure line
+                if (line.unifiedParts) {
+                    const part = line.unifiedParts.find((p) => p.id === id);
+                    if (part) return part.type;
+                }
+            }
+            return null;
+        };
+
         // Apply decision to all selected parts
         const newDecisions = { ...partDecisions };
         for (const id of selectedIds) {
-            newDecisions[id] = action;
+            const type = findPartType(id);
+            if (!type) continue;
+
+            if (action === "accept") {
+                // "Check" button -> Keep Text
+                if (type === "added" || type === "replacement") {
+                    newDecisions[id] = "accept"; // Keep added text
+                } else if (type === "removed") {
+                    newDecisions[id] = "revert"; // Keep original text (reject removal)
+                }
+            } else {
+                // "Cross" button -> Discard Text
+                if (type === "added" || type === "replacement") {
+                    newDecisions[id] = "revert"; // Discard added text
+                } else if (type === "removed") {
+                    newDecisions[id] = "accept"; // Discard original text (confirm removal)
+                }
+            }
         }
         partDecisions = newDecisions;
 
@@ -194,6 +225,51 @@
             "[InlineDiff] Decisions after update:",
             JSON.stringify(partDecisions),
         );
+    }
+
+    function handleBlockLineClick(
+        e: MouseEvent,
+        lineId: string,
+        blockId: string,
+        role: "new" | "old",
+    ) {
+        const selection = window.getSelection();
+        if (selection && !selection.isCollapsed) return;
+        e.stopPropagation();
+
+        const newDecisions = { ...partDecisions };
+
+        if (e.ctrlKey || e.metaKey) {
+            // Ctrl+click: toggle individual line only
+            const current = newDecisions[lineId] || "accept";
+            newDecisions[lineId] = current === "accept" ? "revert" : "accept";
+            console.log(
+                "[InlineDiff] Ctrl+click line:",
+                lineId,
+                "→",
+                newDecisions[lineId],
+            );
+        } else {
+            // Default click: toggle entire block
+            // Determine target state from clicked role:
+            // Click "new" line → accept all (keep new, drop old)
+            // Click "old" line → revert all (keep old, drop new)
+            const targetDecision = role === "new" ? "accept" : "revert";
+            // Find all lines sharing this blockId and set them
+            for (const line of diffLines) {
+                if (line.blockId === blockId && line.id) {
+                    newDecisions[line.id] = targetDecision;
+                }
+            }
+            console.log(
+                "[InlineDiff] Block click:",
+                blockId,
+                "→",
+                targetDecision,
+            );
+        }
+
+        partDecisions = newDecisions;
     }
 
     function updateSelectionToolbar(providedRanges?: Range[]) {
@@ -355,17 +431,28 @@
 
     function getDecisionClass(
         partId: string | undefined,
-        type: "added" | "removed" | "replacement",
+        type: string,
     ): string {
         if (!partId) return "";
         const decision = partDecisions[partId];
-        // console.log("[InlineDiff] getDecisionClass", partId, decision); // Commented out to avoid spam, uncomment if needed
-        if (!decision) return ""; // Default state (accepted-ish for added, refined for removed?)
+        if (!decision) return "";
 
         if (decision === "revert") {
             return "reverted";
         }
         return "accepted";
+    }
+
+    /**
+     * For block lines: determine if this line is "active" (chosen) or "inactive" (not chosen).
+     */
+    function getBlockLineClass(lineId: string, role: "new" | "old"): string {
+        const decision = partDecisions[lineId] || "accept";
+        if (role === "new") {
+            return decision === "accept" ? "pair-active" : "pair-inactive";
+        } else {
+            return decision === "revert" ? "pair-active" : "pair-inactive";
+        }
     }
 
     $effect(() => {
@@ -562,10 +649,8 @@
                             {isExpanded ? "▼" : "▶"}
                         </div>
                     {/if}
-                    <span class="line-num old"
-                        >{line.originalLineNumber || ""}</span
+                    <span class="line-num">{line.originalLineNumber || ""}</span
                     >
-                    <span class="line-num new">{line.newLineNumber || ""}</span>
                 </div>
                 <div class="line-content">
                     <span class="marker">
@@ -654,6 +739,46 @@
                                     >{part.text}</span
                                 >
                             {/each}
+                        {:else if line.blockRole && line.id && line.blockId}
+                            <span
+                                role="button"
+                                tabindex="0"
+                                class="unified-diff-btn unified-{line.type} {getBlockLineClass(
+                                    line.id,
+                                    line.blockRole,
+                                )}"
+                                data-part-id={line.id}
+                                title={line.blockRole === "new"
+                                    ? "Click to keep this (new) line. Ctrl+click for single line."
+                                    : "Click to keep this (old) line. Ctrl+click for single line."}
+                                use:unifiedPartClickAction={(e) =>
+                                    handleBlockLineClick(
+                                        e,
+                                        line.id!,
+                                        line.blockId!,
+                                        line.blockRole!,
+                                    )}
+                            >
+                                {line.content}
+                            </span>
+                        {:else if line.id}
+                            <span
+                                role="button"
+                                tabindex="0"
+                                class="unified-diff-btn unified-{line.type} {getDecisionClass(
+                                    line.id,
+                                    line.type,
+                                )}"
+                                data-part-id={line.id}
+                                title={getDecisionClass(line.id, line.type) ===
+                                "reverted"
+                                    ? "Reverted (Click to Accept)"
+                                    : "Accepted (Click to Revert)"}
+                                use:unifiedPartClickAction={(e) =>
+                                    handlePartClick(e, line.id!)}
+                            >
+                                {line.content}
+                            </span>
                         {:else}
                             {line.content}
                         {/if}
@@ -724,7 +849,7 @@
 
     .gutter {
         display: flex;
-        width: 80px; /* Two columns of line numbers */
+        width: 40px;
         background: var(--ls-secondary-background-color);
         border-right: 1px solid var(--ls-border-color);
         color: var(--ls-tertiary-text-color);
@@ -757,9 +882,6 @@
         text-align: right;
         padding-right: 4px;
         font-size: 11px;
-    }
-    .line-num.old {
-        border-right: 1px solid var(--ls-border-color);
     }
 
     .line-content {
@@ -968,5 +1090,37 @@
     .unified-removed:hover {
         filter: brightness(0.9);
         outline: 1px dashed rgba(0, 0, 0, 0.3);
+    }
+
+    /* Linked pair states */
+    .pair-active {
+        opacity: 1;
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+    .pair-inactive {
+        /* Increase from 0.4 for better readability */
+        opacity: 0.7;
+        text-decoration: line-through;
+        cursor: pointer;
+    }
+
+    /* Override pair-inactive backgrounds to be more subtle */
+    /* Remove color overrides to use base semantic colors */
+    .unified-added.pair-inactive {
+        background-color: transparent;
+    }
+
+    .unified-removed.pair-inactive {
+        background-color: transparent;
+    }
+
+    /* Make pair-active removed line look "restored" (no strikethrough, normal color) */
+    .unified-removed.pair-active {
+        text-decoration: none;
+        color: inherit;
+        opacity: 1;
+        background-color: rgba(100, 200, 255, 0.15);
     }
 </style>

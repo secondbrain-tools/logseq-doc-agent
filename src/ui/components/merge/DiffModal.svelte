@@ -5,6 +5,7 @@
     import type { MergeTreeItem } from "../../../application/services/merge-tree.service";
     import SideBySideDiff from "./SideBySideDiff.svelte";
     import InlineDiff from "./InlineDiff.svelte";
+    import PreviewPane from "./PreviewPane.svelte";
     import ThreeWayDiff from "./ThreeWayDiff.svelte";
     import TreeDiffItem from "./TreeDiffItem.svelte";
     import { SvelteSet } from "svelte/reactivity";
@@ -491,10 +492,8 @@
                             <!-- Global Headers -->
                             {#if viewMode === "edit"}
                                 <div class="tree-header-row">
-                                    <div class="col-input">
-                                        Proposed Changes
-                                    </div>
-                                    <div class="col-output">Final Result</div>
+                                    <div class="col-input">Changes</div>
+                                    <div class="col-output">Preview</div>
                                 </div>
                             {:else if viewMode === "split"}
                                 <div class="tree-header-row">
@@ -535,11 +534,25 @@
                             mode="words"
                         />
                     {:else if viewMode === "edit"}
-                        <ThreeWayDiff
-                            originalContent={mergeData.base || ""}
-                            newContent={mergeData.currentContent || ""}
-                            bind:currentContent={editContent}
-                        />
+                        <div class="single-edit-layout">
+                            <div class="single-edit-col">
+                                <InlineDiff
+                                    originalContent={mergeData.base || ""}
+                                    modifiedContent={mergeData.currentContent ||
+                                        ""}
+                                    mode="words"
+                                    onContentChange={(newContent) => {
+                                        editContent = newContent;
+                                    }}
+                                />
+                            </div>
+                            <div class="single-edit-col">
+                                <PreviewPane
+                                    content={editContent}
+                                    originalContent={mergeData.base || ""}
+                                />
+                            </div>
+                        </div>
                     {/if}
                 {/if}
             {/if}
@@ -741,5 +754,23 @@
         z-index: 5;
         text-align: center;
         flex-shrink: 0;
+    }
+
+    /* Single Block Edit Layout */
+    .single-edit-layout {
+        display: flex;
+        height: 100%;
+        width: 100%;
+    }
+
+    .single-edit-col {
+        flex: 1;
+        min-width: 0;
+        overflow: auto;
+        border-right: 1px solid var(--ls-border-color);
+    }
+
+    .single-edit-col:last-child {
+        border-right: none;
     }
 </style>

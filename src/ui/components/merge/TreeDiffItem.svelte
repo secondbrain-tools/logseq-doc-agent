@@ -2,6 +2,7 @@
     import type { MergeTreeItem } from "../../../application/services/merge-tree.service";
     import SideBySideDiff from "./SideBySideDiff.svelte";
     import InlineDiff from "./InlineDiff.svelte";
+    import PreviewPane from "./PreviewPane.svelte";
 
     let {
         item,
@@ -142,21 +143,24 @@
             }}
         >
             {#if viewMode === "edit"}
-                <!-- Smart Edit Layout (Only for Merge Blocks) -->
+                <!-- Smart Edit Layout: Unified Diff (left) + Preview (right) -->
                 <div class="smart-row">
                     <div class="smart-col smart-input input-with-tools">
-                        <!-- Show Inline Diff of Original vs New -->
+                        <!-- Word-level Unified Diff (interactive accept/revert) -->
                         <div class="diff-wrapper">
                             <InlineDiff
                                 originalContent={item.mergeData?.base ??
                                     item.content}
-                                modifiedContent={item.content}
+                                modifiedContent={stableUnifiedContent}
                                 canToggle={true}
                                 {isExpanded}
                                 onToggle={(recursive) =>
                                     handleInteraction(recursive)}
-                                onLineMerge={(content) =>
-                                    handleLineMerge(content)}
+                                mode="words"
+                                onContentChange={(newContent) => {
+                                    editContent = newContent;
+                                    onContentChange(item.uuid, newContent);
+                                }}
                             />
                         </div>
 
@@ -178,28 +182,15 @@
                         </div>
                     </div>
                     <div class="smart-col smart-output">
-                        {#if isExpanded}
-                            <textarea
-                                class="result-editor"
-                                bind:value={editContent}
-                                placeholder="Final content..."
-                                onfocus={() => onFocus?.(item.uuid)}
-                                oninput={handleEditorInput}
-                            ></textarea>
-                        {:else}
-                            <!-- Placeholder or empty when collapsed? 
-                                  If the row stays, we need to match height.
-                                  Let's just hide the editor content or show a summary?
-                                  Simple approach: Hide editor when collapsed.
-                              -->
-                            <div
-                                class="collapsed-placeholder"
-                                onclick={() => handleInteraction()}
-                                title="Click to edit"
-                            >
-                                {editContent.split("\n")[0] || "..."}
-                            </div>
-                        {/if}
+                        <PreviewPane
+                            content={editContent}
+                            originalContent={item.mergeData?.base ??
+                                item.content}
+                            {isExpanded}
+                            canToggle={true}
+                            onToggle={(recursive) =>
+                                handleInteraction(recursive)}
+                        />
                     </div>
                 </div>
             {:else if viewMode === "output"}

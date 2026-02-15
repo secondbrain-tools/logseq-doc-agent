@@ -783,34 +783,6 @@
                             {line.content}
                         {/if}
                     </span>
-                    {#if line.type !== "common"}
-                        <button
-                            class="line-btn"
-                            title={line.type === "added" ||
-                            line.type === "modified-new" ||
-                            line.type === "modified-unified"
-                                ? "Add Line"
-                                : "Restore Line"}
-                            use:lineActionClick={() => {
-                                console.log(
-                                    "[InlineDiff] Click caught via action",
-                                );
-                                const mergeType =
-                                    line.type === "added" ||
-                                    line.type === "modified-new" ||
-                                    line.type === "modified-unified"
-                                        ? "added"
-                                        : "removed";
-                                onLineMerge?.(line.content, mergeType);
-                            }}
-                        >
-                            {line.type === "added" ||
-                            line.type === "modified-new" ||
-                            line.type === "modified-unified"
-                                ? "+"
-                                : "\u21A9"}
-                        </button>
-                    {/if}
                 </div>
             </div>
         {/each}

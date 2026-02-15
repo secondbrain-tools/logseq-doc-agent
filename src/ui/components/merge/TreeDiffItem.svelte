@@ -114,7 +114,7 @@
 </script>
 
 <div
-    class="tree-diff-item"
+    class="tree-diff-item {viewMode === 'unified' ? 'unified-item' : ''}"
     style="margin-left: {item.level * 20}px"
     data-block-uuid={item.uuid}
 >
@@ -228,11 +228,14 @@
                 />
             {:else if viewMode === "unified"}
                 <!-- Unified Word Diff -->
-                {console.log("[TreeDiffItem] Rendering Unified Mode", {
-                    base: item.mergeData?.base,
-                    current: item.content,
-                    stable: stableUnifiedContent,
-                }) || ""}
+                {@const _log = console.log(
+                    "[TreeDiffItem] Rendering Unified Mode",
+                    {
+                        base: item.mergeData?.base,
+                        current: item.content,
+                        stable: stableUnifiedContent,
+                    },
+                )}
                 <InlineDiff
                     originalContent={item.mergeData
                         ? item.mergeData.base
@@ -242,12 +245,13 @@
                     {isExpanded}
                     onToggle={() => handleInteraction()}
                     mode="words"
+                    standalone={true}
                     onContentChange={(newContent) => {
                         console.log(
                             "[TreeDiffItem] Unified content change",
                             newContent.length,
                             newContent === item.content
-                                ? "(unchanged)"
+                                ? "(changed)"
                                 : "(changed)",
                         );
                         editContent = newContent;
@@ -273,9 +277,14 @@
 <style>
     .tree-diff-item {
         margin-bottom: 0; /* Remove bottom margin to tightly pack rows */
-        border-left: 2px solid var(--ls-guideline-color);
+        /* border-left: 2px solid var(--ls-guideline-color);  Removed for cleaner look in new layout */
         border-bottom: 1px solid var(--ls-border-color); /* Row separator */
         padding-left: 0; /* Indentation handled by margin-left */
+    }
+
+    .tree-diff-item.unified-item {
+        border-bottom: none;
+        margin-bottom: 16px;
     }
 
     .diff-block {
@@ -302,12 +311,20 @@
         flex-direction: column;
     }
 
+    .smart-col:first-child {
+        border-left: 1px solid var(--ls-border-color);
+    }
+
     .smart-col:last-child {
         border-right: none;
     }
 
+    .smart-col.smart-output {
+        border-right: 1px solid var(--ls-border-color);
+    }
+
     .diff-wrapper {
-        padding: 8px;
+        padding: 0; /* Remove padding so content fills cell */
         flex: 1;
         overflow-x: auto;
     }

@@ -21,6 +21,7 @@
         onLineMerge = (content: string, type: "added" | "removed") => {},
         mode = "lines",
         onContentChange,
+        standalone = false,
     }: {
         originalContent?: string;
         modifiedContent?: string;
@@ -30,6 +31,7 @@
         onLineMerge?: (content: string, type: "added" | "removed") => void;
         mode?: "lines" | "words";
         onContentChange?: (newContent: string) => void;
+        standalone?: boolean;
     } = $props();
 
     let diffLines: DiffLine[] = $state([]);
@@ -610,7 +612,7 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
     bind:this={viewerRef}
-    class="diff-viewer {mode}"
+    class="diff-viewer {mode} {standalone ? 'standalone' : ''}"
     draggable="false"
     ondragstart={(e) => e.preventDefault()}
     use:selectionTriggerAction
@@ -794,17 +796,22 @@
     .diff-viewer {
         display: flex;
         flex-direction: column;
-        width: fit-content;
-        min-width: 60%;
-        max-width: 100%;
-        margin: 0 auto;
+        width: 100%; /* Default: Fill container */
         height: 100%;
-        border: 1px solid var(--ls-border-color);
-        border-radius: 4px;
         background: var(--ls-primary-background-color);
         font-family: "Monaco", "Menlo", "Ubuntu Mono", "Consolas", monospace;
         font-size: 13px;
         overflow: hidden;
+    }
+
+    /* Standalone Mode: Center with border */
+    .diff-viewer.standalone {
+        width: fit-content;
+        min-width: 60%;
+        max-width: 100%;
+        margin: 0 auto;
+        border: 1px solid var(--ls-border-color);
+        border-radius: 4px;
     }
 
     .diff-body {

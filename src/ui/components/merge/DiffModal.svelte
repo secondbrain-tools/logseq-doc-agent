@@ -532,6 +532,7 @@
                             originalContent={mergeData.base || ""}
                             modifiedContent={mergeData.currentContent || ""}
                             mode="words"
+                            standalone={true}
                         />
                     {:else if viewMode === "edit"}
                         <div class="single-edit-layout">
@@ -657,7 +658,7 @@
         gap: 0;
         height: 100%;
         overflow-y: auto;
-        padding-right: 8px; /* For scrollbar */
+        /* padding-right: 8px; Removed to fix border width issues */
     }
 
     .tree-header-row {

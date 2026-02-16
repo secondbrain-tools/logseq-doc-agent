@@ -1,0 +1,24 @@
+export const ICONS = {
+    maximize: `
+        <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+        <path d="M4 8v-2a2 2 0 0 1 2 -2h2"></path>
+        <path d="M4 16v2a2 2 0 0 0 2 2h2"></path>
+        <path d="M16 4h2a2 2 0 0 1 2 2v2"></path>
+        <path d="M16 20h2a2 2 0 0 0 2 -2v-2"></path>
+    `,
+    restore: `
+        <rect x="3" y="11" width="10" height="10" rx="2" ry="2"></rect>
+        <path d="M7 11V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-4"></path>
+    `,
+    close: `
+        <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+        <line x1="18" y1="6" x2="6" y2="18"></line>
+        <line x1="6" y1="6" x2="18" y2="18"></line>
+    `,
+    popout: `
+        <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+        <path d="M12 6h-6a2 2 0 0 0 -2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-6"></path>
+        <path d="M11 13l9 -9"></path>
+        <path d="M15 4h5v5"></path>
+    `
+};

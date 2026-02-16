@@ -32,14 +32,21 @@
     // Expanded Blocks State (Sync across panes)
     let expandedIds = $state(new SvelteSet<string>());
 
-    // Preview toggle (show/hide right pane + center tools)
-    let showPreview = $state(true);
-
-    // Track initialization to prevent reset on re-renders
-    let initializedTree: MergeTreeItem[] | undefined = $state();
-
     // Track if modal was previously open to trigger init only on open
     let wasOpen = false;
+
+    function getInitialPreviewState() {
+        if (typeof window !== "undefined" && (window as any).logseq) {
+            const settings = (window as any).logseq.settings;
+            if (settings && settings["merge.showPreview"] !== undefined) {
+                return settings["merge.showPreview"];
+            }
+        }
+        return true;
+    }
+
+    // Preview toggle (show/hide right pane + center tools)
+    let showPreview = $state(getInitialPreviewState());
 
     // Initialize content when data arrives (effect)
     $effect(() => {
@@ -163,6 +170,15 @@
         };
     }
 
+    function handleTogglePreview() {
+        showPreview = !showPreview;
+        if (typeof window !== "undefined" && (window as any).logseq) {
+            (window as any).logseq.updateSettings({
+                "merge.showPreview": showPreview,
+            });
+        }
+    }
+
     function handleReplaceRequest(
         uuid: string,
         source: "original" | "new",
@@ -205,8 +221,8 @@
 <Modal
     {isOpen}
     title="Merge Diff"
-    width="90vw"
-    initialMaximized={true}
+    width={showPreview ? "90vw" : "min(800px, 90vw)"}
+    initialMaximized={false}
     on:close={handleClose}
 >
     <div class="lda-diff-container">
@@ -227,8 +243,7 @@
                             <div
                                 class="col-preview-toggle"
                                 class:active={showPreview}
-                                use:genericClick={() =>
-                                    (showPreview = !showPreview)}
+                                use:genericClick={handleTogglePreview}
                             >
                                 <span class="toggle-icon"
                                     >{showPreview ? "👁" : "👁‍🗨"}</span
@@ -298,7 +313,7 @@
     .lda-diff-container {
         display: flex;
         flex-direction: column;
-        height: 100%;
+        max-height: 100%; /* Allow shrinking, but don't overflow parent */
         overflow: hidden;
     }
 
@@ -307,7 +322,6 @@
         overflow: hidden;
         position: relative;
         min-height: 0;
-        height: 100%;
     }
 
     .tree-diff-container {

@@ -1,7 +1,7 @@
 <script lang="ts">
     import { createEventDispatcher, onMount, mount, unmount } from "svelte";
     import ContextMenu from "./chat/ContextMenu.svelte";
-
+    import { ICONS } from "../icons";
     import type { ComponentType } from "svelte";
 
     // Props interface
@@ -54,7 +54,7 @@
         {
             label: isPoppedOut ? "Restore to Sidebar" : "Pop out window",
             action: isPoppedOut ? restorePopout : togglePopout,
-            icon: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><path d="M12 6h-6a2 2 0 0 0 -2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-6"></path><path d="M11 13l9 -9"></path><path d="M15 4h5v5"></path></svg>`,
+            icon: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS.popout}</svg>`,
         },
     ]);
 
@@ -308,56 +308,19 @@
                         : ""}
                 >
                     <span class="ui__icon ti">
-                        {#if isMaximized}
-                            <!-- Restore Icon: Two overlapping squares -->
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="18"
-                                height="18"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="2"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                            >
-                                <rect
-                                    x="3"
-                                    y="11"
-                                    width="10"
-                                    height="10"
-                                    rx="2"
-                                    ry="2"
-                                ></rect>
-                                <path
-                                    d="M7 11V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-4"
-                                ></path>
-                            </svg>
-                        {:else}
-                            <!-- Maximize Icon: Single square with arrows (optional) or just consistent square -->
-                            <!-- Let's use a clear maximize box -->
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="18"
-                                height="18"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="2"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                            >
-                                <path
-                                    stroke="none"
-                                    d="M0 0h24v24H0z"
-                                    fill="none"
-                                ></path>
-                                <path d="M4 8v-2a2 2 0 0 1 2 -2h2"></path>
-                                <path d="M4 16v2a2 2 0 0 0 2 2h2"></path>
-                                <path d="M16 4h2a2 2 0 0 1 2 2v2"></path>
-                                <path d="M16 20h2a2 2 0 0 0 2 -2v-2"></path>
-                            </svg>
-                        {/if}
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="18"
+                            height="18"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        >
+                            {@html isMaximized ? ICONS.restore : ICONS.maximize}
+                        </svg>
                     </span>
                 </button>
 
@@ -384,10 +347,7 @@
                             stroke-linecap="round"
                             stroke-linejoin="round"
                         >
-                            <path stroke="none" d="M0 0h24v24H0z" fill="none"
-                            ></path>
-                            <line x1="18" y1="6" x2="6" y2="18"></line>
-                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                            {@html ICONS.close}
                         </svg>
                     </span>
                 </button>
@@ -420,11 +380,7 @@
                                 stroke-linecap="round"
                                 stroke-linejoin="round"
                             >
-                                <path
-                                    d="M12 6h-6a2 2 0 0 0 -2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-6"
-                                ></path>
-                                <path d="M11 13l9 -9"></path>
-                                <path d="M15 4h5v5"></path>
+                                {@html ICONS.popout}
                             </svg>
                         </div>
                         <h3 class="text-lg font-medium mb-2">

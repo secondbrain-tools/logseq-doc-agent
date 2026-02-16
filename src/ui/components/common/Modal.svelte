@@ -1,6 +1,6 @@
 <script lang="ts">
     import { createEventDispatcher, onMount, onDestroy } from "svelte";
-
+    import { ICONS } from "../../icons";
     import type { Snippet } from "svelte";
 
     let {
@@ -98,6 +98,37 @@
             close();
         }
     }
+
+    // Bind Escape listener to both window and parent window (since we portal there)
+    $effect(() => {
+        if (!isOpen) return;
+
+        const win = window;
+        const parentWin = window.parent;
+
+        win.addEventListener("keydown", handleKeydown);
+        if (parentWin && parentWin !== win) {
+            try {
+                parentWin.addEventListener("keydown", handleKeydown);
+            } catch (e) {
+                console.warn(
+                    "Failed to attach keydown listener to parent window",
+                    e,
+                );
+            }
+        }
+
+        return () => {
+            win.removeEventListener("keydown", handleKeydown);
+            if (parentWin && parentWin !== win) {
+                try {
+                    parentWin.removeEventListener("keydown", handleKeydown);
+                } catch (e) {
+                    // Ignore
+                }
+            }
+        };
+    });
 </script>
 
 {#if isOpen}
@@ -106,7 +137,6 @@
     <div
         class="lda-modal-overlay"
         onclick={handleBackdropClick}
-        onkeydown={handleKeydown}
         role="button"
         tabindex="0"
         use:portal
@@ -135,42 +165,37 @@
                         aria-label={isMaximized ? "Restore" : "Maximize"}
                         title={isMaximized ? "Restore" : "Maximize"}
                     >
-                        {#if isMaximized}
-                            <!-- Restore Icon -->
-                            <svg
-                                width="14"
-                                height="14"
-                                viewBox="0 0 14 14"
-                                fill="currentColor"
-                                ><path
-                                    d="M4 4v6h6V4H4zm0-1h6a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm8-2h-3v1h3v3h1V2a1 1 0 0 0-1-1z"
-                                /></svg
-                            >
-                        {:else}
-                            <!-- Maximize Icon -->
-                            <svg
-                                width="14"
-                                height="14"
-                                viewBox="0 0 14 14"
-                                fill="currentColor"
-                                ><rect
-                                    x="2"
-                                    y="2"
-                                    width="10"
-                                    height="10"
-                                    rx="1"
-                                    stroke="currentColor"
-                                    stroke-width="1.5"
-                                    fill="none"
-                                /></svg
-                            >
-                        {/if}
+                        <svg
+                            width="18"
+                            height="18"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        >
+                            {@html isMaximized ? ICONS.restore : ICONS.maximize}
+                        </svg>
                     </button>
                     <button
                         class="lda-modal-close lda-modal-control"
                         use:manualClick={close}
-                        aria-label="Close">&times;</button
+                        aria-label="Close"
                     >
+                        <svg
+                            width="18"
+                            height="18"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        >
+                            {@html ICONS.close}
+                        </svg>
+                    </button>
                 </div>
             </header>
             <div class="lda-modal-body">

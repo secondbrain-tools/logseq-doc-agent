@@ -186,4 +186,31 @@ export class MergeActionService {
             await logseq.Editor.removeBlockProperty(u, "logseq-doc-agent.merge");
         }
     }
+
+    /**
+     * Reverts merge for a block and all its descendants.
+     */
+    async revertMergeWithChildren(uuid: string): Promise<void> {
+        console.log(`[MergeActionService] Revert with children for block: ${uuid}`);
+
+        const block = await logseq.Editor.getBlock(uuid, { includeChildren: true });
+        if (!block) {
+            console.warn(`[MergeActionService] Block not found: ${uuid}`);
+            return;
+        }
+
+        // Collect all UUIDs (current block + descendants)
+        const uuids: string[] = [];
+        const traverse = (b: any) => {
+            if (b.uuid) uuids.push(b.uuid);
+            if (b.children && Array.isArray(b.children)) {
+                for (const child of b.children) {
+                    traverse(child);
+                }
+            }
+        };
+        traverse(block);
+
+        await this.revertMerge(uuids);
+    }
 }

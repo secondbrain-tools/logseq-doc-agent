@@ -104,10 +104,61 @@ export class InjectMergesUseCase {
             // Setup Observer for virtualization (scrolling/expanding)
             this.setupObserver();
 
+            // Setup Selection Listener (Custom for Simulator/Future Feature)
+            this.setupSelectionListener();
+
         } catch (error) {
             console.error('[InjectMerges] Error executing use case:', error);
         }
     }
+
+    private setupSelectionListener() {
+        const editor = this.logseqApi.Editor as any;
+        if (typeof editor.onBlockSelected === 'function') {
+            console.log('[InjectMerges] Setting up onBlockSelected listener');
+            editor.onBlockSelected(async (block: any) => {
+                if (block && block.uuid) {
+                    // Check if is a valid merge block
+                    if (this.validMergeUuidsCache.has(block.uuid)) {
+                        await this.injectForBlock(block.uuid);
+                    } else {
+                        // Optional: Check if the block has the property but wasn't in our initial DB query (e.g. newly created)
+                        // For now, adhere to the cache. 
+                        // But strictly complying to "check if it has the merge property":
+                        if (block.properties && (block.properties['logseq-doc-agent.merge'] || block.properties['logseqDocAgent.merge'])) {
+                            this.validMergeUuidsCache.add(block.uuid);
+                            await this.injectForBlock(block.uuid);
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    private async injectForBlock(uuid: string) {
+        // Reuse logic? Or simplified injection for single block
+        // We can just call injectFromCache but optimization:
+        console.log(`[InjectMerges] Triggering injection for selected block ${uuid}`);
+
+        const elements = this.componentInjector.findBlockElements([uuid]);
+        if (elements.length > 0) {
+            // We can reuse the loop logic from injectFromCache by making it reusable or just copy specific logic
+            // Let's extract the injection logic for a list of elements
+            await this.injectElements(elements);
+        } else {
+            console.warn(`[InjectMerges] Selected block ${uuid} not found in DOM`);
+        }
+    }
+
+    private async injectElements(elements: HTMLElement[]) {
+        for (const element of elements) {
+            // ... logic from injectFromCache ...
+            // We need to refactor injectFromCache to call this or duplicate slightly.
+            // Refactoring is cleaner.
+            await this.processMergeElement(element);
+        }
+    }
+
 
     private async injectFromCache() {
         try {
@@ -133,120 +184,7 @@ export class InjectMergesUseCase {
                 }
             }
 
-            for (const element of mergeElements) {
-                try {
-                    const blockId = this.componentInjector.getBlockIdFromElement(element);
-                    if (!blockId) continue;
-
-                    // Fix for Duplicate Detection:
-                    // We must check strict scoping. accessing element.querySelector will find controls in CHILDREN blocks
-                    // which causes false positives for parent blocks.
-                    const mainContainer = element.querySelector('.block-main-container');
-
-                    // Check for existing controls strictly within the intended target
-                    // We inject as NextSibling, so check the sibling container
-                    let alreadyHasControls = false;
-                    if (mainContainer) {
-                        const siblingContainer = mainContainer.nextElementSibling;
-                        if (siblingContainer?.classList.contains('feedback-rating-container')) {
-                            if (siblingContainer.querySelector('.lda-merge-controls')) {
-                                alreadyHasControls = true;
-                            }
-                        }
-                    } else {
-                        // Fallback for non-standard blocks?
-                        if (element.querySelector(':scope > .feedback-rating-container .lda-merge-controls')) {
-                            // Use :scope to limit to direct children
-                            alreadyHasControls = true;
-                        }
-                    }
-
-                    if (alreadyHasControls) {
-                        console.log(`[InjectMerges] Skipping ${blockId}: Controls already present (Scoped Check)`);
-                        continue;
-                    }
-
-                    // Fetch the property content to confirm validity and get data
-                    // console.log(`[InjectMerges] Fetching property for ${blockId}...`);
-                    const rawContent = await this.logseqApi.Editor.getBlockPropertyContent(blockId, 'logseq-doc-agent.merge');
-
-                    if (rawContent) {
-                        let mergeData: MergeEntity;
-                        try {
-                            mergeData = JSON.parse(rawContent);
-                        } catch (e) {
-                            console.warn(`[InjectMerges] Failed to parse merge content for block ${blockId}: ${rawContent}`);
-                            continue;
-                        }
-
-                        // Inject the component
-                        const mainContainer = element.querySelector('.block-main-container');
-                        if (mainContainer) {
-                            // console.log(`[InjectMerges] Injecting into .block-main-container for ${blockId}`);
-                            this.componentInjector.injectComponentWithPosition(
-                                mainContainer as HTMLElement,
-                                MergeControls,
-                                InjectionPosition.NextSibling,
-                                {
-                                    blockUuid: blockId,
-                                    mergeData: mergeData
-                                }
-                            );
-                        } else {
-                            // Fallback to old behavior
-                            console.log(`[InjectMerges] Fallback strategy for ${blockId}`);
-                            this.componentInjector.injectComponentWithPosition(
-                                element,
-                                MergeControls,
-                                InjectionPosition.LastChild,
-                                {
-                                    blockUuid: blockId,
-                                    mergeData: mergeData
-                                }
-                            );
-                        }
-                    } else {
-                        console.warn(`[InjectMerges] Aborting ${blockId}: getBlockPropertyContent returned null/empty.`);
-                        // Attempt fallback fetch via full block details
-                        try {
-                            const blockFn = await this.logseqApi.Editor.getBlock(blockId);
-                            if (blockFn && blockFn.properties && blockFn.properties['logseq-doc-agent.merge']) {
-                                console.log(`[InjectMerges] RECOVERY: Found property in block object for ${blockId}`);
-                                // We have the property, but it might be an object already or string
-                                const propVal = blockFn.properties['logseq-doc-agent.merge'];
-                                // Logseq properties can be pre-parsed objects if they are valid JSON? Or still strings?
-                                // Usually valid JSON in properties is stored as string in DB, but returned as parsed object by getBlock?.
-                                // Let's assume we need to handle both
-                                let mergeData: MergeEntity;
-                                if (typeof propVal === 'string') {
-                                    mergeData = JSON.parse(propVal);
-                                } else {
-                                    mergeData = propVal;
-                                }
-
-                                // Retry injection
-                                const mainContainer = element.querySelector('.block-main-container');
-                                if (mainContainer) {
-                                    this.componentInjector.injectComponentWithPosition(
-                                        mainContainer as HTMLElement,
-                                        MergeControls,
-                                        InjectionPosition.NextSibling,
-                                        {
-                                            blockUuid: blockId,
-                                            mergeData: mergeData
-                                        }
-                                    );
-                                }
-                            }
-                        } catch (ex) {
-                            console.error(`[InjectMerges] Recovery failed for ${blockId}`, ex);
-                        }
-                    }
-
-                } catch (e) {
-                    console.error('[InjectMerges] Error processing element:', e);
-                }
-            }
+            await this.injectElements(mergeElements);
         } catch (e) {
             console.error('[InjectMerges] Error in injectFromCache:', e);
         }
@@ -386,5 +324,111 @@ export class InjectMergesUseCase {
 
     private removePageToolbar() {
         this.hidePageToolbar();
+    }
+
+    private async processMergeElement(element: HTMLElement) {
+        try {
+            const blockId = this.componentInjector.getBlockIdFromElement(element);
+            if (!blockId) return;
+
+            // Fix for Duplicate Detection:
+            // We must check strict scoping. accessing element.querySelector will find controls in CHILDREN blocks
+            // which causes false positives for parent blocks.
+            const mainContainer = element.querySelector('.block-main-container');
+
+            // Check for existing controls strictly within the intended target
+            // We inject as NextSibling, so check the sibling container
+            let alreadyHasControls = false;
+            if (mainContainer) {
+                const siblingContainer = mainContainer.nextElementSibling;
+                if (siblingContainer?.classList.contains('feedback-rating-container')) {
+                    if (siblingContainer.querySelector('.lda-merge-controls')) {
+                        alreadyHasControls = true;
+                    }
+                }
+            } else {
+                // Fallback for non-standard blocks?
+                if (element.querySelector(':scope > .feedback-rating-container .lda-merge-controls')) {
+                    // Use :scope to limit to direct children
+                    alreadyHasControls = true;
+                }
+            }
+
+            if (alreadyHasControls) {
+                // console.log(`[InjectMerges] Skipping ${blockId}: Controls already present (Scoped Check)`);
+                return;
+            }
+
+            // Fetch the property content to confirm validity and get data
+            // console.log(`[InjectMerges] Fetching property for ${blockId}...`);
+            const rawContent = await this.logseqApi.Editor.getBlockPropertyContent(blockId, 'logseq-doc-agent.merge');
+
+            if (rawContent) {
+                let mergeData: MergeEntity;
+                try {
+                    mergeData = JSON.parse(rawContent);
+                } catch (e) {
+                    console.warn(`[InjectMerges] Failed to parse merge content for block ${blockId}: ${rawContent}`);
+                    return;
+                }
+
+                this.doInject(element, blockId, mergeData);
+            } else {
+                // console.warn(`[InjectMerges] Aborting ${blockId}: getBlockPropertyContent returned null/empty.`);
+                // Attempt fallback fetch via full block details
+                try {
+                    const blockFn = await this.logseqApi.Editor.getBlock(blockId);
+                    if (blockFn && blockFn.properties && (blockFn.properties['logseq-doc-agent.merge'] || blockFn.properties['logseqDocAgent.merge'])) {
+                        console.log(`[InjectMerges] RECOVERY: Found property in block object for ${blockId}`);
+                        const propVal = blockFn.properties['logseq-doc-agent.merge'] || blockFn.properties['logseqDocAgent.merge'];
+
+                        let mergeData: MergeEntity;
+                        if (typeof propVal === 'string') {
+                            try {
+                                mergeData = JSON.parse(propVal);
+                            } catch (e) { mergeData = propVal as any; } // fallback?
+                        } else {
+                            mergeData = propVal;
+                        }
+
+                        this.doInject(element, blockId, mergeData);
+                    }
+                } catch (ex) {
+                    console.error(`[InjectMerges] Recovery failed for ${blockId}`, ex);
+                }
+            }
+
+        } catch (e) {
+            console.error('[InjectMerges] Error processing element:', e);
+        }
+    }
+
+    private doInject(element: HTMLElement, blockId: string, mergeData: MergeEntity) {
+        // Inject the component
+        const mainContainer = element.querySelector('.block-main-container');
+        if (mainContainer) {
+            // console.log(`[InjectMerges] Injecting into .block-main-container for ${blockId}`);
+            this.componentInjector.injectComponentWithPosition(
+                mainContainer as HTMLElement,
+                MergeControls,
+                InjectionPosition.NextSibling,
+                {
+                    blockUuid: blockId,
+                    mergeData: mergeData
+                }
+            );
+        } else {
+            // Fallback to old behavior
+            console.log(`[InjectMerges] Fallback strategy for ${blockId}`);
+            this.componentInjector.injectComponentWithPosition(
+                element,
+                MergeControls,
+                InjectionPosition.LastChild,
+                {
+                    blockUuid: blockId,
+                    mergeData: mergeData
+                }
+            );
+        }
     }
 }

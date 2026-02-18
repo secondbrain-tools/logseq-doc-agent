@@ -103,6 +103,7 @@ export const setupPlugin = async () => {
         services.chatUseCase.openChat({ focus: true });
     });
 
+    // Register Command Palette & Hotkey for Opening Chat
     logseq.App.registerCommandPalette({
         key: 'toggle-chat-expand',
         label: 'Toggle Chat Expand',
@@ -113,6 +114,38 @@ export const setupPlugin = async () => {
     }, () => {
         console.log("toggle chat expand");
         services.chatUseCase.toggleExpand();
+    });
+
+    // Register Command for Focusing Merge Controls
+    logseq.App.registerCommandPalette({
+        key: 'focus-merge-controls',
+        label: 'Focus Merge Controls',
+        keybinding: {
+            binding: 'm',
+            mode: 'non-editing'
+        }
+    }, async () => {
+        console.log('[Command] focus-merge-controls triggered');
+        const block = await logseq.Editor.getCurrentBlock();
+        if (block) {
+            console.log('[Command] Current block:', block.uuid);
+            // Dispatch event to the block element
+            // We need to find the element in the DOM. 
+            // In the main Logseq window, blocks have `blockid` attribute.
+            const doc = parent.document;
+            const blockEl = doc.querySelector(`div[blockid="${block.uuid}"]`);
+            if (blockEl) {
+                console.log('[Command] Found block element, dispatching event');
+                blockEl.dispatchEvent(new CustomEvent('lda-focus-merge-controls', {
+                    bubbles: true,
+                    cancelable: true
+                }));
+            } else {
+                console.warn('[Command] Block element not found in DOM');
+            }
+        } else {
+            console.warn('[Command] No current block selected');
+        }
     });
 
     // Register a slash command to get block content

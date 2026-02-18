@@ -92,8 +92,9 @@
    -> SHOW CONTROLS, HIDE INDICATOR
    ========================================================================== */
 
-/* Show controls when hovering the Block Main Container (Sibling) */
+/* Show controls when hovering the Block Main Container (Sibling) OR when block is selected */
 .block-main-container:hover~.feedback-rating-container .lda-merge-controls,
+.ls-block.selected>.block-main-container~.feedback-rating-container .lda-merge-controls,
 /* Show controls when hovering the controls themselves */
 .lda-merge-controls.lda-hover-persist,
 .lda-merge-controls:hover {
@@ -105,6 +106,7 @@
 
 /* Ensure indicator is off when controls are on */
 .block-main-container:hover~.feedback-rating-container .lda-merge-indicator,
+.ls-block.selected>.block-main-container~.feedback-rating-container .lda-merge-indicator,
 .lda-merge-controls:hover~.lda-merge-indicator {
     display: none !important;
 }
@@ -475,5 +477,5 @@
 }
 
 .close-btn-compact:hover {
-    color: var(--ls-primary-text-color);
+    display: none !important;
 }

@@ -9,6 +9,7 @@ export const sourceText = signal('');
 export const showEditor = signal(false);
 // Map of uuid -> block node
 export const blockState = signal({});
+export const selectedBlockUuid = signal(null);
 
 // --- Context Menu State ---
 export const contextMenu = signal({ visible: false, x: 0, y: 0, blockUuid: null });
@@ -297,23 +298,45 @@ const formatContent = (text) => {
 };
 
 const Block = ({ node }) => {
-    // Use local state for collapsing to ensure re-render on click
-    // Initialize from node property if exists, else default false (expanded)
-    const [isCollapsed, setIsCollapsed] = useState(false);
+    // Use global signal for state
+    const isCollapsed = node.collapsed.value;
+    const isSelected = selectedBlockUuid.value === node.uuid;
+
+    // Force re-render when signals change
+    // effectively manually subscribing to signals in this component scope
+    // This is a bit hacky for functional components without the signal-preact babel plugin
+    // but `useCallback` or `useEffect` can be used.
+    // However, html`...` with preact-signals should auto-subscribe if we access .value inside text,
+    // but for attributes/classes/logic we often need explicit subscription or `useSignalEffect`.
+    // Let's use a local state to force update.
+    const [, update] = useState(0);
+    useEffect(() => {
+        const disposeCollapsed = effect(() => {
+            // Access value to subscribe
+            const _ = node.collapsed.value;
+            update(c => c + 1);
+        });
+        const disposeSelected = effect(() => {
+            const _ = selectedBlockUuid.value;
+            update(c => c + 1);
+        });
+        return () => { disposeCollapsed(); disposeSelected(); };
+    }, [node]);
+
 
     const toggle = (e) => {
         e.stopPropagation();
         if (node.children.length > 0) {
-            setIsCollapsed(!isCollapsed);
+            node.collapsed.value = !node.collapsed.value;
         }
     };
 
-    // Icon for Arrow (Simple triangle >)
-    // Default SVG points Right.
-    // User Request for Customization:
-    // Collapsed -> Down (rotate(90deg))
-    // Open [Expanded] -> Right (rotate(0deg))
+    const selectBlock = (e) => {
+        e.stopPropagation();
+        selectedBlockUuid.value = node.uuid;
+    };
 
+    // Icon for Arrow (Simple triangle >)
     const ToggleArrow = () => html`
         <div class="arrow" onClick=${toggle}>
             <svg viewBox="0 0 20 20" style="transform: ${isCollapsed ? 'rotate(90deg)' : 'rotate(0deg)'}">
@@ -325,6 +348,7 @@ const Block = ({ node }) => {
     const onContextMenu = (e) => {
         e.preventDefault();
         e.stopPropagation();
+        selectBlock(e); // Context menu also selects
         contextMenu.value = {
             visible: true,
             x: e.clientX,
@@ -334,12 +358,13 @@ const Block = ({ node }) => {
     };
 
     return html`
-    <div class="ls-block ${isCollapsed ? 'is-collapsed' : ''}" 
+    <div class="ls-block ${isCollapsed ? 'is-collapsed' : ''} ${isSelected ? 'selected' : ''}" 
          id="ls-block-${node.uuid}"
          blockid="${node.uuid}"
          level="${node.level}"
          data-refs-self="${JSON.stringify(Object.keys(node.properties))}"
-         onContextMenu=${onContextMenu}>
+         onContextMenu=${onContextMenu}
+         onClick=${selectBlock}>
         
         <div class="block-main-container">
             <div class="block-control-wrap">
@@ -465,14 +490,72 @@ const App = () => {
         window.addEventListener('mouseup', stopDrag);
     }, [sidebarWidth]);
 
-    // Listen for external sidebar trigger (Simulation API)
+    // Keyboard Navigation
     useEffect(() => {
-        const handleOpenSidebar = () => setSidebarOpen(true);
-        window.addEventListener('logseq:open-sidebar', handleOpenSidebar);
-        return () => window.removeEventListener('logseq:open-sidebar', handleOpenSidebar);
+        const handleKeyDown = (e) => {
+            // Only handle if not editing or in input
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                const roots = blocks.value;
+
+                // Build linear list of visible blocks
+                const visible = [];
+                const traverse = (nodes) => {
+                    for (const node of nodes) {
+                        visible.push(node);
+                        if (!node.collapsed.value && node.children) {
+                            traverse(node.children);
+                        }
+                    }
+                };
+                traverse(roots);
+
+                if (visible.length === 0) return;
+
+                const currUuid = selectedBlockUuid.value;
+                const idx = visible.findIndex(n => n.uuid === currUuid);
+
+                let newIdx = idx;
+                if (e.key === 'ArrowDown') {
+                    if (idx === -1) newIdx = 0;
+                    else newIdx = Math.min(visible.length - 1, idx + 1);
+                } else {
+                    if (idx === -1) newIdx = visible.length - 1;
+                    else newIdx = Math.max(0, idx - 1);
+                }
+
+                selectedBlockUuid.value = visible[newIdx].uuid;
+
+                // Scroll into view
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 0);
+} else if (e.key === 'm') {
+    // Check if not typing (modifiers and input check already done above)
+    if (!e.ctrlKey && !e.altKey && !e.metaKey) {
+        // Simulate command trigger
+        // Note: window.logseq might be the mock object
+        if (window.logseq && window.logseq.App && window.logseq.App._triggerCommand) {
+            e.preventDefault();
+            window.logseq.App._triggerCommand('focus-merge-controls');
+        }
+    }
+}
+    };
+
+window.addEventListener('keydown', handleKeyDown);
+return () => window.removeEventListener('keydown', handleKeyDown);
     }, []);
 
-    return html`
+// Listen for external sidebar trigger (Simulation API)
+useEffect(() => {
+    const handleOpenSidebar = () => setSidebarOpen(true);
+    window.addEventListener('logseq:open-sidebar', handleOpenSidebar);
+    return () => window.removeEventListener('logseq:open-sidebar', handleOpenSidebar);
+}, []);
+
+return html`
     <div style="width: 100%; height: 100vh; display: flex; flex-direction: column; overflow: hidden; background: var(--ls-bg-color);">
         <!-- Header -->
         <div class="sim-header" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid var(--border-color, #ccc); height: 50px; flex-shrink: 0; box-sizing: border-box;">
@@ -496,7 +579,7 @@ const App = () => {
         <div class="workspace-row" style="flex: 1; display: flex; width: 100%; overflow: hidden; position: relative;">
              <!-- Center App Layout -->
              <div class="app-layout" style="flex: 1; display: flex; justify-content: center; overflow: hidden; position: relative;">
-                  <div class="page" style="width: 100%; max-width: 900px; height: 100%; overflow-y: auto; padding: 20px; padding-right: 170px; box-sizing: border-box; position: relative;">
+                  <div class="page" style="width: 100%; max-width: 900px; height: 100%; overflow-y: auto; padding: 20px; padding-right: 170px; box-sizing: border-box; position: relative;" tabindex="0" id="main-content">
                         <h1 class="page-title" style="margin-bottom: 2rem;">${currentTitle}</h1>
             
                         <div id="editor-toggle" onClick=${() => setEditorVisible(!isEditorVisible)}>

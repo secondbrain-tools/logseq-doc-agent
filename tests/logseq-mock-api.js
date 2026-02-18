@@ -1,4 +1,5 @@
-import { getBlocks, blockState, registerContextMenuItem } from './logseq-sim-lib.js';
+import { effect } from 'https://esm.sh/@preact/signals@1.2.2';
+import { getBlocks, blockState, registerContextMenuItem, selectedBlockUuid } from './logseq-sim-lib.js';
 
 // Recursive helper to find a block by ID
 function findBlockById(roots, id) {
@@ -14,6 +15,7 @@ function findBlockById(roots, id) {
 
 // Mock implementation of the Logseq API
 export const logseq = {
+
     App: {
         getCurrentGraph: async () => ({
             name: 'localtests',
@@ -78,6 +80,20 @@ export const logseq = {
         },
         registerCommandPalette: (config, callback) => {
             console.log('[MockLogseq] registerCommandPalette registered:', config);
+            logseq.App._commands = logseq.App._commands || {};
+            logseq.App._commands[config.key] = { config, callback };
+
+            // Bind key listener in Sim?
+            // For now, simpler to expose a trigger helper
+        },
+        // Helper to trigger commands in simulation
+        _triggerCommand: (key) => {
+            console.log(`[MockLogseq] Triggering command: ${key}`);
+            if (logseq.App._commands && logseq.App._commands[key]) {
+                logseq.App._commands[key].callback();
+            } else {
+                console.warn(`[MockLogseq] Command not found: ${key}`);
+            }
         }
     },
     Editor: {
@@ -305,6 +321,18 @@ export const logseq = {
                 console.warn(`[MockLogseq] upsertBlockProperty: Block not found ${uuid}`);
             }
         },
+        /**
+         * Custom Listener for Simulation
+         */
+        onBlockSelected: (callback) => {
+            console.log('[MockLogseq] onBlockSelected registered');
+            logseq.Editor._onBlockSelectedCallbacks = logseq.Editor._onBlockSelectedCallbacks || [];
+            logseq.Editor._onBlockSelectedCallbacks.push(callback);
+            return () => {
+                const idx = logseq.Editor._onBlockSelectedCallbacks.indexOf(callback);
+                if (idx > -1) logseq.Editor._onBlockSelectedCallbacks.splice(idx, 1);
+            };
+        }
     },
     DB: {
         q: async (query) => {
@@ -809,3 +837,16 @@ logseq.provideModel = (model) => {
     console.log(`[MockLogseq] provideModel received`, model);
     logseq._model = { ...logseq._model, ...model };
 };
+
+// --- Signal Effect for Selection ---
+effect(() => {
+    const uuid = selectedBlockUuid.value;
+    if (uuid && logseq.Editor._onBlockSelectedCallbacks) {
+        // Fetch full block details via getBlock to simulate realistic async fetch
+        logseq.Editor.getBlock(uuid).then(block => {
+            if (block) {
+                logseq.Editor._onBlockSelectedCallbacks.forEach(cb => cb(block));
+            }
+        });
+    }
+});

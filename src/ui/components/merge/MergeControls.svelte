@@ -90,7 +90,11 @@
     }
 
     function handleKeyChange(e: KeyboardEvent) {
-        if (!isHovering) return;
+        // Only handle if hovering OR if we have focus within the controls
+        const doc = controlsDiv?.ownerDocument || document;
+        const hasFocus = controlsDiv && controlsDiv.contains(doc.activeElement);
+        if (!isHovering && !hasFocus) return;
+
         const shouldReveal = e.shiftKey || e.ctrlKey || e.metaKey;
         // console.log(`[MergeControls] Key: ${e.key}, Reveal: ${shouldReveal}`);
         toggleReveal(shouldReveal);
@@ -123,7 +127,7 @@
         toggleReveal(shouldReveal);
 
         const targetDoc = parent?.document || document;
-        targetDoc.addEventListener("keydown", handleKeyChange);
+        targetDoc.addEventListener("keydown", handleGlobalKeydown);
         targetDoc.addEventListener("keyup", handleKeyChange);
     }
 
@@ -140,7 +144,7 @@
         }, 500);
 
         const targetDoc = parent?.document || document;
-        targetDoc.removeEventListener("keydown", handleKeyChange);
+        targetDoc.removeEventListener("keydown", handleGlobalKeydown);
         targetDoc.removeEventListener("keyup", handleKeyChange);
 
         // Ensure general reveal class is removed immediately?
@@ -198,18 +202,64 @@
                 }
             }
         }
+
+        // Register custom event listener for Logseq command
+        // The command dispatches 'lda-focus-merge-controls' on the block element (div[blockid="..."])
+        const blockDivForFocus = targetElement?.closest("div[blockid]");
+        if (blockDivForFocus) {
+            blockDivForFocus.addEventListener(
+                "lda-focus-merge-controls",
+                handleFocusCommand,
+            );
+        }
+
+        // Modifiers: Listen globally to show recursive feedback
+        // We can keep these, but maybe scope them?
+        // Let's stick to the previous logic of attaching when needed, OR just keep global for simplicity of feedback
+        window.addEventListener("keydown", handleGlobalKeydown, true);
+        window.addEventListener("keyup", handleKeyChange, true);
+
+        if (parent && parent !== window) {
+            try {
+                parent.document.addEventListener(
+                    "keyup",
+                    handleKeyChange,
+                    true,
+                );
+                parent.document.addEventListener(
+                    "keydown",
+                    handleGlobalKeydown,
+                    true,
+                );
+            } catch (e) {}
+        }
     });
 
     onDestroy(() => {
-        window.removeEventListener("keydown", handleKeyChange);
-        window.removeEventListener("keyup", handleKeyChange);
+        const blockDivForFocus = targetElement?.closest("div[blockid]");
+        if (blockDivForFocus) {
+            blockDivForFocus.removeEventListener(
+                "lda-focus-merge-controls",
+                handleFocusCommand,
+            );
+        }
+
+        window.removeEventListener("keydown", handleGlobalKeydown, true);
+        window.removeEventListener("keyup", handleKeyChange, true);
+
         if (parent && parent !== window) {
             try {
-                parent.document.removeEventListener("keydown", handleKeyChange);
-                parent.document.removeEventListener("keyup", handleKeyChange);
-            } catch (e) {
-                // Ignore
-            }
+                parent.document.removeEventListener(
+                    "keyup",
+                    handleKeyChange,
+                    true,
+                );
+                parent.document.removeEventListener(
+                    "keydown",
+                    handleGlobalKeydown,
+                    true,
+                );
+            } catch (e) {}
         }
 
         if (targetElement) {
@@ -226,6 +276,106 @@
             blockContainer?.classList.remove("lda-reveal-children");
         }
     });
+
+    function handleFocusCommand(e: Event) {
+        // e is CustomEvent
+        console.log(`[MergeControls] Focus command received for ${blockUuid}`);
+        e.stopPropagation();
+        focusControls();
+    }
+
+    function handleGlobalKeydown(e: KeyboardEvent) {
+        // 1. Safety check: Don't intercept 'm' if typing - actually not needed for navigation but good practice
+        // 'm' command is now handled by Logseq via custom event
+
+        // 2. Handle Navigation when focused inside controls
+        // Use ownerDocument to get the correct context (parent vs iframe)
+        const doc = controlsDiv?.ownerDocument || document;
+        const activeEl = doc.activeElement as HTMLElement;
+
+        if (controlsDiv && controlsDiv.contains(activeEl)) {
+            if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+                e.preventDefault();
+                e.stopPropagation();
+                // prevent Logseq defaults (e.g. edit)
+                e.stopImmediatePropagation();
+
+                const buttons = Array.from(
+                    controlsDiv.querySelectorAll("button:not([disabled])"),
+                ) as HTMLButtonElement[];
+                // Handle nested focus by finding closest button
+                const activeBtn = activeEl.closest("button");
+                const currentIndex = buttons.indexOf(
+                    activeBtn as HTMLButtonElement,
+                );
+
+                console.log(
+                    `[MergeControls] Nav Key: ${e.key}, Current Index: ${currentIndex}, Total Buttons: ${buttons.length}`,
+                );
+
+                let nextIndex;
+                if (currentIndex === -1) {
+                    // Reset to first button if focus is lost/unknown
+                    nextIndex = 0;
+                } else if (e.key === "ArrowRight") {
+                    nextIndex = (currentIndex + 1) % buttons.length;
+                } else {
+                    nextIndex =
+                        (currentIndex - 1 + buttons.length) % buttons.length;
+                }
+
+                console.log(`[MergeControls] Focusing Index: ${nextIndex}`);
+                buttons[nextIndex]?.focus();
+                return;
+            } else if (e.key === "Enter") {
+                // Trigger click on focused button
+                if (activeEl instanceof HTMLButtonElement) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+                    console.log(
+                        `[MergeControls] Enter pressed on ${activeEl.className}`,
+                    );
+
+                    // specific construction to pass modifiers
+                    const mouseEvent = new MouseEvent("click", {
+                        bubbles: true,
+                        cancelable: true,
+                        view: window,
+                        shiftKey: e.shiftKey,
+                        ctrlKey: e.ctrlKey,
+                        metaKey: e.metaKey,
+                        altKey: e.altKey,
+                    });
+                    activeEl.dispatchEvent(mouseEvent);
+                }
+                return;
+            } else if (e.key === "Escape") {
+                if (activeEl) {
+                    activeEl.blur();
+                    // Optional: Try to focus the block content back?
+                    // const blockContent = targetElement?.closest('.ls-block')?.querySelector('.block-content');
+                    // if (blockContent instanceof HTMLElement) blockContent.focus();
+                }
+                return;
+            }
+        }
+
+        // Also forward to handleKeyChange for modifiers
+        handleKeyChange(e);
+    }
+
+    function focusControls() {
+        if (controlsDiv) {
+            // Focus the first button (Accept)
+            const firstBtn = controlsDiv.querySelector(
+                ".lda-merge-accept",
+            ) as HTMLElement;
+            if (firstBtn) firstBtn.focus();
+        }
+    }
+
+    // handleNavKeydown removed in favor of handleGlobalKeydown (capture phase)
 
     async function handleAccept(
         event?: CustomEvent<{
@@ -365,12 +515,26 @@
                 "[MergeControls] Reverting (Optimistic keep original).",
             );
 
-            const uuids =
-                mergeTree.length > 0
-                    ? mergeTree.map((i) => i.uuid)
-                    : [blockUuid];
+            // Check modifiers for recursion
+            const withChildren = e
+                ? e.shiftKey || e.ctrlKey || e.metaKey
+                : false;
 
-            await mergeActionService.revertMerge(uuids);
+            if (withChildren) {
+                console.log("[MergeControls] Revert WITH children");
+                await mergeActionService.revertMergeWithChildren(blockUuid);
+                await logseq.UI.showMsg(
+                    "Reverted block and children",
+                    "success",
+                );
+            } else {
+                const uuids =
+                    mergeTree.length > 0
+                        ? mergeTree.map((i) => i.uuid)
+                        : [blockUuid];
+
+                await mergeActionService.revertMerge(uuids);
+            }
             await refreshInjection();
         } catch (e) {
             console.error("[MergeControls] Failed to revert merge:", e);
@@ -491,6 +655,8 @@
         use:clickAction={handleQuickAccept}
         onmouseenter={(e) => handleActionHover("accept", true, e)}
         onmouseleave={() => handleActionHover("accept", false)}
+        onfocus={(e) => handleActionHover("accept", true, e as any)}
+        onblur={() => handleActionHover("accept", false)}
         title="Accept Merge - Press Shift to also accept all child blocks."
     >
         ✓
@@ -501,6 +667,8 @@
             use:clickAction={handleDiff}
             onmouseenter={(e) => handleActionHover("diff", true, e)}
             onmouseleave={() => handleActionHover("diff", false)}
+            onfocus={(e) => handleActionHover("diff", true, e as any)}
+            onblur={() => handleActionHover("diff", false)}
             title="Show Diff for this block and its children."
         >
             <svg
@@ -520,6 +688,8 @@
         use:clickAction={handleRevert}
         onmouseenter={(e) => handleActionHover("revert", true, e)}
         onmouseleave={() => handleActionHover("revert", false)}
+        onfocus={(e) => handleActionHover("revert", true, e as any)}
+        onblur={() => handleActionHover("revert", false)}
         title="Discard Merge - Press Shift to also revert all child blocks."
     >
         ✗

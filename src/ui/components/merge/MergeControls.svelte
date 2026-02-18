@@ -491,7 +491,7 @@
         use:clickAction={handleQuickAccept}
         onmouseenter={(e) => handleActionHover("accept", true, e)}
         onmouseleave={() => handleActionHover("accept", false)}
-        title="Accept Merge"
+        title="Accept Merge - Press Shift to also accept all child blocks."
     >
         ✓
     </button>
@@ -501,7 +501,7 @@
             use:clickAction={handleDiff}
             onmouseenter={(e) => handleActionHover("diff", true, e)}
             onmouseleave={() => handleActionHover("diff", false)}
-            title="Show Diff"
+            title="Show Diff for this block and its children."
         >
             <svg
                 viewBox="0 0 24 24"
@@ -520,7 +520,7 @@
         use:clickAction={handleRevert}
         onmouseenter={(e) => handleActionHover("revert", true, e)}
         onmouseleave={() => handleActionHover("revert", false)}
-        title="Discard Merge"
+        title="Discard Merge - Press Shift to also revert all child blocks."
     >
         ✗
     </button>

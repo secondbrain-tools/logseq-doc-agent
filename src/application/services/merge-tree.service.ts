@@ -40,35 +40,23 @@ export class MergeTreeService {
         // Parse merge data if present
         let mergeData: MergeEntity | undefined;
 
-
-        let rawMerge: any = block.properties?.['logseqDocAgent.merge']; // Logseq normalizes keys? 
-
         if (block.properties) {
-
-            const keys = Object.keys(block.properties);
-            const mergeKey = keys.find(k => k.includes('logseq') && k.includes('merge'));
-
-            if (mergeKey) {
-                const val = block.properties[mergeKey];
-
-                if (typeof val === 'string') {
-                    try {
-                        mergeData = JSON.parse(val);
-                    } catch (e) {/* ignore */ }
-                } else if (typeof val === 'object') {
-                    mergeData = val as MergeEntity;
-                }
+            // Logseq normalizes properties to camelCase (e.g. logseq-doc-agent.merge -> logseqDocAgent.merge)
+            // We access it directly, but check both to be safe in Sim environment.
+            // Note: The specific key should be 'logseqDocAgent.merge' if the property is 'logseq-doc-agent.merge'
+            let mergeProp = block.properties['logseqDocAgent.merge'];
+            if (!mergeProp) {
+                mergeProp = block.properties['logseq-doc-agent.merge'];
             }
-        }
 
-        // If not found in properties (Sim might not parse complex keys correctly?), 
-        // maybe try to extract from content regex?
-        if (!mergeData && block.content) {
-            const match = block.content.match(/logseq-doc-agent\.merge::\s*(.+)$/m);
-            if (match) {
-                try {
-                    mergeData = JSON.parse(match[1]);
-                } catch (e) { }
+            if (mergeProp) {
+                if (typeof mergeProp === 'string') {
+                    try {
+                        mergeData = JSON.parse(mergeProp);
+                    } catch (e) {/* ignore */ }
+                } else if (typeof mergeProp === 'object') {
+                    mergeData = mergeProp as MergeEntity;
+                }
             }
         }
 

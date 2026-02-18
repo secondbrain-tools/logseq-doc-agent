@@ -291,7 +291,16 @@ export const logseq = {
             const block = state[uuid];
             if (block) {
                 if (!block.properties) block.properties = {};
-                block.properties[propName] = propValue;
+                // Normalize key to camelCase unless it's a logseq-doc-agent key
+                let normKey = propName;
+                if (!propName.startsWith('logseq-doc-agent')) {
+                    const normalize = (k) => k.split('.').map(part => part.replace(/-./g, x => x[1].toUpperCase())).join('.');
+                    normKey = normalize(propName);
+                }
+                block.properties[normKey] = propValue;
+                // Also update content to include property line so it persists in text if possible?
+                // Sim usually parses from text, so updating property object is temporary unless text changes.
+                // But for pure mock API testing, object update is enough.
             } else {
                 console.warn(`[MockLogseq] upsertBlockProperty: Block not found ${uuid}`);
             }
@@ -534,18 +543,57 @@ logseq.Editor.getPage = async (name) => {
 };
 
 logseq.Editor.getPageBlocksTree = async (name) => {
-    const page = logseq._pages.find(p => p.name === name || p.originalName === name);
+    // If the requested page matches the current simulation page title, return the live blocks
+    // Note: getBlocks returns the root blocks from logseq-sim-lib
+    const currentTitle = document.querySelector('.page-title')?.innerText;
+
+    // Check if name matches current page name, or current page UUID, or specific test page
+    // Also default to live blocks if name is null (current page)
+    const isCurrentPage = !name || name === currentTitle || name === 'Embracing Imperfection Guide' || name === 'page-uuid-123' || name === 'start-page';
+
+    // Helper to map internal sim nodes to BlockEntity and stringify properties
+    const mapNode = (node) => {
+        const props = node.properties || {};
+        const stringifiedProps = {};
+        for (const k in props) {
+            const val = props[k];
+            // Logseq returns complex properties as JSON strings usually
+            stringifiedProps[k] = typeof val === 'object' ? JSON.stringify(val) : val;
+        }
+
+        return {
+            uuid: node.uuid,
+            content: node.content,
+            properties: stringifiedProps,
+            children: node.children ? node.children.map(mapNode) : []
+        };
+    };
+
+    if (isCurrentPage) {
+        const blocks = getBlocks();
+        return blocks.map(mapNode);
+    }
+
+    // Fallback to the mocked _pages if defined
+    const page = logseq._pages.find(p => p.name === name || p.originalName === name || p.uuid === name);
     if (page && page.blocks) {
         // Return simulated blocks
         return page.blocks.map(b => ({
             uuid: b.uuid,
             content: b.content,
-            properties: {},
+            properties: b.properties || {}, // Properties here should already be strings if mocked manually
             children: []
         }));
     }
-    return [];
+
+    // If still not found, and we are in Sim, maybe just return live blocks as fallback?
+    // This helps when the plugin asks for a page by UUID that we don't know but is likely the current one.
+    console.warn(`[MockLogseq] getPageBlocksTree: Page "${name}" not found. Returning attributes of current page.`);
+    const blocks = getBlocks();
+    return blocks.map(mapNode);
 };
+
+logseq.Editor.getCurrentPageBlocksTree = () => logseq.Editor.getPageBlocksTree();
 
 // extend Editor.appendBlockInPage to update our mock pages
 const originalAppendBlock = logseq.Editor.appendBlockInPage;
@@ -569,6 +617,35 @@ logseq.Editor.appendBlockInPage = async (pageId, content) => {
 const originalQ = logseq.DB.q;
 logseq.DB.q = async (query) => {
     console.log(`[MockLogseq] DB.q query: ${query}`);
+
+    // Merge property query support
+    if (query.includes('logseq-doc-agent.merge') || query.includes('logseqDocAgent.merge')) {
+        console.log('[MockLogseq] Matched merge query');
+        const blocks = getBlocks();
+        const results = [];
+
+        const traverse = (nodes) => {
+            for (const node of nodes) {
+                const props = node.properties || {};
+                if (props['logseq-doc-agent.merge'] || props['logseqDocAgent.merge']) {
+                    // Stringify properties to match expected API behavior
+                    const stringifiedProps = {};
+                    for (const k in props) {
+                        const val = props[k];
+                        stringifiedProps[k] = typeof val === 'object' ? JSON.stringify(val) : val;
+                    }
+                    results.push({
+                        uuid: node.uuid,
+                        content: node.content,
+                        properties: stringifiedProps
+                    });
+                }
+                if (node.children) traverse(node.children);
+            }
+        };
+        traverse(blocks);
+        return results;
+    }
 
     // Agent property query: (property logseq-doc-agent.agent)
     if (query.includes('logseq-doc-agent.agent')) {

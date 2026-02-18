@@ -43,6 +43,25 @@ export const toggleTheme = () => {
 
 // --- Parser Logic ---
 
+// Helper to normalize kebab-case to camelCase
+// e.g. logseq-doc-agent.merge -> logseqDocAgent.merge
+// e.g. some-property -> someProperty
+function normalizePropertyKey(key) {
+    // Skip normalization for logseq-doc-agent keys as requested
+    if (key.startsWith('logseq-doc-agent')) {
+        return key;
+    }
+
+    // Split by dot (namespace)
+    const parts = key.split('.');
+
+    const camelize = (str) => {
+        return str.replace(/-./g, (x) => x[1].toUpperCase());
+    };
+
+    return parts.map(camelize).join('.');
+}
+
 function parseProperties(lines) {
     const props = {};
     const rest = [];
@@ -51,7 +70,10 @@ function parseProperties(lines) {
     for (const line of lines) {
         const match = line.match(propRegex);
         if (match) {
-            props[match[1].trim()] = match[2].trim();
+            const rawKey = match[1].trim();
+            const value = match[2].trim();
+            const normalizedKey = normalizePropertyKey(rawKey);
+            props[normalizedKey] = value;
         } else {
             rest.push(line);
         }

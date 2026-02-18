@@ -42,3 +42,341 @@
     border: 1px solid var(--ls-border-color);
     color: var(--ls-primary-text-color);
 }
+
+/* ==========================================================================
+   InlineDiff Styles (Moved from InlineDiff.svelte)
+   ========================================================================== */
+
+.diff-viewer {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    /* Default: Fill container */
+    height: 100%;
+    background: var(--ls-primary-background-color);
+    font-family: "Monaco", "Menlo", "Ubuntu Mono", "Consolas", monospace;
+    font-size: 13px;
+    overflow: hidden;
+}
+
+/* Standalone Mode: Center with border */
+.diff-viewer.standalone {
+    width: fit-content;
+    min-width: 60%;
+    max-width: 100%;
+    margin: 0 auto;
+    border: 1px solid var(--ls-border-color);
+    border-radius: 4px;
+}
+
+.diff-body {
+    overflow-y: auto;
+    flex: 1;
+    padding-bottom: 20px;
+}
+
+.diff-line {
+    display: flex;
+    min-height: 20px;
+    line-height: 20px;
+}
+
+.gutter {
+    display: flex;
+    width: 40px;
+    background: var(--ls-secondary-background-color);
+    border-right: 1px solid var(--ls-border-color);
+    color: var(--ls-tertiary-text-color);
+    user-select: none;
+    flex-shrink: 0;
+    position: relative;
+    /* For toggle positioning */
+}
+
+.toggle-btn {
+    position: absolute;
+    left: 2px;
+    top: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--ls-secondary-text-color);
+    font-size: 10px;
+    width: 16px;
+    /* Space for click */
+    z-index: 10;
+}
+
+.toggle-btn:hover {
+    color: var(--ls-primary-text-color);
+    font-weight: bold;
+}
+
+.line-num {
+    flex: 1;
+    text-align: right;
+    padding-right: 4px;
+    font-size: 11px;
+}
+
+.line-content {
+    flex: 1;
+    padding: 0 4px;
+    white-space: pre-wrap;
+    word-break: break-all;
+    color: var(--ls-primary-text-color);
+    display: flex;
+    user-select: text;
+    /* Ensure text is selectable */
+    cursor: text;
+    /* Show text selection cursor */
+    align-items: center;
+    /* Align button/marker/text */
+}
+
+.text {
+    flex: 1;
+    margin-right: 8px;
+    cursor: text;
+    /* Show text selection cursor */
+}
+
+.line-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    font-size: 12px;
+    line-height: 1;
+    border: 1px solid var(--ls-border-color);
+    background: var(--ls-secondary-background-color);
+    color: var(--ls-secondary-text-color);
+    cursor: pointer;
+    /* No margin-right needed if on right side */
+    border-radius: 2px;
+    padding: 0;
+    flex-shrink: 0;
+}
+
+.line-btn:hover {
+    background: var(--ls-tertiary-background-color);
+    color: var(--ls-primary-text-color);
+}
+
+.line-btn:active {
+    background: var(--ls-link-text-color);
+    color: white;
+}
+
+.marker {
+    display: inline-block;
+    width: 15px;
+    text-align: center;
+    color: var(--ls-tertiary-text-color);
+    user-select: none;
+    margin-right: 4px;
+}
+
+/* Colors ... */
+.type-added {
+    background-color: rgba(0, 255, 0, 0.15);
+}
+
+.type-added .marker {
+    color: green;
+}
+
+.type-removed {
+    background-color: rgba(255, 0, 0, 0.15);
+}
+
+.type-removed .marker {
+    color: red;
+}
+
+/* Modified lines (with intra-line highlighting) */
+.type-modified-old {
+    background-color: rgba(255, 200, 200, 0.2);
+}
+
+.type-modified-old .marker {
+    color: #c00;
+}
+
+.type-modified-new {
+    background-color: rgba(200, 255, 200, 0.2);
+}
+
+.type-modified-new .marker {
+    color: #080;
+}
+
+/* Intra-line highlighting spans */
+.intra-removed {
+    background-color: rgba(255, 100, 100, 0.35);
+    border-radius: 2px;
+    text-decoration: line-through;
+    text-decoration-color: rgba(200, 0, 0, 0.5);
+}
+
+.intra-added {
+    background-color: rgba(100, 255, 100, 0.35);
+    border-radius: 2px;
+}
+
+/* Unified / Stacked Styles */
+.type-modified-unified {
+    background-color: rgba(255, 255, 200, 0.15);
+    /* Slight yellow tint */
+}
+
+.type-modified-unified .marker {
+    color: #b80;
+}
+
+.unified-replacement {
+    display: inline-flex;
+    flex-direction: column;
+    vertical-align: middle;
+    margin: 0 2px;
+    line-height: 1.1;
+    background: rgba(0, 0, 0, 0.05);
+    /* Slight box BG */
+    border-radius: 3px;
+    padding: 0 2px;
+    cursor: pointer;
+    /* Clickable */
+}
+
+/* Decision Styles */
+/* Reverted Replacement: Swap focus. */
+.unified-replacement.reverted .unified-added {
+    opacity: 0.3;
+    text-decoration: line-through;
+    order: 2;
+    /* Move to bottom visual? Or just style? */
+}
+
+.unified-replacement.reverted .unified-removed {
+    opacity: 1;
+    text-decoration: none;
+    color: inherit;
+    order: 1;
+    background-color: transparent;
+}
+
+/* Reverted Added: Hide or Strikethrough */
+.unified-added.reverted {
+    text-decoration: line-through;
+    color: var(--ls-tertiary-text-color);
+    background-color: transparent;
+    opacity: 0.6;
+}
+
+/* Reverted Removed (Restored): Normal Text */
+.unified-removed.reverted {
+    text-decoration: none;
+    color: inherit;
+    background-color: transparent;
+    opacity: 1;
+}
+
+.selection-toolbar {
+    position: fixed;
+    /* Fixed to viewport usually better for floating toolbars on top */
+    z-index: 1000;
+    /* Max Z-Index to ensure it floats above everything (modals, etc.) */
+    /*display: flex;*/
+    transform: translate(-50%, -100%);
+    /* Center and move above */
+    background: var(--ls-secondary-background-color, #fff);
+
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    /* padding: 4px;^
+        /* visibility: visible;*/
+}
+
+.selection-toolbar>:global(.lda-merge-controls) {
+    margin-left: 0px;
+}
+
+.unified-added {
+    color: #080;
+    background-color: rgba(100, 255, 100, 0.25);
+    border-radius: 2px;
+    font-size: 0.9em;
+}
+
+.unified-removed {
+    color: #c00;
+    background-color: rgba(255, 100, 100, 0.25);
+    border-radius: 2px;
+    text-decoration: line-through;
+    font-size: 0.8em;
+    opacity: 0.8;
+}
+
+/* Ensure non-replaced added/removed also look correct inline */
+span>.unified-added {
+    background-color: rgba(100, 255, 100, 0.25);
+}
+
+span>.unified-removed {
+    background-color: rgba(255, 100, 100, 0.25);
+    text-decoration: line-through;
+}
+
+/* Text selection styles - override parent styles that make selection invisible */
+.diff-viewer ::selection {
+    background-color: rgba(0, 120, 215, 0.3);
+    color: inherit;
+}
+
+.diff-viewer ::-moz-selection {
+    background-color: rgba(0, 120, 215, 0.3);
+    color: inherit;
+}
+
+/* Interactive Feedback */
+.unified-replacement:hover,
+.unified-added:hover,
+.unified-removed:hover {
+    filter: brightness(0.9);
+    outline: 1px dashed rgba(0, 0, 0, 0.3);
+}
+
+/* Linked pair states */
+.pair-active {
+    opacity: 1;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.pair-inactive {
+    /* Increase from 0.4 for better readability */
+    opacity: 0.7;
+    text-decoration: line-through;
+    cursor: pointer;
+}
+
+/* Override pair-inactive backgrounds to be more subtle */
+/* Remove color overrides to use base semantic colors */
+.unified-added.pair-inactive {
+    background-color: transparent;
+}
+
+.unified-removed.pair-inactive {
+    background-color: transparent;
+}
+
+/* Make pair-active removed line look "restored" (no strikethrough, normal color) */
+.unified-removed.pair-active {
+    text-decoration: none;
+    color: inherit;
+    opacity: 1;
+    background-color: rgba(100, 200, 255, 0.15);
+}

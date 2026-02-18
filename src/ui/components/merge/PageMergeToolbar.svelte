@@ -5,6 +5,13 @@
     import { fly } from "svelte/transition";
     import type { MergeState } from "../../../application/usecases/merge-state.svelte";
     import { onMount } from "svelte";
+    import DiffModal from "./DiffModal.svelte";
+    import {
+        MergeTreeService,
+        type MergeTreeItem,
+    } from "../../../application/services/merge-tree.service";
+    import { filterProperties } from "../../../domain/logseq/properties";
+    import type { MergeEntity } from "../../../domain/merge/entity";
 
     let {
         mergeState,
@@ -17,8 +24,11 @@
     let isOpen = $state(true);
     let popupStyle = $state("");
     let buttonRef: HTMLElement | undefined = $state();
+    let showDiffModal = $state(false);
+    let mergeTree: MergeTreeItem[] = $state([]);
 
     const mergeActionService = new MergeActionService();
+    const mergeTreeService = new MergeTreeService();
 
     onMount(() => {
         // Add small delay to ensure layout is settled
@@ -76,8 +86,32 @@
 
     // ... handleAcceptAll / handleRevertAll unchanged ...
 
-    async function handleAcceptAll() {
+    async function handleAcceptAll(
+        event?: CustomEvent<{
+            content?: string;
+            treeEdits?: Record<string, string>;
+        }>,
+    ) {
+        if (showDiffModal) {
+            showDiffModal = false;
+        }
         try {
+            // Check for Tree Edits first (Batch Mode from Modal)
+            if (event && event.detail && event.detail.treeEdits) {
+                const settings = (logseq.settings as any) || {};
+                const patternsRaw =
+                    (settings["mergeFilterPatterns"] as string) ||
+                    "logseq-doc-agent.*";
+                const patterns = patternsRaw
+                    .split("\n")
+                    .filter((s) => s.trim().length > 0);
+
+                const edits = event.detail.treeEdits;
+                await mergeActionService.acceptBatchMerge(edits, patterns);
+                await refreshInjection();
+                return;
+            }
+
             const currentPage = await logseq.Editor.getCurrentPage();
             if (!currentPage) return;
 
@@ -122,6 +156,9 @@
     }
 
     async function handleRevertAll() {
+        if (showDiffModal) {
+            showDiffModal = false;
+        }
         try {
             const currentPage = await logseq.Editor.getCurrentPage();
             if (!currentPage) return;
@@ -162,6 +199,75 @@
             await logseq.UI.showMsg("Failed to revert all merges", "error");
         }
     }
+
+    async function handleMergeAll() {
+        try {
+            const currentPage = await logseq.Editor.getCurrentPage();
+            if (!currentPage) return;
+
+            // Fetch settings for patterns
+            const settings = (logseq.settings as any) || {};
+            const patternsRaw =
+                (settings["mergeFilterPatterns"] as string) ||
+                "logseq-doc-agent.*";
+            const patterns = patternsRaw
+                .split("\n")
+                .filter((s) => s.trim().length > 0);
+
+            // 1. Fetch Tree for Page
+            const tree = await mergeTreeService.getPageMergeTree(
+                currentPage.uuid,
+            );
+
+            // 2. Process Tree for Display (Filtering)
+            const processedTree: MergeTreeItem[] = [];
+
+            for (const item of tree) {
+                // Filter current content
+                const [cleanContent, header] = filterProperties(
+                    item.content,
+                    patterns,
+                );
+
+                // Clone mergeData to avoid mutating the original tree
+                const mergeData = item.mergeData
+                    ? { ...item.mergeData }
+                    : undefined;
+
+                if (mergeData) {
+                    // Update currentContent reference for UI
+                    if (mergeData.type === "delete") {
+                        mergeData.currentContent = "";
+                    } else {
+                        mergeData.currentContent = cleanContent;
+                    }
+
+                    // Filter base content (original content before LLM changes)
+                    if (mergeData.base) {
+                        const [cleanBase, _] = filterProperties(
+                            mergeData.base,
+                            patterns,
+                        );
+                        mergeData.base = cleanBase;
+                    }
+                }
+
+                processedTree.push({
+                    ...item,
+                    content: cleanContent,
+                    mergeData,
+                });
+            }
+
+            // Filter to show only items with pending merges
+            mergeTree = processedTree.filter((item) => !!item.mergeData);
+            isOpen = false; // Close the toolbar popover
+            showDiffModal = true;
+        } catch (e) {
+            console.error("[PageMergeToolbar] Failed to open merge modal:", e);
+            await logseq.UI.showMsg("Failed to open merge view", "error");
+        }
+    }
 </script>
 
 <div class="lda-merge-wrapper">
@@ -190,7 +296,6 @@
     </button>
 
     <!-- Dropdown / Horizontal Popover -->
-    <!-- Dropdown / Horizontal Popover -->
     {#if popupStyle}
         <div
             class="lda-page-merge-toolbar-popover horizontal-layout"
@@ -203,10 +308,28 @@
             <div class="sep"></div>
             <button
                 class="lda-toolbar-btn accept-all compact"
-                onclick={handleAcceptAll}
+                onclick={() => handleAcceptAll()}
                 title="Accept All"
             >
                 ✓ Accept
+            </button>
+            <button
+                class="lda-toolbar-btn merge-all compact"
+                onclick={handleMergeAll}
+                title="Review All"
+            >
+                <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    style="width: 14px; height: 14px; margin-right: 4px;"
+                >
+                    {@html ICONS.merge}
+                </svg>
+                Merge
             </button>
             <button
                 class="lda-toolbar-btn revert-all compact"
@@ -222,4 +345,13 @@
             >
         </div>
     {/if}
+
+    <DiffModal
+        isOpen={showDiffModal}
+        mergeData={undefined}
+        {mergeTree}
+        on:close={() => (showDiffModal = false)}
+        on:accept={handleAcceptAll}
+        on:revert={handleRevertAll}
+    />
 </div>

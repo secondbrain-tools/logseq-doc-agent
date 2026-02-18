@@ -51,14 +51,11 @@
     // Initialize content when data arrives (effect)
     $effect(() => {
         if (isOpen) {
-            const isFreshOpen = !wasOpen;
-            wasOpen = true;
-
-            if (
-                isFreshOpen ||
-                (activeTree.length === 0 && mergeTree && mergeTree.length > 0)
-            ) {
-                if (mergeTree && mergeTree.length > 0) {
+            // Always update if we have a tree
+            if (mergeTree && mergeTree.length > 0) {
+                // If the tree changed or we just opened, update activeTree
+                // Simple check: if activeTree is empty or different ref
+                if (activeTree !== mergeTree) {
                     activeTree = mergeTree;
 
                     // Initialize edits map & toggle state
@@ -79,14 +76,17 @@
                         }
                     }
                     treeEdits = edits;
-                } else if (mergeData) {
-                    // Single block fallback
-                    activeTree = [];
+                }
+            } else if (mergeData) {
+                // Single block fallback
+                // Only if tree is empty
+                if (activeTree.length === 0) {
                     editContent = mergeData.currentContent || "";
                 }
             }
         } else {
-            wasOpen = false;
+            // Reset on close? Or keep for cache?
+            // Let's keep it simple and not clear, so it doesn't flash empty on close anim
         }
     });
 

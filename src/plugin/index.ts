@@ -6,51 +6,40 @@ import { LogseqSettingsAdapter } from '../infra/logseq/settings-adapter';
 import '@logseq/libs';
 
 // Standard imports to include in the bundle (dist/index.css)
-// We use ?inline to get the processed CSS string for injection
-import appCss from '../app.css?inline';
-import feedbackCss from '../ui/styles/feedback-components.css?inline';
-import mergeCss from '../ui/styles/merge-components.css?inline';
-import modalCss from '../ui/styles/modal.css?inline';
-import chatCss from '../ui/styles/chat.css?inline';
-import diffCss from '../ui/styles/diff.css?inline';
+import '../app.css';
+import '../ui/styles/feedback-components.css';
+import '../ui/styles/merge-components.css';
+import '../ui/styles/modal.css';
+import '../ui/styles/chat.css';
+import '../ui/styles/diff.css';
 
 import { InitDataService } from '../application/services/init-data.service';
 
 export const setupPlugin = async () => {
     console.log('[src/plugin/index.ts] setupPlugin() called');
 
-    // Inject CSS via Style tag (robust for both dev and prod)
+    // Inject CSS via Link tag
     const doc = parent.document; // Inject into parent document (Logseq UI)
     if (doc) {
-        const styleId = 'logseq-doc-agent-css-bundle';
+        const linkId = 'logseq-doc-agent-css-bundle';
 
         // Remove existing
-        doc.getElementById(styleId)?.remove();
+        doc.getElementById(linkId)?.remove();
 
-        // Combine all CSS
-        const cssContent = `
-            ${appCss}
-            ${feedbackCss}
-            ${mergeCss}
-            ${modalCss}
-            ${chatCss}
-            ${diffCss}
-        `;
+        // Construct path to index.css
+        // import.meta.url points to this script (e.g. .../dist/index.js)
+        const cssUrl = new URL('./index.css', import.meta.url).href;
 
-        console.log('[DEBUG-CSS] appCss length:', appCss?.length, 'content slice:', appCss?.slice(0, 50));
-        console.log('[DEBUG-CSS] feedbackCss length:', feedbackCss?.length);
-        console.log('[DEBUG-CSS] mergeCss length:', mergeCss?.length, 'content slice:', mergeCss?.slice(0, 50));
-        console.log('[DEBUG-CSS] Total CSS length:', cssContent.length);
+        // Local Bundle
+        const link = doc.createElement('link');
+        link.id = linkId;
+        link.rel = 'stylesheet';
+        link.href = cssUrl;
 
-        // Create style element
-        const style = doc.createElement('style');
-        style.id = styleId;
-        style.textContent = cssContent;
-
-        doc.head.appendChild(style);
+        doc.head.appendChild(link);
 
         logseq.beforeunload(async () => {
-            doc.getElementById(styleId)?.remove();
+            doc.getElementById(linkId)?.remove();
 
             // Clean up sidebar instances to prevent dangling elements
             Services.instance.sidebarInjector.dispose();

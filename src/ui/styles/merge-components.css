@@ -394,6 +394,18 @@
     background: var(--lda-revert-background-solid-hover);
 }
 
+.merge-all {
+    background: #ff8800 !important;
+    /* Fallback/Hardcoded for safety */
+    background: var(--lda-merge-background-solid) !important;
+    color: var(--lda-merge-text-solid) !important;
+}
+
+.merge-all:hover {
+    background: #e67a00 !important;
+    background: var(--lda-merge-background-solid-hover) !important;
+}
+
 .lda-merge-badge {
     display: flex;
     align-items: center;

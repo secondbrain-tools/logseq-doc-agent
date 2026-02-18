@@ -1,3 +1,51 @@
+/* ==========================================================================
+   ROOT VARIABLES & THEME DEFINITIONS
+   ========================================================================== */
+:root {
+    /* 
+       Merge / Diff / Warning 
+       Used for: Merge indicators, Diff buttons, Warning text
+       Base: Amber/Orange mix
+    */
+    --lda-merge-foreground: color-mix(in srgb, var(--ls-warning-text-color, #b45309) 50%, #ff8800 100%);
+    --lda-merge-background-hover: color-mix(in srgb, var(--lda-merge-foreground), transparent 90%);
+
+    /* Solid background for primary actions (e.g. Merge All or Smart Edit) */
+    --lda-merge-background-solid: var(--lda-merge-foreground);
+    --lda-merge-background-solid-hover: color-mix(in srgb, var(--lda-merge-foreground), black 10%);
+    --lda-merge-text-solid: #ffffff;
+
+    /* 
+       Accept / Add / Success 
+       Used for: Accept buttons, Add indicators, Success text
+       Base: Green (Logseq Success)
+    */
+    --lda-accept-foreground: var(--ls-success-text-color, #2ecc71);
+    --lda-accept-background-hover: color-mix(in srgb, var(--lda-accept-foreground), transparent 90%);
+
+    /* Solid background for primary actions (e.g. Accept All) */
+    --lda-accept-background-solid: var(--ls-success-text-color, #22c55e);
+    --lda-accept-background-solid-hover: color-mix(in srgb, var(--ls-success-text-color, #22c55e), black 10%);
+    --lda-accept-text-solid: #ffffff;
+
+    /* 
+       Revert / Delete / Error 
+       Used for: Revert buttons, Delete indicators, Error text
+       Base: Red (Logseq Error)
+    */
+    --lda-revert-foreground: var(--ls-error-text-color, #e74c3c);
+    --lda-revert-background-hover: color-mix(in srgb, var(--lda-revert-foreground), transparent 90%);
+
+    /* Solid background for primary actions (e.g. Revert All) */
+    --lda-revert-background-solid: var(--ls-error-text-color, #ef4444);
+    --lda-revert-background-solid-hover: color-mix(in srgb, var(--ls-error-text-color, #ef4444), black 10%);
+    --lda-revert-text-solid: #ffffff;
+}
+
+/* ==========================================================================
+   CONTAINER & INDICATOR STYLES
+   ========================================================================== */
+
 /* Container for the merge buttons (Interactive Menu) */
 .lda-merge-controls {
     display: none;
@@ -203,34 +251,47 @@
     background-color: var(--ls-secondary-background-color);
 }
 
+/* ACCEPT Styles */
 .lda-merge-accept {
-    color: var(--ls-link-text-color);
+    color: var(--lda-accept-foreground);
 }
 
 .lda-merge-accept:hover {
-    color: var(--ls-success-text-color, #2ecc71);
-    background-color: color-mix(in srgb, var(--ls-success-text-color, #2ecc71), transparent 90%);
+    color: var(--lda-accept-foreground);
+    background-color: var(--lda-accept-background-hover);
 }
 
+/* REVERT Styles */
 .lda-merge-revert {
-    color: var(--ls-error-text-color, #e74c3c);
+    color: var(--lda-revert-foreground);
 }
 
 .lda-merge-revert:hover {
-    color: var(--ls-error-text-color, #e74c3c);
-    background-color: color-mix(in srgb, var(--ls-error-text-color, #e74c3c), transparent 90%);
+    color: var(--lda-revert-foreground);
+    background-color: var(--lda-revert-background-hover);
 }
 
+/* DIFF / MERGE Styles */
 .lda-merge-diff {
-    color: var(--ls-icon-color, #f1c40f);
+    color: var(--lda-merge-foreground);
 }
 
 .lda-merge-diff:hover {
-    color: var(--ls-warning-text-color, #f39c12);
-    background-color: color-mix(in srgb, var(--ls-warning-text-color, #f39c12), transparent 90%);
+    /* Use the variable now for hover background */
+    background-color: var(--lda-merge-background-hover);
 }
 
+/* Ensure SVGs in buttons are sized correctly */
+.lda-merge-btn svg {
+    width: 14px;
+    height: 14px;
+    stroke-width: 3;
+    pointer-events: none;
+}
+
+
 /* Highlight for the block main container */
+/* Using Error Color mix as per original design, could maybe unify if needed */
 .lda-merge-highlight {
     background-color: color-mix(in srgb, var(--ls-error-text-color), transparent 95%) !important;
     border-radius: 4px;
@@ -239,17 +300,168 @@
 
 /* Specific styles for merge types */
 .lda-merge-type-add {
-    background-color: color-mix(in srgb, var(--ls-success-text-color, #2ecc71), transparent 90%) !important;
-    border-left: 3px solid var(--ls-success-text-color, #2ecc71);
+    background-color: var(--lda-accept-background-hover) !important;
+    border-left: 3px solid var(--lda-accept-foreground);
 }
 
 .lda-merge-type-delete {
-    background-color: color-mix(in srgb, var(--ls-error-text-color, #e74c3c), transparent 90%) !important;
-    border-left: 3px solid var(--ls-error-text-color, #e74c3c);
+    background-color: var(--lda-revert-background-hover) !important;
+    border-left: 3px solid var(--lda-revert-foreground);
     opacity: 0.8;
 }
 
-.lda-merge-type-delete .block-content {
-    text-decoration: line-through;
-    color: var(--ls-secondary-text-color);
+
+/* ==========================================================================
+   PAGE BAR MERGE TOOLBAR (Global)
+   ========================================================================== */
+.lda-page-merge-toolbar-popover {
+    position: fixed;
+    /* Width is auto now, governed by content but approx matched by JS */
+    min-width: 250px;
+    background: var(--ls-primary-background-color, #fff);
+    border: 1px solid var(--ls-border-color, #ddd);
+    border-radius: 6px;
+    box-shadow:
+        0 10px 15px -3px color-mix(in srgb, var(--ls-primary-text-color) 10%, transparent),
+        0 4px 6px -2px color-mix(in srgb, var(--ls-primary-text-color) 5%, transparent);
+    padding: 6px 10px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    cursor: default;
+    z-index: 99999;
+    font-size: 0.85rem;
+    white-space: nowrap;
+
+    /* Transition state: Hidden by default */
+    opacity: 0;
+    transform: translateY(-10px);
+    pointer-events: none;
+    transition:
+        opacity 0.2s ease,
+        transform 0.2s ease;
+}
+
+.lda-page-merge-toolbar-popover.visible {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+.merge-count-label {
+    color: var(--ls-secondary-text-color, #666);
+    font-weight: 500;
+}
+
+.sep {
+    width: 1px;
+    height: 16px;
+    background: var(--ls-border-color, #eee);
+    margin: 0 2px;
+}
+
+.lda-toolbar-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.9em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    color: #ffffff !important;
+}
+
+.accept-all {
+    background: var(--lda-accept-background-solid);
+    color: var(--lda-accept-text-solid) !important;
+}
+
+.accept-all:hover {
+    background: var(--lda-accept-background-solid-hover);
+}
+
+.revert-all {
+    background: var(--lda-revert-background-solid);
+    color: var(--lda-revert-text-solid) !important;
+}
+
+.revert-all:hover {
+    background: var(--lda-revert-background-solid-hover);
+}
+
+.lda-merge-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 0 6px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--lda-merge-foreground) !important;
+    font-weight: 600;
+    height: 24px;
+    /* Explicit height matches Logseq toolbar buttons */
+    margin: 0;
+}
+
+.lda-merge-badge:hover,
+.lda-merge-badge:active {
+    background: var(--ls-tertiary-background-color, #f5f5f5);
+    color: var(--ls-primary-text-color);
+}
+
+/* Make icon size consistent */
+.badg-icon {
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: inherit;
+}
+
+/* Ensure SVG fills the container */
+.badg-icon svg {
+    width: 100%;
+    height: 100%;
+    stroke-width: 2;
+}
+
+.badge-count {
+    background: var(--ls-link-text-color, #106ba3);
+    color: white;
+    padding: 0 4px;
+    /* Tighter padding */
+    border-radius: 8px;
+    font-size: 11px;
+    /* Explicit size */
+    font-weight: 700;
+    min-width: 14px;
+    height: 16px;
+    /* consistent height */
+    line-height: 16px;
+    text-align: center;
+}
+
+.close-btn-compact {
+    background: none;
+    border: none;
+    color: var(--ls-secondary-text-color, #999);
+    font-size: 1.2em;
+    cursor: pointer;
+    margin-left: auto;
+    /* Push to right? Or just end */
+    padding: 0 4px;
+    line-height: 1;
+}
+
+.close-btn-compact:hover {
+    color: var(--ls-primary-text-color);
 }

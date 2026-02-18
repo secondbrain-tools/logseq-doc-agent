@@ -20,5 +20,11 @@ export const ICONS = {
         <path d="M12 6h-6a2 2 0 0 0 -2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-6"></path>
         <path d="M11 13l9 -9"></path>
         <path d="M15 4h5v5"></path>
+    `,
+    merge: `
+        <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+        <path d="M6 6c3 0 5 6 9 6h4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M6 18c3 0 5 -6 9 -6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M16 9l3 3l-3 3" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"></path>
     `
 };

@@ -1,68 +1,70 @@
 <script lang="ts">
     import { MergeActionService } from "../../../application/services/merge-action.service";
     import { Services } from "../../../services";
+    import { ICONS } from "../../icons";
+    import { fly } from "svelte/transition";
+    import type { MergeState } from "../../../application/usecases/merge-state.svelte";
+    import { onMount } from "svelte";
 
-    let { mergeCount }: { mergeCount: number } = $props();
-    let isOpen = $state(false);
+    let {
+        mergeState,
+    }: {
+        mergeState: MergeState;
+    } = $props();
+
+    // Default isOpen to true on mount. Since we unmount when count is 0,
+    // this effectively means "open by default when first appearing".
+    let isOpen = $state(true);
     let popupStyle = $state("");
+    let buttonRef: HTMLElement | undefined = $state();
 
     const mergeActionService = new MergeActionService();
 
+    onMount(() => {
+        // Add small delay to ensure layout is settled
+        setTimeout(() => {
+            if (isOpen && buttonRef) {
+                updatePosition(buttonRef);
+            }
+        }, 50);
+    });
+
+    // ...
+
+    // Responsive positioning logic
+    function updatePosition(button: HTMLElement) {
+        const rect = button.getBoundingClientRect();
+        const doc = button.ownerDocument || document;
+        const mainContainer = doc.getElementById("main-content-container");
+        const rightSidebar = doc.getElementById("right-sidebar");
+
+        let referenceRightEnd = 0;
+
+        if (mainContainer) {
+            const containerRect = mainContainer.getBoundingClientRect();
+            referenceRightEnd = containerRect.right;
+        } else {
+            referenceRightEnd = rect.right;
+        }
+
+        if (rightSidebar) {
+            const rsRect = rightSidebar.getBoundingClientRect();
+            if (rsRect.width > 0 && rsRect.left < referenceRightEnd) {
+                referenceRightEnd = rsRect.left;
+            }
+        }
+
+        const win = doc.defaultView || window;
+        const winWidth = win.innerWidth;
+        let rightPos = winWidth - referenceRightEnd + 10;
+        if (rightPos < 10) rightPos = 10;
+
+        popupStyle = `top: ${rect.bottom + 6}px; right: ${rightPos}px; left: auto;`;
+    }
+
     function toggleMenu(event: MouseEvent) {
         if (!isOpen) {
-            const button = event.currentTarget as HTMLElement;
-            const rect = button.getBoundingClientRect();
-            const doc = button.ownerDocument || document;
-
-            // Find #main-content-container to anchor the menu relative to its right edge
-            const mainContainer = doc.getElementById("main-content-container");
-            const rightSidebar = doc.getElementById("right-sidebar"); // Check for right sidebar
-
-            let referenceRightEnd = 0;
-
-            if (mainContainer) {
-                const containerRect = mainContainer.getBoundingClientRect();
-                console.log(
-                    "[PageMergeToolbar] MainContainer Rect:",
-                    containerRect,
-                );
-                referenceRightEnd = containerRect.right;
-            } else {
-                referenceRightEnd = rect.right; // Fallback to button
-            }
-
-            // If right sidebar is open and overlaps/bounds the content?
-            if (rightSidebar) {
-                const rsRect = rightSidebar.getBoundingClientRect();
-                if (rsRect.width > 0 && rsRect.left < referenceRightEnd) {
-                    console.log(
-                        "[PageMergeToolbar] Right Sidebar detected at:",
-                        rsRect.left,
-                    );
-                    // If sidebar interacts with main container space, use its left edge as limit
-                    referenceRightEnd = rsRect.left;
-                }
-            }
-
-            // Switch to RIGHT positioning to support flexible menu width
-            // Right Gap = Window Width - Reference Right End + Padding
-            const win = doc.defaultView || window;
-            const winWidth = win.innerWidth;
-
-            // Gap from window right edge to our anchor point
-            // We want the menu's right edge to be at `referenceRightEnd - 10px`
-            // So `right` style value = winWidth - (referenceRightEnd - 10)
-            // = winWidth - referenceRightEnd + 10
-
-            let rightPos = winWidth - referenceRightEnd + 10;
-            if (rightPos < 10) rightPos = 10; // Safety clamp (don't stick off right screen)
-
-            console.log(
-                `[PageMergeToolbar] Calculated Right: ${rightPos} (RefRight: ${referenceRightEnd})`,
-            );
-
-            popupStyle = `top: ${rect.bottom + 6}px; right: ${rightPos}px; left: auto;`;
-            console.log("[PageMergeToolbar] Final Style:", popupStyle);
+            updatePosition(event.currentTarget as HTMLElement);
         }
         isOpen = !isOpen;
     }
@@ -72,9 +74,10 @@
         Services.instance.injectMergesUseCase.execute();
     }
 
+    // ... handleAcceptAll / handleRevertAll unchanged ...
+
     async function handleAcceptAll() {
         try {
-            // Get all blocks with merge property on current page
             const currentPage = await logseq.Editor.getCurrentPage();
             if (!currentPage) return;
 
@@ -110,7 +113,7 @@
                 `Accepted ${mergeUuids.length} merge blocks`,
                 "success",
             );
-            isOpen = false;
+            // Don't close immediately, let the refresh handle state (count -> 0 -> unmount)
             await refreshInjection();
         } catch (e) {
             console.error("[PageMergeToolbar] Failed to accept all:", e);
@@ -153,7 +156,6 @@
                 `Reverted ${mergeUuids.length} merge blocks`,
                 "success",
             );
-            isOpen = false;
             await refreshInjection();
         } catch (e) {
             console.error("[PageMergeToolbar] Failed to revert all:", e);
@@ -167,21 +169,37 @@
     <button
         class="lda-merge-badge"
         onclick={toggleMenu}
-        title="{mergeCount} pending changes. Click to manage."
+        bind:this={buttonRef}
+        title="{mergeState.count} pending changes. Click to manage."
     >
-        <span class="badg-icon">🔀</span>
-        {#if mergeCount > 0}
-            <span class="badge-count">{mergeCount}</span>
+        <span class="badg-icon">
+            <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+            >
+                {@html ICONS.merge}
+            </svg>
+        </span>
+        {#if mergeState.count > 0}
+            <span class="badge-count">{mergeState.count}</span>
         {/if}
     </button>
 
     <!-- Dropdown / Horizontal Popover -->
-    {#if isOpen}
+    <!-- Dropdown / Horizontal Popover -->
+    {#if popupStyle}
         <div
             class="lda-page-merge-toolbar-popover horizontal-layout"
+            class:visible={isOpen}
             style={popupStyle}
         >
-            <span class="merge-count-label"><b>{mergeCount}</b> changes</span>
+            <span class="merge-count-label"
+                ><b>{mergeState.count}</b> changes</span
+            >
             <div class="sep"></div>
             <button
                 class="lda-toolbar-btn accept-all compact"
@@ -205,139 +223,3 @@
         </div>
     {/if}
 </div>
-
-<style>
-    .lda-merge-wrapper {
-        display: inline-flex;
-        align-items: center;
-        align-self: center;
-        vertical-align: middle;
-    }
-
-    .lda-merge-badge {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        padding: 2px 6px; /* Reduced vertical padding */
-        background: transparent;
-        border: 1px solid transparent;
-        border-radius: 4px;
-        cursor: pointer;
-        color: var(--ls-icon-color, #777);
-        font-weight: 600;
-        font-size: 0.85rem; /* Fix scaling with rem */
-        line-height: 1;
-        transition: all 0.2s;
-        height: 100%; /* Fill wrapper height */
-        margin: 0;
-    }
-
-    .lda-merge-badge:hover,
-    .lda-merge-badge:active {
-        background: var(--ls-tertiary-background-color, #f5f5f5);
-        color: var(--ls-primary-text-color);
-    }
-
-    /* Make icon size consistent */
-    .badg-icon {
-        font-size: 1.1em;
-    }
-
-    .badge-count {
-        background: var(--ls-link-text-color, #106ba3);
-        color: white;
-        padding: 1px 5px;
-        border-radius: 10px;
-        font-size: 0.75em;
-        font-weight: 700;
-        min-width: 14px;
-        text-align: center;
-    }
-
-    /* Horizontal Popover Style */
-    .lda-page-merge-toolbar-popover {
-        position: fixed;
-        /* Width is auto now, governed by content but approx matched by JS */
-        min-width: 250px;
-        background: var(--ls-primary-background-color, #fff);
-        border: 1px solid var(--ls-border-color, #ddd);
-        border-radius: 6px;
-        box-shadow:
-            0 10px 15px -3px color-mix(in srgb, var(--ls-primary-text-color) 10%, transparent),
-            0 4px 6px -2px color-mix(in srgb, var(--ls-primary-text-color) 5%, transparent);
-        padding: 6px 10px;
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        gap: 8px;
-        cursor: default;
-        z-index: 99999;
-        font-size: 0.85rem;
-        white-space: nowrap;
-    }
-
-    .merge-count-label {
-        color: var(--ls-secondary-text-color, #666);
-        font-weight: 500;
-    }
-
-    .sep {
-        width: 1px;
-        height: 16px;
-        background: var(--ls-border-color, #eee);
-        margin: 0 2px;
-    }
-
-    .lda-toolbar-btn {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 4px;
-        padding: 4px 8px;
-        border: none;
-        border-radius: 4px;
-        font-size: 0.9em;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.15s ease;
-        color: white;
-    }
-
-    .accept-all {
-        background: var(--ls-success-text-color, #22c55e);
-    }
-
-    .accept-all:hover {
-        background: color-mix(
-            in srgb,
-            var(--ls-success-text-color, #22c55e),
-            black 10%
-        );
-    }
-
-    .revert-all {
-        background: var(--ls-error-text-color, #ef4444);
-    }
-
-    .revert-all:hover {
-        background: color-mix(
-            in srgb,
-            var(--ls-error-text-color, #ef4444),
-            black 10%
-        );
-    }
-
-    .close-btn-compact {
-        background: none;
-        border: none;
-        color: var(--ls-secondary-text-color, #999);
-        font-size: 1.2em;
-        cursor: pointer;
-        margin-left: auto; /* Push to right? Or just end */
-        padding: 0 4px;
-        line-height: 1;
-    }
-    .close-btn-compact:hover {
-        color: var(--ls-primary-text-color);
-    }
-</style>

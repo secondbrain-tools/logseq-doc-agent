@@ -9,6 +9,7 @@
     import { filterProperties } from "../../../domain/logseq/properties";
     import type { MergeEntity } from "../../../domain/merge/entity";
     import { Services } from "../../../services";
+    import { ICONS } from "../../icons";
     import DiffModal from "./DiffModal.svelte";
 
     let {
@@ -502,7 +503,16 @@
             onmouseleave={() => handleActionHover("diff", false)}
             title="Show Diff"
         >
-            ↔
+            <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+            >
+                {@html ICONS.merge}
+            </svg>
         </button>
     {/if}
     <button
@@ -528,8 +538,19 @@
     <button
         class="lda-merge-btn lda-merge-diff"
         use:clickAction={handleDiff}
-        title="Diff (Preview)">↔</button
+        title="Diff (Preview)"
     >
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+        >
+            {@html ICONS.merge}
+        </svg>
+    </button>
     <button
         class="lda-merge-btn lda-merge-revert"
         use:clickAction={(e) => handleRevert(e)}

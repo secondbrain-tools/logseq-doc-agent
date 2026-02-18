@@ -4,6 +4,7 @@ import MergeControls from '../../ui/components/merge/MergeControls.svelte';
 import PageMergeToolbar from '../../ui/components/merge/PageMergeToolbar.svelte';
 import type { MergeEntity } from '../../domain/merge/entity';
 import { mount, unmount } from 'svelte';
+import { MergeState } from './merge-state.svelte';
 
 const TOOLBAR_CONTAINER_ID = 'lda-merge-toolbar-slot';
 
@@ -13,6 +14,7 @@ export class InjectMergesUseCase {
     private validMergeUuidsCache: Set<string> = new Set();
     private observer: MutationObserver | null = null;
     private observerDebounceTimer: any = null;
+    private mergeState: MergeState | null = null;
 
     constructor(
         private componentInjector: ComponentInjector,
@@ -21,6 +23,9 @@ export class InjectMergesUseCase {
 
     public dispose() {
         console.log('[InjectMergesUseCase] Disposing...');
+        // We do NOT want to remove the page toolbar on dispose of the usecase if it's a singleton service 
+        // effectively. But if the plugin reloads, we do.
+        // For now, let's keep behavior: hide/remove it.
         this.removePageToolbar();
 
         if (this.observer) {
@@ -61,7 +66,7 @@ export class InjectMergesUseCase {
             const currentPage = await this.logseqApi.getCurrentPage();
             if (!currentPage) {
                 console.log('[InjectMerges] No current page found, skipping injection.');
-                this.hidePageToolbar();
+                this.hidePageToolbar(); // This will unmount and reset state, which is correct for switching to a non-page
                 return;
             }
 
@@ -339,17 +344,25 @@ export class InjectMergesUseCase {
         // Show the container
         container.style.display = 'block';
 
-        // Mount or remount the component with updated count
-        if (this.pageToolbarApp) {
-            unmount(this.pageToolbarApp);
-        }
+        // Check if we already have the app mounted
+        if (!this.pageToolbarApp) {
+            console.log('[InjectMerges] Mounting Page Toolbar App');
+            // Create shared state
+            this.mergeState = new MergeState(mergeCount);
 
-        this.pageToolbarApp = mount(PageMergeToolbar, {
-            target: container,
-            props: {
-                mergeCount: mergeCount
+            this.pageToolbarApp = mount(PageMergeToolbar, {
+                target: container,
+                props: {
+                    mergeState: this.mergeState
+                }
+            });
+        } else {
+            // Update state
+            console.log('[InjectMerges] Updating Page Toolbar State');
+            if (this.mergeState) {
+                this.mergeState.updateCount(mergeCount);
             }
-        });
+        }
 
         console.log(`[InjectMerges] Page toolbar shown with ${mergeCount} pending merges`);
     }
@@ -360,6 +373,7 @@ export class InjectMergesUseCase {
         if (this.pageToolbarApp) {
             unmount(this.pageToolbarApp);
             this.pageToolbarApp = null;
+            this.mergeState = null;
         }
 
         if (container) {

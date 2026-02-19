@@ -12,6 +12,7 @@ import type { AgentDefinition, AgentContext } from '../../domain/agent/types';
 import { writable, type Writable, get } from 'svelte/store';
 import { PROVIDERS } from '../../domain/settings/index';
 import { getContextContent, type ContextItem } from '../../infra/logseq/context-utils';
+import { ICONS } from '../../ui/icons';
 
 export class ChatSidebarUseCase {
     private isChatOpen = false;
@@ -100,6 +101,59 @@ export class ChatSidebarUseCase {
         this.sidebarInjector.toggleWindowMaximize(this.TITLE);
     }
 
+    private getSidebarConfig() {
+        const toggleMerge = () => {
+            this.isMergeOn.update(v => !v);
+            this.updateSidebar();
+        };
+
+        return {
+            component: ChatContainer,
+            props: {
+                messages: this.messages,
+                isLoading: this.isLoading,
+                currentChatlogId: this.currentChatlogId,
+                historyModalOpen: this.historyModalOpen,
+                isMergeOn: this.isMergeOn,
+                agents: this.agents,
+                selectedAgent: this.selectedAgent,
+
+                focusSignal: this.focusSignal,
+                expandSignal: this.expandSignal,
+                showContinueButton: this.showContinueButton,
+                onContinue: () => this.continueGeneration(),
+                onSendMessage: (text: string, modelId: string, providerId: string, merge: boolean, reasoningEffort?: 'none' | 'low' | 'medium' | 'high', agentName?: string, contextItems?: any[]) => this.handleUserMessage(text, modelId, providerId, merge, reasoningEffort, agentName, contextItems),
+                onStop: () => this.stopGeneration(),
+                onClose: () => {
+                    this.isChatOpen = false;
+                },
+                onNewChat: () => this.newChat(),
+                onLoadChatlog: (id: string) => this.loadChatlog(id),
+                onListChatlogs: () => this.listChatlogs(),
+                onDeleteChatlog: (id: string) => this.deleteChatlog(id),
+                headerActions: ChatHeaderActions,
+                headerActionsProps: {
+                    onReset: () => this.resetChat(),
+                    onHistoryClick: () => this.historyModalOpen.set(true)
+                },
+                menuOptions: [
+                    {
+                        label: 'Merge',
+                        action: toggleMerge,
+                        checked: get(this.isMergeOn)
+                    }
+                ]
+            },
+            title: "Doc Agent",
+            icon: ICONS.docagent,
+            options: {
+                onMaximize: () => {
+                    this.focusSignal.update(n => n + 1);
+                }
+            }
+        };
+    }
+
     openChat(options?: { focus?: boolean }) {
         if (this.isChatOpen) {
             if (options?.focus) {
@@ -125,98 +179,14 @@ export class ChatSidebarUseCase {
             this.messages.set([]);
         }
 
-        const toggleMerge = () => {
-            this.isMergeOn.update(v => !v);
-            this.updateSidebar();
-        };
-
-        this.sidebarInjector.injectIntoSidebar(ChatContainer, {
-            messages: this.messages,
-            isLoading: this.isLoading,
-            currentChatlogId: this.currentChatlogId,
-            historyModalOpen: this.historyModalOpen,
-            isMergeOn: this.isMergeOn,
-            agents: this.agents,
-            selectedAgent: this.selectedAgent,
-
-            focusSignal: this.focusSignal,
-            expandSignal: this.expandSignal,
-            showContinueButton: this.showContinueButton,
-            onContinue: () => this.continueGeneration(),
-            onSendMessage: (text: string, modelId: string, providerId: string, merge: boolean, reasoningEffort?: 'none' | 'low' | 'medium' | 'high', agentName?: string, contextItems?: any[]) => this.handleUserMessage(text, modelId, providerId, merge, reasoningEffort, agentName, contextItems),
-            onStop: () => this.stopGeneration(),
-            onClose: () => {
-                this.isChatOpen = false;
-            },
-            onNewChat: () => this.newChat(),
-            onLoadChatlog: (id: string) => this.loadChatlog(id),
-            onListChatlogs: () => this.listChatlogs(),
-            onDeleteChatlog: (id: string) => this.deleteChatlog(id),
-            headerActions: ChatHeaderActions,
-            headerActionsProps: {
-                onReset: () => this.resetChat(),
-                onHistoryClick: () => this.historyModalOpen.set(true)
-            },
-            menuOptions: [
-                {
-                    label: 'Merge',
-                    action: toggleMerge,
-                    checked: get(this.isMergeOn)
-                }
-            ]
-        }, "Doc Agent", '<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-message-2" width="20" height="20" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 20l-3 -3h-2a3 3 0 0 1 -3 -3v-6a3 3 0 0 1 3 -3h10a3 3 0 0 1 3 3v6a3 3 0 0 1 -3 3h-2l-3 3" /><path d="M8 9l8 0" /><path d="M8 13l6 0" /></svg>', {
-            onMaximize: () => {
-                this.focusSignal.update(n => n + 1);
-            }
-        });
+        const config = this.getSidebarConfig();
+        this.sidebarInjector.injectIntoSidebar(config.component, config.props, config.title, config.icon, config.options);
     }
 
     private updateSidebar() {
         if (!this.isChatOpen) return;
-        const toggleMerge = () => {
-            this.isMergeOn.update(v => !v);
-            this.updateSidebar();
-        };
-
-        this.sidebarInjector.injectIntoSidebar(ChatContainer, {
-            messages: this.messages,
-            isLoading: this.isLoading,
-            currentChatlogId: this.currentChatlogId,
-            historyModalOpen: this.historyModalOpen,
-            isMergeOn: this.isMergeOn,
-            agents: this.agents,
-            selectedAgent: this.selectedAgent,
-
-            focusSignal: this.focusSignal,
-            expandSignal: this.expandSignal,
-            showContinueButton: this.showContinueButton,
-            onContinue: () => this.continueGeneration(),
-            onSendMessage: (text: string, modelId: string, providerId: string, merge: boolean, reasoningEffort?: 'none' | 'low' | 'medium' | 'high', agentName?: string, contextItems?: any[]) => this.handleUserMessage(text, modelId, providerId, merge, reasoningEffort, agentName, contextItems),
-            onStop: () => this.stopGeneration(),
-            onClose: () => {
-                this.isChatOpen = false;
-            },
-            onNewChat: () => this.newChat(),
-            onLoadChatlog: (id: string) => this.loadChatlog(id),
-            onListChatlogs: () => this.listChatlogs(),
-            onDeleteChatlog: (id: string) => this.deleteChatlog(id),
-            headerActions: ChatHeaderActions,
-            headerActionsProps: {
-                onReset: () => this.resetChat(),
-                onHistoryClick: () => this.historyModalOpen.set(true)
-            },
-            menuOptions: [
-                {
-                    label: 'Merge',
-                    action: toggleMerge,
-                    checked: get(this.isMergeOn)
-                }
-            ]
-        }, "Doc Agent", '<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-message-2" width="20" height="20" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 20l-3 -3h-2a3 3 0 0 1 -3 -3v-6a3 3 0 0 1 3 -3h10a3 3 0 0 1 3 3v6a3 3 0 0 1 -3 3h-2l-3 3" /><path d="M8 9l8 0" /><path d="M8 13l6 0" /></svg>', {
-            onMaximize: () => {
-                this.focusSignal.update(n => n + 1);
-            }
-        });
+        const config = this.getSidebarConfig();
+        this.sidebarInjector.injectIntoSidebar(config.component, config.props, config.title, config.icon, config.options);
     }
 
     /**
@@ -377,30 +347,21 @@ export class ChatSidebarUseCase {
     }
 
     private async executeAgentStream(modelId: string, providerId: string, merge: boolean, reasoningEffort?: 'none' | 'low' | 'medium' | 'high', agentName?: string) {
-        // 2. Start Loading
         this.isLoading.set(true);
-
         const aiMsgId = (Date.now() + 1).toString();
 
         try {
-            // Initial Empty Message
             this.updateMessages(msgs => [...msgs, {
                 id: aiMsgId,
                 role: 'assistant',
                 content: '',
                 personality: 'Agent',
-                parts: [] // Start with empty parts
+                parts: []
             }]);
 
-            // 3. Call AI Service
-            // Pass current history including the new user message
-            // Note: handleUserMessage has already added the user message to the store, so get(this.messages) includes it.
             const currentMessages = get(this.messages);
-
-            // Build agent context if agent is selected
             const agentContext = this.buildAgentContext(agentName);
 
-            // Init AbortController
             this.abortController = new AbortController();
 
             const stream = await this.aiService.streamAgent(currentMessages, modelId, providerId, merge, reasoningEffort, agentContext, this.abortController.signal);
@@ -408,23 +369,18 @@ export class ChatSidebarUseCase {
             let currentText = "";
             let currentParts: any[] = [];
 
-            // 4. Consume Stream
             try {
                 for await (const chunk of stream) {
                     const partType = (chunk as any).type;
 
                     if (partType === 'text-delta') {
-                        // Collapse reasoning if switching to content
                         this.tryCollapseLastReasoning(currentParts, aiMsgId);
-
                         const textDelta = (chunk as any).text || (chunk as any).textDelta || "";
                         currentText += textDelta;
                         this.appendPartText(currentParts, 'content', textDelta);
 
                     } else if (partType === 'tool-call') {
-                        // Collapse reasoning if switching to tool
                         this.tryCollapseLastReasoning(currentParts, aiMsgId);
-
                         const toolCall = chunk as any;
                         currentParts.push({
                             type: 'tool_call',
@@ -443,16 +399,7 @@ export class ChatSidebarUseCase {
                         });
 
                     } else if (partType === 'reasoning' || partType === 'reasoning-delta') {
-                        // console.log(`[ChatSidebar] ${partType} chunk:`, chunk); // DEBUG LOG
-
-                        let reasoningDelta = "";
-                        if (partType === 'reasoning') {
-                            reasoningDelta = (chunk as any).textDelta || "";
-                        } else {
-                            // reasoning-delta fallback
-                            reasoningDelta = (chunk as any).textDelta || (chunk as any).text || "";
-                        }
-
+                        const reasoningDelta = (chunk as any).textDelta || (chunk as any).text || "";
                         this.appendPartText(currentParts, 'reasoning', reasoningDelta);
                     } else if (partType === 'control') {
                         if ((chunk as any).value === 'max_cycles_reached') {
@@ -460,17 +407,15 @@ export class ChatSidebarUseCase {
                         }
                     }
 
-                    // Update the messages store with new content
                     this.updateMessages(msgs => msgs.map(m => m.id === aiMsgId ? {
                         ...m,
-                        content: currentText, // Keep simple content synced for legacy/simple views
+                        content: currentText,
                         parts: [...currentParts]
                     } : m));
                 }
             } catch (streamError) {
                 if ((streamError as any).name === 'AbortError') {
                     console.log('[ChatSidebar] Stream aborted by user');
-                    // Add an indicator that it was stopped? Optional.
                 } else {
                     console.error('[ChatSidebar] Error consuming stream:', streamError);
                     throw streamError;
@@ -490,7 +435,6 @@ export class ChatSidebarUseCase {
         } finally {
             this.isLoading.set(false);
             this.abortController = null;
-            // Auto-save chatlog after response
             this.requestSave(modelId, providerId);
         }
     }
@@ -503,10 +447,8 @@ export class ChatSidebarUseCase {
         if (parts.length === 0 || parts[parts.length - 1].type !== type) {
             parts.push({ type, text });
         } else {
-            // Safe string concatenation
             const lastIdx = parts.length - 1;
             const current = parts[lastIdx].text || "";
-            // IMMUTABLE UPDATE: Create a new object for the updated part
             parts[lastIdx] = { ...parts[lastIdx], text: current + text };
         }
     }
@@ -518,19 +460,9 @@ export class ChatSidebarUseCase {
         const lastPart = parts[lastIdx];
 
         if (lastPart.type === 'reasoning' && !lastPart.isCollapsed) {
-            // Delayed collapse (2 seconds)
             setTimeout(() => {
-                // Check strict bounds and type again in case of race/mutation
-                // We re-access 'parts' via closure reference 'currentParts' from the caller, 
-                // but here 'parts' is passed by reference.
-                // Ideally we should double check against the ACTUAL store or just trust the ref if it's the same array object.
-                // The caller passes 'currentParts' which is the array being mutated.
-                // However, by the time this executes, 'parts' might have new items pushed. 
-                // We specifically want to collapse parts[lastIdx].
-
                 if (parts[lastIdx] && parts[lastIdx].type === 'reasoning') {
                     parts[lastIdx] = { ...parts[lastIdx], isCollapsed: true };
-                    // Trigger store update to reflect change
                     this.updateMessages(msgs => msgs.map(m => m.id === aiMsgId ? {
                         ...m,
                         parts: [...parts]

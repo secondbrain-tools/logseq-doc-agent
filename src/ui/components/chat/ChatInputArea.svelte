@@ -6,6 +6,8 @@
     import ChatModal from "./ChatModal.svelte";
     import type { AgentDefinition } from "../../../domain/agent/types";
     import type { ContextItem } from "../../../infra/logseq/context-utils";
+    import { autoresize, clickAction } from "../../util/actions";
+    import { ICONS } from "../../icons";
 
     interface ActiveContext {
         item: ContextItem;
@@ -89,40 +91,6 @@
             }, 100);
         }
     });
-
-    function autoresize(node: HTMLTextAreaElement, _value: string) {
-        const resize = () => {
-            node.style.height = "auto";
-            const scrollHeight = node.scrollHeight;
-            const maxHeight = 200; // Match the CSS max-height logic or implicit
-
-            node.style.height = `${Math.min(scrollHeight, maxHeight)}px`;
-
-            const isOverflowing = scrollHeight > maxHeight;
-            node.style.overflowY = isOverflowing ? "auto" : "hidden";
-
-            // Update maxed out state
-            // Use a small buffer to avoid flickering or precision issues
-            if (isOverflowing && !isMaxedOut) {
-                isMaxedOut = true;
-            } else if (!isOverflowing && isMaxedOut) {
-                isMaxedOut = false;
-            }
-        };
-
-        node.addEventListener("input", resize);
-        // Call resize initially to set state
-        setTimeout(resize, 0);
-
-        return {
-            update(_newValue: string) {
-                resize();
-            },
-            destroy() {
-                node.removeEventListener("input", resize);
-            },
-        };
-    }
 
     // --- Actions ---
     function handleKeydown(e: KeyboardEvent) {
@@ -355,15 +323,12 @@
     }
 
     // --- Icons ---
-    const brainSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z" /><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z" /><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4" /><path d="M17.599 6.5a3 3 0 0 0 .399-1.375" /><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5" /><path d="M3.477 10.896a4 4 0 0 1 .585-.396" /><path d="M19.938 10.5a4 4 0 0 1 .585.396" /><path d="M6 18a4 4 0 0 1-1.9-7.4" /><path d="M18 18a4 4 0 0 0 1.9-7.4" /></svg>`;
-    const dashSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>`;
-    const maximizeSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>`;
-
-    const icons = {
-        dash: `<div style="opacity: 0.5;">${dashSvg}</div>`,
-        brainSmall: `<div style="transform: scale(0.8); color: var(--ls-link-text-color, #106ba3);">${brainSvg}</div>`,
-        brainMedium: `<div style="transform: scale(1.0); color: var(--ls-link-text-color, #106ba3);">${brainSvg}</div>`,
-        brainLarge: `<div style="transform: scale(1.2); color: var(--ls-link-text-color, #106ba3);">${brainSvg}</div>`,
+    // --- Icons ---
+    const menuIcons = {
+        dash: `<div style="opacity: 0.5;">${ICONS.dash}</div>`,
+        brainSmall: `<div style="transform: scale(0.8); color: var(--ls-link-text-color, #106ba3);">${ICONS.brain}</div>`,
+        brainMedium: `<div style="transform: scale(1.0); color: var(--ls-link-text-color, #106ba3);">${ICONS.brain}</div>`,
+        brainLarge: `<div style="transform: scale(1.2); color: var(--ls-link-text-color, #106ba3);">${ICONS.brain}</div>`,
     };
 </script>
 
@@ -377,7 +342,7 @@
                     class="lda-context-tag {ctx.isActive
                         ? ''
                         : 'lda-context-tag-inactive'}"
-                    onclick={() => onToggleContext(ctx.item.id)}
+                    use:clickAction={() => onToggleContext(ctx.item.id)}
                     title={ctx.isActive
                         ? "Uncheck to disable"
                         : "Check to enable"}
@@ -390,9 +355,7 @@
                     {#if !ctx.isAuto}
                         <button
                             class="lda-context-remove"
-                            onclick={(e) => {
-                                e.stopPropagation();
-                                e.preventDefault();
+                            use:clickAction={(e) => {
                                 onRemoveContext(ctx.item.id);
                             }}
                         >
@@ -413,6 +376,9 @@
             bind:this={textareaElement}
             onkeydown={handleKeydown}
             use:autoresize={inputText}
+            onmaxedout={(e) => {
+                isMaxedOut = e.detail;
+            }}
         ></textarea>
 
         {#if isMaxedOut}
@@ -421,7 +387,7 @@
                 onclick={toggleExpand}
                 title="Maximize Input"
             >
-                {@html maximizeSvg}
+                {@html ICONS.maximizeInput}
             </button>
         {/if}
     </div>
@@ -432,35 +398,21 @@
             <button
                 class="lda-btn-icon"
                 title="Add Context"
-                onclick={() => (isContextMenuOpen = !isContextMenuOpen)}
+                use:clickAction={() => (isContextMenuOpen = !isContextMenuOpen)}
             >
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                >
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <line x1="12" y1="8" x2="12" y2="16"></line>
-                    <line x1="8" y1="12" x2="16" y2="12"></line>
-                </svg>
+                {@html ICONS.contextAdd}
             </button>
             {#if isContextMenuOpen}
                 <!-- svelte-ignore a11y_click_events_have_key_events -->
                 <!-- svelte-ignore a11y_no_static_element_interactions -->
                 <div
                     class="lda-context-menu-backdrop"
-                    onclick={() => (isContextMenuOpen = false)}
+                    use:clickAction={() => (isContextMenuOpen = false)}
                 ></div>
                 <div class="lda-context-menu-popover">
                     <button
                         class="lda-context-menu-item"
-                        onclick={() => {
+                        use:clickAction={() => {
                             onAddContext();
                             isContextMenuOpen = false;
                         }}
@@ -494,7 +446,7 @@
             <button
                 class="lda-btn-icon ml-1"
                 title={`Reasoning Effort: ${reasoningEffort}`}
-                onclick={openReasoningMenu}
+                use:clickAction={openReasoningMenu}
                 style="color: var(--ls-link-text-color, #106ba3); opacity: {reasoningEffort ===
                 'none'
                     ? '0.5'
@@ -505,19 +457,7 @@
                         : '1'}; transition: opacity 0.2s, transform 0.2s;"
             >
                 {#if reasoningEffort === "none"}
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="18"
-                        height="18"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                    >
-                        <line x1="5" y1="12" x2="19" y2="12"></line>
-                    </svg>
+                    {@html ICONS.dash}
                 {:else}
                     <!-- Brain Icon - Scaled based on effort -->
                     <div
@@ -527,33 +467,7 @@
                               ? 1.0
                               : 1.2}); display: flex; align-items: center; justify-content: center;"
                     >
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="18"
-                            height="18"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                        >
-                            <path
-                                d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"
-                            />
-                            <path
-                                d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"
-                            />
-                            <path
-                                d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"
-                            />
-                            <path d="M17.599 6.5a3 3 0 0 0 .399-1.375" />
-                            <path d="M6.003 5.125A3 3 0 0 0 6.401 6.5" />
-                            <path d="M3.477 10.896a4 4 0 0 1 .585-.396" />
-                            <path d="M19.938 10.5a4 4 0 0 1 .585.396" />
-                            <path d="M6 18a4 4 0 0 1-1.9-7.4" />
-                            <path d="M18 18a4 4 0 0 0 1.9-7.4" />
-                        </svg>
+                        {@html ICONS.brain}
                     </div>
                 {/if}
             </button>
@@ -592,20 +506,7 @@
                     ? "opacity: 0.5; cursor: default;"
                     : ""}
             >
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="15"
-                    height="15"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                >
-                    <line x1="5" y1="12" x2="19" y2="12"></line>
-                    <polyline points="12 5 19 12 12 19"></polyline>
-                </svg>
+                {@html ICONS.send}
             </button>
         {/if}
     </div>
@@ -619,28 +520,28 @@
         options={[
             {
                 label: "None",
-                icon: icons.dash,
+                icon: menuIcons.dash,
                 action: () => {
                     reasoningEffort = "none";
                 },
             },
             {
                 label: "Low",
-                icon: icons.brainSmall,
+                icon: menuIcons.brainSmall,
                 action: () => {
                     reasoningEffort = "low";
                 },
             },
             {
                 label: "Medium",
-                icon: icons.brainMedium,
+                icon: menuIcons.brainMedium,
                 action: () => {
                     reasoningEffort = "medium";
                 },
             },
             {
                 label: "High",
-                icon: icons.brainLarge,
+                icon: menuIcons.brainLarge,
                 action: () => {
                     reasoningEffort = "high";
                 },
@@ -695,57 +596,26 @@
                     </span>
                     <button
                         class="lda-search-btn"
-                        onclick={findPrev}
+                        use:clickAction={findPrev}
                         title="Previous (Shift+Enter)"
                         disabled={searchMatches.length === 0}
                     >
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                        >
-                            <polyline points="18 15 12 9 6 15"></polyline>
-                        </svg>
+                        {@html ICONS.searchPrev}
                     </button>
                     <button
                         class="lda-search-btn"
-                        onclick={findNext}
+                        use:clickAction={findNext}
                         title="Next (Enter)"
                         disabled={searchMatches.length === 0}
                     >
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                        >
-                            <polyline points="6 9 12 15 18 9"></polyline>
-                        </svg>
+                        {@html ICONS.searchNext}
                     </button>
                     <button
                         class="lda-search-btn"
-                        onclick={closeSearch}
+                        use:clickAction={closeSearch}
                         title="Close (Esc)"
                     >
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                        >
-                            <line x1="18" y1="6" x2="6" y2="18"></line>
-                            <line x1="6" y1="6" x2="18" y2="18"></line>
-                        </svg>
+                        {@html ICONS.searchClose}
                     </button>
                 </div>
             {/if}
@@ -753,7 +623,7 @@
             <div class="lda-expanded-footer">
                 <button
                     class="lda-btn-primary"
-                    onclick={() => {
+                    use:clickAction={() => {
                         isExpanded = false;
                         onSendMessage();
                     }}
@@ -763,20 +633,7 @@
                         ? "opacity: 0.5; cursor: default;"
                         : ""}
                 >
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="18"
-                        height="18"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                    >
-                        <line x1="5" y1="12" x2="19" y2="12"></line>
-                        <polyline points="12 5 19 12 12 19"></polyline>
-                    </svg>
+                    {@html ICONS.send}
                 </button>
             </div>
         </div>

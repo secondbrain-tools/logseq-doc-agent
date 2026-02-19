@@ -7,7 +7,7 @@ import { InjectionPosition } from '../../domain/logseq';
  * This implementation handles both standard DOM and Logseq's iframe context
  */
 export class FrontendComponentInjector implements ComponentInjector {
-  private injectedComponents: Set<{ container: HTMLElement, app: any }> = new Set();
+  private injectedComponents: Map<HTMLElement, any> = new Map();
 
   private getMainDocument(): Document | null {
     // Try to access the parent document (for Logseq iframe context)
@@ -16,16 +16,18 @@ export class FrontendComponentInjector implements ComponentInjector {
   }
 
   public dispose(): void {
-    console.log(`[FrontendComponentInjector] Disposing ${this.injectedComponents.size} components...`);
-    this.injectedComponents.forEach(item => {
+    const count = this.injectedComponents.size;
+    if (count > 0) {
+      console.debug(`[FrontendComponentInjector] Disposing ${count} components...`);
+    }
+
+    this.injectedComponents.forEach((app, container) => {
       try {
         // Unmount the Svelte app instance to trigger onDestroy/cleanup lifecycles
-        unmount(item.app);
+        unmount(app);
 
         // Remove the container from DOM
-        if (item.container && item.container.parentNode) {
-          item.container.remove();
-        }
+        container.remove();
       } catch (e) {
         console.warn('Error removing component container:', e);
       }
@@ -44,7 +46,6 @@ export class FrontendComponentInjector implements ComponentInjector {
     props?: any
   ): HTMLElement {
     if (!target) {
-      console.error('Target element is required for component injection');
       throw new Error('Target element is required for component injection');
     }
 
@@ -74,8 +75,7 @@ export class FrontendComponentInjector implements ComponentInjector {
       props: props || {}
     });
 
-    this.injectedComponents.add({ container, app });
-    console.log(`Component injected at position: ${position}`);
+    this.injectedComponents.set(container, app);
     return container;
   }
 
@@ -107,19 +107,16 @@ export class FrontendComponentInjector implements ComponentInjector {
   }
 
   removeComponent(container: HTMLElement): void {
-    if (container) {
-      container.remove();
-      // Find and remove from set
-      for (const item of this.injectedComponents) {
-        if (item.container === container) {
-          try {
-            unmount(item.app);
-          } catch (e) { /* ignore */ }
-          this.injectedComponents.delete(item);
-          break;
-        }
+    if (container && this.injectedComponents.has(container)) {
+      const app = this.injectedComponents.get(container);
+      try {
+        unmount(app);
+      } catch (e) {
+        // Ignore unmount errors during removal
       }
-      console.log('Component removed successfully');
+
+      this.injectedComponents.delete(container);
+      container.remove();
     }
   }
 
@@ -131,12 +128,12 @@ export class FrontendComponentInjector implements ComponentInjector {
     const mainDocument = this.getMainDocument();
 
     if (!mainDocument) {
-      console.error('Cannot access document');
+      console.error('FrontendComponentInjector: Cannot access document');
       return [];
     }
 
+    // Note: This relies on Logseq's internal data-refs-self attribute
     const allElements = mainDocument.querySelectorAll('div[data-refs-self]');
-    console.log(`Found ${allElements.length} elements with data-refs-self attribute.`);
     const matchingElements: HTMLElement[] = [];
 
     allElements.forEach((element) => {
@@ -149,25 +146,22 @@ export class FrontendComponentInjector implements ComponentInjector {
             matchingElements.push(element as HTMLElement);
           }
         } catch (error) {
-          console.warn('Failed to parse data-refs-self:', dataRefs, error);
+          // Silent failure for parsing issues is acceptable here as we just skip the element
         }
       }
     });
 
-    console.log(`Found ${matchingElements.length} elements with property: ${property}`);
-    console.log(`Found ${matchingElements.length} elements with property: ${property}`);
     return matchingElements;
   }
 
   findBlockElements(uuids: string[]): HTMLElement[] {
     const mainDocument = this.getMainDocument();
     if (!mainDocument) {
-      console.error('Cannot access document');
+      console.error('FrontendComponentInjector: Cannot access document');
       return [];
     }
 
     const elements: HTMLElement[] = [];
-    console.log(`[ComponentInjector] Looking up ${uuids.length} blocks by UUID directly.`);
 
     uuids.forEach(uuid => {
       // Logseq's DOM uses blockid attribute on divs
@@ -177,25 +171,11 @@ export class FrontendComponentInjector implements ComponentInjector {
       }
     });
 
-    console.log(`[ComponentInjector] Found ${elements.length} matching DOM elements.`);
     return elements;
   }
 
   getBlockIdFromElement(element: HTMLElement): string | null {
-    if (!element) {
-      console.error('Element is required for block ID extraction');
-      return null;
-    }
-
-    // Look for the 'blockid' attribute as specified
-    const blockId = element.getAttribute('blockid');
-
-    if (blockId) {
-      console.log(`Found block ID: ${blockId}`);
-      return blockId;
-    }
-
-    console.warn('No blockid attribute found on element');
-    return null;
+    if (!element) return null;
+    return element.getAttribute('blockid');
   }
 }

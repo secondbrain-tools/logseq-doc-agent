@@ -1,5 +1,3 @@
-import { mount } from 'svelte';
-// App.svelte import removed
 import { Services } from '../services';
 import { setupSettings } from './settings-manager';
 import { LogseqSettingsAdapter } from '../infra/logseq/settings-adapter';

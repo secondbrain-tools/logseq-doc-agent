@@ -294,10 +294,38 @@
 
 /* Highlight for the block main container */
 /* Using Error Color mix as per original design, could maybe unify if needed */
+/* Highlight for the block main container */
+/* Using Amber now for "Pending Review" semantics */
 .lda-merge-highlight {
-    background-color: color-mix(in srgb, var(--ls-error-text-color), transparent 95%) !important;
+    background-color: color-mix(in srgb, var(--lda-merge-foreground), transparent 96%) !important;
+    border-left: 3px solid color-mix(in srgb, var(--lda-merge-foreground), transparent 40%);
     border-radius: 4px;
     transition: background-color 0.3s ease;
+}
+
+/* Tier 2a: Subtle highlight on individual lines/paragraphs (Text) */
+.lda-diff-change-text {
+    /* Harder contrast for light/dark themes using Logseq vars + alpha */
+    background-color: color-mix(in srgb, var(--lda-merge-foreground), transparent 85%);
+    border-radius: 2px;
+}
+
+/* Tier 2b: Stripe highlight for complex containers (Plugins/Embeds) */
+.lda-diff-change-container {
+    position: relative;
+}
+
+.lda-diff-change-container::before {
+    content: "";
+    position: absolute;
+    left: -8px;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    border-radius: 2px;
+    background-color: var(--lda-merge-foreground);
+    opacity: 0.7;
+    pointer-events: none;
 }
 
 /* Specific styles for merge types */

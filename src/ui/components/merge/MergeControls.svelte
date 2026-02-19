@@ -108,6 +108,10 @@
     function handleMouseEnter(e: MouseEvent) {
         // console.log(`[MergeControls] Mouse Enter ${blockUuid}`);
         isHovering = true;
+        if (targetElement) {
+            // Re-apply highlight just in case (e.g. lost due to re-render)
+            // Although BlockDiffMarker cleanup logic should be robust
+        }
 
         if (persistTimeout) {
             clearTimeout(persistTimeout);
@@ -199,6 +203,7 @@
                     targetElement.classList.add("lda-merge-type-add");
                 } else if (mergeData && mergeData.type === "delete") {
                     targetElement.classList.add("lda-merge-type-delete");
+                } else if (mergeData && mergeData.type === "update") {
                 }
             }
         }

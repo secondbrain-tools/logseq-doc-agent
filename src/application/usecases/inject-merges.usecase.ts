@@ -355,46 +355,39 @@ export class InjectMergesUseCase {
             }
 
             if (alreadyHasControls) {
-                // console.log(`[InjectMerges] Skipping ${blockId}: Controls already present (Scoped Check)`);
                 return;
             }
 
-            // Fetch the property content to confirm validity and get data
-            // console.log(`[InjectMerges] Fetching property for ${blockId}...`);
-            const rawContent = await this.logseqApi.Editor.getBlockPropertyContent(blockId, 'logseq-doc-agent.merge');
+            // Fetch block to get both properties and content
+            // We need content for inline diffs (Tier 2)
+            const block = await this.logseqApi.Editor.getBlock(blockId);
 
-            if (rawContent) {
-                let mergeData: MergeEntity;
-                try {
-                    mergeData = JSON.parse(rawContent);
-                } catch (e) {
-                    console.warn(`[InjectMerges] Failed to parse merge content for block ${blockId}: ${rawContent}`);
-                    return;
-                }
+            if (block && block.properties) {
+                const propVal = block.properties['logseq-doc-agent.merge'] || block.properties['logseqDocAgent.merge'];
 
-                this.doInject(element, blockId, mergeData);
-            } else {
-                // console.warn(`[InjectMerges] Aborting ${blockId}: getBlockPropertyContent returned null/empty.`);
-                // Attempt fallback fetch via full block details
-                try {
-                    const blockFn = await this.logseqApi.Editor.getBlock(blockId);
-                    if (blockFn && blockFn.properties && (blockFn.properties['logseq-doc-agent.merge'] || blockFn.properties['logseqDocAgent.merge'])) {
-                        console.log(`[InjectMerges] RECOVERY: Found property in block object for ${blockId}`);
-                        const propVal = blockFn.properties['logseq-doc-agent.merge'] || blockFn.properties['logseqDocAgent.merge'];
-
-                        let mergeData: MergeEntity;
-                        if (typeof propVal === 'string') {
-                            try {
-                                mergeData = JSON.parse(propVal);
-                            } catch (e) { mergeData = propVal as any; } // fallback?
-                        } else {
-                            mergeData = propVal;
+                if (propVal) {
+                    let mergeData: MergeEntity;
+                    if (typeof propVal === 'string') {
+                        try {
+                            mergeData = JSON.parse(propVal);
+                        } catch (e) {
+                            // If parse fails, maybe it's just a raw string, but usually it's JSON
+                            console.warn(`[InjectMerges] Failed to parse merge content for block ${blockId}`);
+                            return;
                         }
-
-                        this.doInject(element, blockId, mergeData);
+                    } else {
+                        mergeData = propVal as any;
                     }
-                } catch (ex) {
-                    console.error(`[InjectMerges] Recovery failed for ${blockId}`, ex);
+
+                    // Populate currentContent for diffing
+                    if (block.content) {
+                        // Naively strip the merge property line to avoid self-diffing
+                        const lines = block.content.split('\n');
+                        const cleanContent = lines.filter(l => !l.includes('logseq-doc-agent.merge::')).join('\n').trim();
+                        mergeData.currentContent = cleanContent;
+                    }
+
+                    this.doInject(element, blockId, mergeData);
                 }
             }
 

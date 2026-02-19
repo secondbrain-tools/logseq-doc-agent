@@ -529,33 +529,35 @@ const App = () => {
                 selectedBlockUuid.value = visible[newIdx].uuid;
 
                 // Scroll into view
-                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }, 0);
-} else if (e.key === 'm') {
-    // Check if not typing (modifiers and input check already done above)
-    if (!e.ctrlKey && !e.altKey && !e.metaKey) {
-        // Simulate command trigger
-        // Note: window.logseq might be the mock object
-        if (window.logseq && window.logseq.App && window.logseq.App._triggerCommand) {
-            e.preventDefault();
-            window.logseq.App._triggerCommand('focus-merge-controls');
-        }
-    }
-}
-    };
+                setTimeout(() => {
+                    const el = document.getElementById('ls-block-' + visible[newIdx].uuid);
+                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 0);
+            } else if (e.key === 'm') {
+                // Check if not typing (modifiers and input check already done above)
+                if (!e.ctrlKey && !e.altKey && !e.metaKey) {
+                    // Simulate command trigger
+                    // Note: window.logseq might be the mock object
+                    if (window.logseq && window.logseq.App && window.logseq.App._triggerCommand) {
+                        e.preventDefault();
+                        window.logseq.App._triggerCommand('focus-merge-controls');
+                    }
+                }
+            }
+        };
 
-window.addEventListener('keydown', handleKeyDown);
-return () => window.removeEventListener('keydown', handleKeyDown);
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
     }, []);
 
-// Listen for external sidebar trigger (Simulation API)
-useEffect(() => {
-    const handleOpenSidebar = () => setSidebarOpen(true);
-    window.addEventListener('logseq:open-sidebar', handleOpenSidebar);
-    return () => window.removeEventListener('logseq:open-sidebar', handleOpenSidebar);
-}, []);
+    // Listen for external sidebar trigger (Simulation API)
+    useEffect(() => {
+        const handleOpenSidebar = () => setSidebarOpen(true);
+        window.addEventListener('logseq:open-sidebar', handleOpenSidebar);
+        return () => window.removeEventListener('logseq:open-sidebar', handleOpenSidebar);
+    }, []);
 
-return html`
+    return html`
     <div style="width: 100%; height: 100vh; display: flex; flex-direction: column; overflow: hidden; background: var(--ls-bg-color);">
         <!-- Header -->
         <div class="sim-header" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid var(--border-color, #ccc); height: 50px; flex-shrink: 0; box-sizing: border-box;">

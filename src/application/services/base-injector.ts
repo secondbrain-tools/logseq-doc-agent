@@ -122,20 +122,19 @@ export abstract class BaseBlockInjector<TData> {
 
                     // Determine injection target (default to element, but prefer config.targetSelector)
                     let targetElement = element;
-                    let targetContainer = null;
 
                     if (config.targetSelector) {
-                        targetContainer = element.querySelector(config.targetSelector);
+                        const targetContainer = element.querySelector(config.targetSelector);
                         if (targetContainer) {
                             targetElement = targetContainer as HTMLElement;
                         } else {
-                            // Fallback logging
-                            console.log(`[${this.logPrefix}] Fallback strategy for ${blockId}: Target selector ${config.targetSelector} not found.`);
+                            // Strict behavior: if target selector is specified but not found, skip injection
+                            console.warn(`[${this.logPrefix}] Skipping ${blockId}: Target selector ${config.targetSelector} not found.`);
+                            continue;
                         }
                     }
 
                     // Scoped Duplicate Detection
-                    const componentClass = this.getComponentClassIdentifier(); // Should be unique per implementation if possible, or use a common class
                     // Since components might not have consistent classes yet, we can check for a data attribute or class
                     // For now, let's assume valid injection adds a certain class or we check for the component container class
                     if (this.checkForExistingInjection(targetElement)) {
@@ -154,29 +153,8 @@ export abstract class BaseBlockInjector<TData> {
                     if (rawContent) {
                         data = this.parseProperty(rawContent, blockId);
                     } else {
-                        // Fallback Recovery
-                        try {
-                            const blockFn = await this.logseqApi.Editor.getBlock(blockId);
-                            if (blockFn && blockFn.properties && blockFn.properties[propertyName]) {
-                                console.log(`[${this.logPrefix}] RECOVERY: Found property in block object for ${blockId}`);
-                                const propVal = blockFn.properties[propertyName];
-                                // Handle string or object
-                                if (typeof propVal === 'string') {
-                                    data = this.parseProperty(propVal, blockId);
-                                } else {
-                                    // Assume it might be the data structure itself or needs stringifying?
-                                    // For strict typing, parseProperty expects string.
-                                    // Let's assume for now we can treat it as the data if it matches TData structure
-                                    // But TData is unknown.
-                                    // Best effort: cast to string if possible or pass as is if parseProperty handles it?
-                                    // Let's coerce to string for parsing logic consistency or handle in subclass?
-                                    // Easier: just let access it if TData allows.
-                                    data = propVal as any as TData;
-                                }
-                            }
-                        } catch (ex) {
-                            console.error(`[${this.logPrefix}] Recovery failed for ${blockId}`, ex);
-                        }
+                        console.warn(`[${this.logPrefix}] Property ${propertyName} not found or empty for ${blockId}.`);
+                        // No fallback to getBlock() as it masks issues
                     }
 
                     if (data) {
@@ -246,6 +224,10 @@ export abstract class BaseBlockInjector<TData> {
         const doc = (window as any).parent?.document || document;
         const selector = this.getComponentSelector();
 
+        // Dynamic container class check
+        const config = this.getInjectionConfig();
+        const containerClass = config.containerClass;
+
         if (!selector) return;
 
         const allControls = doc.querySelectorAll(selector);
@@ -257,7 +239,19 @@ export abstract class BaseBlockInjector<TData> {
                 const blockId = blockElement.getAttribute('blockid');
                 if (blockId && !validUuids.has(blockId)) {
                     console.log(`[${this.logPrefix}] Removing stale control for block ${blockId}`);
-                    const container = control.closest('.feedback-rating-container') as HTMLElement || control.parentElement;
+
+                    // Try to find container using configured class if available
+                    let container: HTMLElement | null = null;
+
+                    if (containerClass) {
+                        container = control.closest(`.${containerClass}`) as HTMLElement;
+                    }
+
+                    // Fallback to parent if no container class or not found (though structure should be consistent)
+                    if (!container) {
+                        container = control.parentElement;
+                    }
+
                     if (container && 'removeComponent' in this.componentInjector) {
                         this.componentInjector.removeComponent(container);
                     } else {

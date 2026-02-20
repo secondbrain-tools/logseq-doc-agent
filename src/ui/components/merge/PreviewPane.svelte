@@ -1,5 +1,4 @@
 <script lang="ts">
-    import { onMount } from "svelte";
     import * as Diff from "diff";
 
     let {
@@ -18,7 +17,7 @@
 
     type PreviewSegment = {
         text: string;
-        type: "common" | "added" | "restored";
+        type: "common" | "added";
     };
 
     type PreviewLine = {
@@ -26,37 +25,23 @@
         segments: PreviewSegment[];
     };
 
-    let previewLines: PreviewLine[] = $state([]);
-
-    function computePreview() {
+    let previewLines = $derived.by<PreviewLine[]>(() => {
         const oldText = originalContent || "";
         const newText = content || "";
 
-        if (!oldText && !newText) {
-            previewLines = [];
-            return;
-        }
+        if (!oldText && !newText) return [];
 
-        // Word-level diff between original and current final content
         const changes = Diff.diffWords(oldText, newText);
-
-        // Build segments for the final content only (skip removed parts)
         const allSegments: PreviewSegment[] = [];
+
         for (const change of changes) {
-            if (change.removed) {
-                // Removed text is NOT shown in preview (it's not in the final content)
-                continue;
-            }
-            if (change.added) {
-                // Check if this is a true addition vs restored from original
-                // For simplicity: anything in final but not in original = "added"
-                allSegments.push({ text: change.value, type: "added" });
-            } else {
-                allSegments.push({ text: change.value, type: "common" });
-            }
+            if (change.removed) continue;
+            allSegments.push({
+                text: change.value,
+                type: change.added ? "added" : "common",
+            });
         }
 
-        // Now split segments into lines
         const lines: PreviewLine[] = [];
         let currentLine: PreviewSegment[] = [];
         let lineNum = 1;
@@ -65,7 +50,6 @@
             const parts = segment.text.split("\n");
             for (let i = 0; i < parts.length; i++) {
                 if (i > 0) {
-                    // Line break — push current line and start new
                     lines.push({ lineNumber: lineNum, segments: currentLine });
                     lineNum++;
                     currentLine = [];
@@ -76,12 +60,10 @@
             }
         }
 
-        // Push last line
         if (currentLine.length > 0) {
             lines.push({ lineNumber: lineNum, segments: currentLine });
         }
 
-        // Handle empty content — show at least one empty line
         if (lines.length === 0) {
             lines.push({
                 lineNumber: 1,
@@ -89,17 +71,7 @@
             });
         }
 
-        previewLines = lines;
-    }
-
-    $effect(() => {
-        // Re-compute when content or originalContent change
-        const _ = content + originalContent;
-        computePreview();
-    });
-
-    onMount(() => {
-        computePreview();
+        return lines;
     });
 
     function manualClick(node: HTMLElement, fn: (recursive: boolean) => void) {
@@ -128,16 +100,13 @@
             <div class="preview-line">
                 <div class="gutter">
                     {#if i === 0 && canToggle}
-                        <!-- svelte-ignore a11y_click_events_have_key_events -->
-                        <!-- svelte-ignore a11y_no_static_element_interactions -->
-                        <div
+                        <button
                             class="toggle-btn"
                             use:manualClick={onToggle}
-                            role="button"
-                            tabindex="0"
+                            title="Toggle expand"
                         >
                             {isExpanded ? "▼" : "▶"}
-                        </div>
+                        </button>
                     {/if}
                     <span class="line-num">{line.lineNumber}</span>
                 </div>
@@ -146,8 +115,6 @@
                         {#each line.segments as segment}
                             {#if segment.type === "added"}
                                 <span class="seg-added">{segment.text}</span>
-                            {:else if segment.type === "restored"}
-                                <span class="seg-restored">{segment.text}</span>
                             {:else}
                                 <span>{segment.text}</span>
                             {/if}
@@ -211,6 +178,9 @@
         font-size: 10px;
         width: 16px;
         z-index: 10;
+        background: none;
+        border: none;
+        padding: 0;
     }
     .toggle-btn:hover {
         color: var(--ls-primary-text-color);
@@ -242,13 +212,6 @@
     .seg-added {
         background-color: rgba(0, 200, 0, 0.08);
         border-bottom: 1px solid rgba(0, 180, 0, 0.2);
-        border-radius: 1px;
-        transition: background-color 0.5s ease;
-    }
-
-    .seg-restored {
-        background-color: rgba(0, 100, 200, 0.08);
-        border-bottom: 1px solid rgba(0, 100, 200, 0.2);
         border-radius: 1px;
         transition: background-color 0.5s ease;
     }

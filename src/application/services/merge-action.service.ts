@@ -60,81 +60,26 @@ export class MergeActionService {
 
     /**
      * Reverts a merge.
-     * For "add" type: deletes the block entirely (since it was added by the agent).
-     * For other types: removes the merge property (keeping original content).
      */
     async revertMerge(uuids: string[]): Promise<void> {
-        console.log(
-            `[MergeActionService] Reverting for ${uuids.length} blocks.`,
-        );
+        console.log(`[MergeActionService] Reverting for ${uuids.length} blocks.`);
 
         for (const uuid of uuids) {
             try {
-                // 1. Fetch block to get properties
-                // Note: getBlockPropertyContent is explicitly avoided as it throws "Not existed method" errors in some contexts.
-
-                let rawContent: string | null = null;
-                let mergeData: any = null;
-
-                const block = await logseq.Editor.getBlock(uuid);
-
-                if (block) {
-                    // Check properties object (handling Logseq normalization)
-                    if (block.properties) {
-                        // Kebab-case (original)
-                        if (block.properties['logseq-doc-agent.merge']) {
-                            const prop = block.properties['logseq-doc-agent.merge'];
-                            if (typeof prop === 'string') rawContent = prop;
-                            else mergeData = prop;
-                        }
-                        // CamelCase (normalized)
-                        else if (block.properties['logseqDocAgent.merge']) {
-                            const prop = block.properties['logseqDocAgent.merge'];
-                            if (typeof prop === 'string') rawContent = prop;
-                            else mergeData = prop;
-                        }
-                    }
-
-                    // Final fallback: Content Regex
-                    if (!mergeData && !rawContent && block.content) {
-                        const match = block.content.match(new RegExp(`${LDA_MERGE_PROPERTY}::\\s*(.+)`));
-                        if (match && match[1]) {
-                            rawContent = match[1];
-                        }
-                    }
-                } else {
-                    console.warn(`[MergeActionService] Block ${uuid} could not be fetched.`);
-                }
-
-                if (!mergeData && rawContent) {
-                    try {
-                        mergeData = JSON.parse(rawContent);
-                    } catch (e) {
-                        console.warn(`[MergeActionService] Failed to parse merge data for ${uuid}`, e);
-                    }
-                }
+                const mergeData = await this.extractMergeData(uuid);
 
                 if (mergeData) {
                     if (mergeData.type === 'add') {
-                        // For "add" type, delete the block entirely
-                        console.log(`[MergeActionService] Block ${uuid} is type 'add', deleting...`);
                         await logseq.Editor.removeBlock(uuid);
-                        continue; // Done for this block
-                    } else if (mergeData.type === 'update') {
-                        // For "update" type, check if we have base content to restore
-                        if (mergeData.base !== undefined) {
-                            console.log(`[MergeActionService] Block ${uuid} is type 'update', restoring base content...`);
-                            await logseq.Editor.updateBlock(uuid, mergeData.base);
-                        }
+                        continue;
+                    } else if (mergeData.type === 'update' && mergeData.base !== undefined) {
+                        await logseq.Editor.updateBlock(uuid, mergeData.base);
                     }
                 }
 
-                // Default: Just remove the property (cleans up 'update' markers or unknown types)
                 await logseq.Editor.removeBlockProperty(uuid, LDA_MERGE_PROPERTY);
-
             } catch (e) {
                 console.warn(`[MergeActionService] Error reverting block ${uuid}:`, e);
-                // Fallback: just remove property
                 await logseq.Editor.removeBlockProperty(uuid, LDA_MERGE_PROPERTY);
             }
         }
@@ -144,16 +89,13 @@ export class MergeActionService {
      * Quick accept: removes merge property from current block, keeping content as-is.
      */
     async quickAccept(uuid: string): Promise<void> {
-        console.log(`[MergeActionService] Quick accept for block: ${uuid}`);
         await logseq.Editor.removeBlockProperty(uuid, LDA_MERGE_PROPERTY);
     }
 
     /**
      * Accepts a delete merge by removing the block.
-     * With children? Usually delete removes the tree.
      */
     async acceptDelete(uuid: string): Promise<void> {
-        console.log(`[MergeActionService] Accepting DELETE for block: ${uuid}`);
         await logseq.Editor.removeBlock(uuid);
     }
 
@@ -161,27 +103,13 @@ export class MergeActionService {
      * Quick accept with children: removes merge property from block and all descendants.
      */
     async quickAcceptWithChildren(uuid: string): Promise<void> {
-        console.log(`[MergeActionService] Quick accept with children for block: ${uuid}`);
-
         const block = await logseq.Editor.getBlock(uuid, { includeChildren: true });
         if (!block) {
             console.warn(`[MergeActionService] Block not found: ${uuid}`);
             return;
         }
 
-        // Collect all UUIDs (current block + descendants)
-        const uuids: string[] = [];
-        const traverse = (b: any) => {
-            if (b.uuid) uuids.push(b.uuid);
-            if (b.children && Array.isArray(b.children)) {
-                for (const child of b.children) {
-                    traverse(child);
-                }
-            }
-        };
-        traverse(block);
-
-
+        const uuids = this.getDescendantUuids(block);
         for (const u of uuids) {
             await logseq.Editor.removeBlockProperty(u, LDA_MERGE_PROPERTY);
         }
@@ -191,15 +119,19 @@ export class MergeActionService {
      * Reverts merge for a block and all its descendants.
      */
     async revertMergeWithChildren(uuid: string): Promise<void> {
-        console.log(`[MergeActionService] Revert with children for block: ${uuid}`);
-
         const block = await logseq.Editor.getBlock(uuid, { includeChildren: true });
         if (!block) {
             console.warn(`[MergeActionService] Block not found: ${uuid}`);
             return;
         }
 
-        // Collect all UUIDs (current block + descendants)
+        const uuids = this.getDescendantUuids(block);
+        await this.revertMerge(uuids);
+    }
+
+    // --- Private Helpers ---
+
+    private getDescendantUuids(block: any): string[] {
         const uuids: string[] = [];
         const traverse = (b: any) => {
             if (b.uuid) uuids.push(b.uuid);
@@ -210,7 +142,46 @@ export class MergeActionService {
             }
         };
         traverse(block);
+        return uuids;
+    }
 
-        await this.revertMerge(uuids);
+    private async extractMergeData(uuid: string): Promise<any> {
+        const block = await logseq.Editor.getBlock(uuid);
+        if (!block) {
+            console.warn(`[MergeActionService] Block ${uuid} could not be fetched.`);
+            return null;
+        }
+
+        let rawContent: string | null = null;
+        let mergeData: any = null;
+
+        if (block.properties) {
+            if (block.properties[LDA_MERGE_PROPERTY]) {
+                const prop = block.properties[LDA_MERGE_PROPERTY];
+                if (typeof prop === 'string') rawContent = prop;
+                else mergeData = prop;
+            } else if (block.properties[LDA_MERGE_PROPERTY_CAMEL]) {
+                const prop = block.properties[LDA_MERGE_PROPERTY_CAMEL];
+                if (typeof prop === 'string') rawContent = prop;
+                else mergeData = prop;
+            }
+        }
+
+        if (!mergeData && !rawContent && block.content) {
+            const match = block.content.match(new RegExp(`${LDA_MERGE_PROPERTY}::\\s*(.+)`));
+            if (match && match[1]) {
+                rawContent = match[1];
+            }
+        }
+
+        if (!mergeData && rawContent) {
+            try {
+                mergeData = JSON.parse(rawContent);
+            } catch (e) {
+                console.warn(`[MergeActionService] Failed to parse merge data for ${uuid}`, e);
+            }
+        }
+
+        return mergeData;
     }
 }

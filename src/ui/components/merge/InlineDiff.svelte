@@ -1,7 +1,6 @@
 <script lang="ts">
     import { onMount, tick, untrack } from "svelte";
-    import * as Diff from "diff";
-    import MergeControls from "./MergeControls.svelte";
+        import MergeControls from "./MergeControls.svelte";
     import {
         calculateDiffLines,
         generateContentFromDiff,
@@ -18,7 +17,6 @@
         canToggle = false,
         isExpanded = true,
         onToggle = (recursive: boolean) => {},
-        onLineMerge = (content: string, type: "added" | "removed") => {},
         mode = "lines",
         onContentChange,
         standalone = false,
@@ -28,7 +26,6 @@
         canToggle?: boolean;
         isExpanded?: boolean;
         onToggle?: (recursive: boolean) => void;
-        onLineMerge?: (content: string, type: "added" | "removed") => void;
         mode?: "lines" | "words";
         onContentChange?: (newContent: string) => void;
         standalone?: boolean;
@@ -57,11 +54,6 @@
     let viewerRef: HTMLElement;
 
     function calculateDiff() {
-        console.log("[InlineDiff] calculateDiff running", {
-            originalLen: originalContent.length,
-            modifiedLen: modifiedContent.length,
-            mode,
-        });
         const currentDecisions = untrack(() => partDecisions);
         const result = calculateDiffLines(
             originalContent,
@@ -71,8 +63,6 @@
         );
         diffLines = result.diffLines;
 
-        // Only update if decisions changed (deep check might be needed if loop persists)
-        // For now logging result
         partDecisions = result.newDecisions;
     }
 
@@ -87,45 +77,20 @@
     let lastEmittedContent = $state("");
 
     function generateFinalContent() {
-        console.log("[InlineDiff] generateFinalContent running");
         const content = generateContentFromDiff(diffLines, partDecisions);
 
-        // Prevent infinite loops/redundant updates
-        // We track what we last emitted to avoid re-emitting the same string.
-        // We DO NOT compare against modifiedContent in Unified mode because modifiedContent
-        // might be the "Base/Proposal" which is static, while 'content' includes reverts.
-
-        // Normalize for safety against newline issues
-        const normalizedContent = content.replace(/\n$/, "");
+                const normalizedContent = content.replace(/\n$/, "");
         const normalizedLast = lastEmittedContent.replace(/\n$/, "");
 
         if (onContentChange && normalizedContent !== normalizedLast) {
-            console.log(
-                "[InlineDiff] Content changed from last emit, updating:",
-                {
-                    generated: content,
-                    last: lastEmittedContent,
-                    diffLines: diffLines.length,
-                },
-            );
             lastEmittedContent = content;
             onContentChange(content);
-        } else {
-            console.log(
-                "[InlineDiff] Content matches last emit, skipping update",
-            );
         }
     }
 
     function handleSelectionAction(action: "accept" | "revert") {
         const { selectedIds } = selectionToolbar;
-        console.log("[InlineDiff] handleSelectionAction called", {
-            action,
-            selectedIds,
-        });
-
         if (selectedIds.length === 0) {
-            console.warn("[InlineDiff] No selected IDs to act on");
             return;
         }
 
@@ -167,11 +132,6 @@
         }
         partDecisions = newDecisions;
 
-        console.log(
-            "[InlineDiff] Updated decisions:",
-            JSON.stringify(partDecisions),
-        );
-
         // Hide toolbar
         selectionToolbar.visible = false;
         selectionToolbar.selectedIds = [];
@@ -183,7 +143,6 @@
 
     function handlePartClick(e: MouseEvent, partId: string) {
         // If the user is selecting text (range not collapsed), ignore click (it's a selection end)
-        // But the click event happens after mouseup.
         const selection = window.getSelection();
         if (selection && !selection.isCollapsed) {
             return;
@@ -191,42 +150,13 @@
 
         e.stopPropagation();
 
-        console.log("[InlineDiff] Click part:", partId);
-
         const currentDecision = partDecisions[partId];
-        // Toggle logic:
-        // If current is 'accept' (default for added/replacement) -> 'revert'
-        // If current is 'revert' -> 'accept'
-        // Missing decision implies 'accept' for added/replacement, 'revert' for removed?
-        // Actually for Added, default is Accepted. For Removed, default is Accepted (meaning removal accepted -> text gone).
-        // Wait, if Removed part is "Accepted", it means we ACCEPT the REMOVAL -> Text is gone.
-        // If Removed part is "Reverted", it means we REVERT the REMOVAL -> Text is restored.
-
-        // Let's rely on current state map. If undefined, it acts as "accept" (change applied).
-
         const nextDecision = currentDecision === "revert" ? "accept" : "revert";
-
-        console.log(
-            "[InlineDiff] Toggling",
-            partId,
-            "from",
-            currentDecision,
-            "to",
-            nextDecision,
-        );
-        console.log(
-            "[InlineDiff] Current decisions before update:",
-            JSON.stringify(partDecisions),
-        );
 
         // Update
         const newDecisions = { ...partDecisions };
         newDecisions[partId] = nextDecision;
         partDecisions = newDecisions;
-        console.log(
-            "[InlineDiff] Decisions after update:",
-            JSON.stringify(partDecisions),
-        );
     }
 
     function handleBlockLineClick(
@@ -245,13 +175,7 @@
             // Ctrl+click: toggle individual line only
             const current = newDecisions[lineId] || "accept";
             newDecisions[lineId] = current === "accept" ? "revert" : "accept";
-            console.log(
-                "[InlineDiff] Ctrl+click line:",
-                lineId,
-                "→",
-                newDecisions[lineId],
-            );
-        } else {
+            } else {
             // Default click: toggle entire block
             // Determine target state from clicked role:
             // Click "new" line → accept all (keep new, drop old)
@@ -263,19 +187,12 @@
                     newDecisions[line.id] = targetDecision;
                 }
             }
-            console.log(
-                "[InlineDiff] Block click:",
-                blockId,
-                "→",
-                targetDecision,
-            );
-        }
+            }
 
         partDecisions = newDecisions;
     }
 
     function updateSelectionToolbar(providedRanges?: Range[]) {
-        // console.log("[InlineDiff] updateSelectionToolbar check. Mode:", mode);
         if (mode !== "words") return;
 
         let ranges: Range[] = providedRanges || [];
@@ -294,9 +211,6 @@
         }
 
         if (ranges.length === 0) {
-            console.log(
-                "[InlineDiff] Selection invalid or collapsed (and no provided ranges), bailing.",
-            );
             selectionToolbar.visible = false;
             return;
         }
@@ -308,16 +222,8 @@
         const element = container as HTMLElement;
         const closestViewer = element.closest(".diff-viewer");
 
-        console.log("[InlineDiff] Selection scope check:", {
-            element,
-            closestViewer,
-            viewerRef,
-            match: closestViewer === viewerRef,
-        });
-
         // Ensure the selection is inside THIS viewer instance
         if (!closestViewer || closestViewer !== viewerRef) {
-            // console.log("[InlineDiff] Selection outside this viewer instance");
             selectionToolbar.visible = false;
             return;
         }
@@ -378,23 +284,11 @@
         const endId = getPartIdFromNode(range.endContainer);
         if (endId) partIds.add(endId);
 
-        console.log("[InlineDiff] updateSelectionToolbar flow", {
-            foundPartIds: Array.from(partIds),
-            rangeContainer: range.commonAncestorContainer,
-            rangeText: range.toString(),
-        });
-
         if (partIds.size > 0) {
             const rect = range.getBoundingClientRect();
             // Ensure toolbar doesn't go off-screen
             const toolbarX = Math.max(10, rect.left + rect.width / 2);
             const toolbarY = Math.max(10, rect.top - 8);
-
-            console.log("[InlineDiff] Showing toolbar at", {
-                x: toolbarX,
-                y: toolbarY,
-                rect,
-            });
 
             selectionToolbar = {
                 visible: true,
@@ -403,32 +297,13 @@
                 selectedIds: Array.from(partIds),
             };
         } else {
-            console.log("[InlineDiff] No part IDs found in selection, hiding.");
             selectionToolbar.visible = false;
         }
     }
 
     function handleSelectionChange() {
-        // console.log("[InlineDiff] selectionchange event");
         // Debounce slightly
         setTimeout(() => updateSelectionToolbar(), 10);
-    }
-
-    // Helper to get selection even if we are in an iframe (Logseq plugin)
-    function getSafeSelection(): Selection | null {
-        const sel = window.getSelection();
-        if (sel && sel.rangeCount > 0) return sel;
-
-        // Try parent if we are in an iframe
-        if (window.parent && window.parent !== window) {
-            try {
-                const parentSel = window.parent.getSelection();
-                if (parentSel && parentSel.rangeCount > 0) return parentSel;
-            } catch (e) {
-                // Ignore cross-origin errors
-            }
-        }
-        return sel;
     }
 
     function getDecisionClass(
@@ -463,7 +338,6 @@
     });
 
     onMount(() => {
-        console.log("[InlineDiff] onMount, viewerRef:", viewerRef);
         calculateDiff();
         document.addEventListener("selectionchange", handleSelectionChange);
 
@@ -480,20 +354,6 @@
             e.preventDefault();
             e.stopPropagation();
             fn(e.shiftKey);
-        };
-        node.addEventListener("click", handler);
-        return {
-            destroy() {
-                node.removeEventListener("click", handler);
-            },
-        };
-    }
-
-    function lineActionClick(node: HTMLElement, fn: () => void) {
-        const handler = (e: MouseEvent) => {
-            e.preventDefault();
-            e.stopPropagation();
-            fn();
         };
         node.addEventListener("click", handler);
         return {
@@ -543,14 +403,6 @@
                 }
             }
 
-            console.log("[InlineDiff] Action MouseUp (Sync)", {
-                node,
-                rangesFound: ranges.length,
-                selType: sel?.type,
-                targetWindowSame: targetWindow === window,
-                targetWindowParent: targetWindow === window.parent,
-            });
-
             // Pass ranges directly to avoid race condition where selection is cleared
             updateSelectionToolbar(ranges);
         };
@@ -568,10 +420,6 @@
                     }
                 }
             }
-            console.log("[InlineDiff] Action KeyUp (Sync)", {
-                key: e.key,
-                rangesFound: ranges.length,
-            });
             updateSelectionToolbar(ranges);
         };
 
@@ -591,12 +439,6 @@
         // Logseq context: Mount to the document where the viewer lives (Main Window),
         // not the plugin iframe document.
         const targetBody = viewerRef?.ownerDocument?.body || document.body;
-
-        console.log("[InlineDiff] Portal mounting to:", {
-            targetBody,
-            isIframeBody: targetBody === document.body,
-            viewerRefExists: !!viewerRef,
-        });
 
         targetBody.appendChild(node);
         return {
@@ -668,69 +510,23 @@
                     <span class="text">
                         {#if line.type === "modified-unified" && line.unifiedParts}
                             {#each line.unifiedParts as part}
-                                {#if part.type === "replacement"}
+                                {#if part.type === "replacement" || part.type === "added" || part.type === "removed"}
+                                    {@const isReverted = getDecisionClass(part.id, part.type) === "reverted"}
                                     <span
                                         role="button"
                                         tabindex="0"
-                                        class="unified-diff-btn unified-replacement {getDecisionClass(
-                                            part.id,
-                                            part.type,
-                                        )}"
+                                        class="unified-diff-btn unified-{part.type} {getDecisionClass(part.id, part.type)}"
                                         data-part-id={part.id}
-                                        title={getDecisionClass(
-                                            part.id,
-                                            part.type,
-                                        ) === "reverted"
-                                            ? "Reverted (Click to Accept)"
-                                            : "Accepted (Click to Revert)"}
-                                        use:unifiedPartClickAction={(e) =>
-                                            handlePartClick(e, part.id!)}
+                                        title={isReverted ? "Reverted (Click to Accept)" : "Accepted (Click to Revert)"}
+                                        use:unifiedPartClickAction={(e) => handlePartClick(e, part.id!)}
                                     >
-                                        <span class="unified-added"
-                                            >{part.addedText}</span
-                                        >
-                                        <span class="unified-removed"
-                                            >{part.removedText}</span
-                                        >
+                                        {#if part.type === "replacement"}
+                                            <span class="unified-added">{part.addedText}</span>
+                                            <span class="unified-removed">{part.removedText}</span>
+                                        {:else}
+                                            {part.text}
+                                        {/if}
                                     </span>
-                                {:else if part.type === "added"}
-                                    <span
-                                        role="button"
-                                        tabindex="0"
-                                        class="unified-diff-btn unified-added {getDecisionClass(
-                                            part.id,
-                                            part.type,
-                                        )}"
-                                        data-part-id={part.id}
-                                        title={getDecisionClass(
-                                            part.id,
-                                            part.type,
-                                        ) === "reverted"
-                                            ? "Reverted (Click to Accept)"
-                                            : "Accepted (Click to Revert)"}
-                                        use:unifiedPartClickAction={(e) =>
-                                            handlePartClick(e, part.id!)}
-                                        >{part.text}</span
-                                    >
-                                {:else if part.type === "removed"}
-                                    <span
-                                        role="button"
-                                        tabindex="0"
-                                        class="unified-diff-btn unified-removed {getDecisionClass(
-                                            part.id,
-                                            part.type,
-                                        )}"
-                                        data-part-id={part.id}
-                                        title={getDecisionClass(
-                                            part.id,
-                                            part.type,
-                                        ) === "reverted"
-                                            ? "Reverted (Click to Accept)"
-                                            : "Accepted (Click to Revert)"}
-                                        use:unifiedPartClickAction={(e) =>
-                                            handlePartClick(e, part.id!)}
-                                        >{part.text}</span
-                                    >
                                 {:else}
                                     <span>{part.text}</span>
                                 {/if}
@@ -742,42 +538,28 @@
                                 >
                             {/each}
                         {:else if line.blockRole && line.id && line.blockId}
+                            {@const titleMsg = line.blockRole === "new" 
+                                ? "Click to keep this (new) line. Ctrl+click for single line." 
+                                : "Click to keep this (old) line. Ctrl+click for single line."}
                             <span
                                 role="button"
                                 tabindex="0"
-                                class="unified-diff-btn unified-{line.type} {getBlockLineClass(
-                                    line.id,
-                                    line.blockRole,
-                                )}"
+                                class="unified-diff-btn unified-{line.type} {getBlockLineClass(line.id, line.blockRole)}"
                                 data-part-id={line.id}
-                                title={line.blockRole === "new"
-                                    ? "Click to keep this (new) line. Ctrl+click for single line."
-                                    : "Click to keep this (old) line. Ctrl+click for single line."}
-                                use:unifiedPartClickAction={(e) =>
-                                    handleBlockLineClick(
-                                        e,
-                                        line.id!,
-                                        line.blockId!,
-                                        line.blockRole!,
-                                    )}
+                                title={titleMsg}
+                                use:unifiedPartClickAction={(e) => handleBlockLineClick(e, line.id!, line.blockId!, line.blockRole!)}
                             >
                                 {line.content}
                             </span>
                         {:else if line.id}
+                            {@const isReverted = getDecisionClass(line.id, line.type) === "reverted"}
                             <span
                                 role="button"
                                 tabindex="0"
-                                class="unified-diff-btn unified-{line.type} {getDecisionClass(
-                                    line.id,
-                                    line.type,
-                                )}"
+                                class="unified-diff-btn unified-{line.type} {getDecisionClass(line.id, line.type)}"
                                 data-part-id={line.id}
-                                title={getDecisionClass(line.id, line.type) ===
-                                "reverted"
-                                    ? "Reverted (Click to Accept)"
-                                    : "Accepted (Click to Revert)"}
-                                use:unifiedPartClickAction={(e) =>
-                                    handlePartClick(e, line.id!)}
+                                title={isReverted ? "Reverted (Click to Accept)" : "Accepted (Click to Revert)"}
+                                use:unifiedPartClickAction={(e) => handlePartClick(e, line.id!)}
                             >
                                 {line.content}
                             </span>

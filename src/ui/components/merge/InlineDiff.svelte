@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onMount, tick, untrack } from "svelte";
-        import MergeControls from "./MergeControls.svelte";
+    import MergeControls from "./MergeControls.svelte";
     import {
         calculateDiffLines,
         generateContentFromDiff,
@@ -79,7 +79,7 @@
     function generateFinalContent() {
         const content = generateContentFromDiff(diffLines, partDecisions);
 
-                const normalizedContent = content.replace(/\n$/, "");
+        const normalizedContent = content.replace(/\n$/, "");
         const normalizedLast = lastEmittedContent.replace(/\n$/, "");
 
         if (onContentChange && normalizedContent !== normalizedLast) {
@@ -175,7 +175,7 @@
             // Ctrl+click: toggle individual line only
             const current = newDecisions[lineId] || "accept";
             newDecisions[lineId] = current === "accept" ? "revert" : "accept";
-            } else {
+        } else {
             // Default click: toggle entire block
             // Determine target state from clicked role:
             // Click "new" line → accept all (keep new, drop old)
@@ -187,7 +187,7 @@
                     newDecisions[line.id] = targetDecision;
                 }
             }
-            }
+        }
 
         partDecisions = newDecisions;
     }
@@ -472,8 +472,8 @@
         >
             <MergeControls
                 mode="selection"
-                on:accept={() => handleSelectionAction("accept")}
-                on:revert={() => handleSelectionAction("revert")}
+                onAccept={() => handleSelectionAction("accept")}
+                onRevert={() => handleSelectionAction("revert")}
             />
         </div>
     {/if}
@@ -511,18 +511,30 @@
                         {#if line.type === "modified-unified" && line.unifiedParts}
                             {#each line.unifiedParts as part}
                                 {#if part.type === "replacement" || part.type === "added" || part.type === "removed"}
-                                    {@const isReverted = getDecisionClass(part.id, part.type) === "reverted"}
+                                    {@const isReverted =
+                                        getDecisionClass(part.id, part.type) ===
+                                        "reverted"}
                                     <span
                                         role="button"
                                         tabindex="0"
-                                        class="unified-diff-btn unified-{part.type} {getDecisionClass(part.id, part.type)}"
+                                        class="unified-diff-btn unified-{part.type} {getDecisionClass(
+                                            part.id,
+                                            part.type,
+                                        )}"
                                         data-part-id={part.id}
-                                        title={isReverted ? "Reverted (Click to Accept)" : "Accepted (Click to Revert)"}
-                                        use:unifiedPartClickAction={(e) => handlePartClick(e, part.id!)}
+                                        title={isReverted
+                                            ? "Reverted (Click to Accept)"
+                                            : "Accepted (Click to Revert)"}
+                                        use:unifiedPartClickAction={(e) =>
+                                            handlePartClick(e, part.id!)}
                                     >
                                         {#if part.type === "replacement"}
-                                            <span class="unified-added">{part.addedText}</span>
-                                            <span class="unified-removed">{part.removedText}</span>
+                                            <span class="unified-added"
+                                                >{part.addedText}</span
+                                            >
+                                            <span class="unified-removed"
+                                                >{part.removedText}</span
+                                            >
                                         {:else}
                                             {part.text}
                                         {/if}
@@ -538,28 +550,46 @@
                                 >
                             {/each}
                         {:else if line.blockRole && line.id && line.blockId}
-                            {@const titleMsg = line.blockRole === "new" 
-                                ? "Click to keep this (new) line. Ctrl+click for single line." 
-                                : "Click to keep this (old) line. Ctrl+click for single line."}
+                            {@const titleMsg =
+                                line.blockRole === "new"
+                                    ? "Click to keep this (new) line. Ctrl+click for single line."
+                                    : "Click to keep this (old) line. Ctrl+click for single line."}
                             <span
                                 role="button"
                                 tabindex="0"
-                                class="unified-diff-btn unified-{line.type} {getBlockLineClass(line.id, line.blockRole)}"
+                                class="unified-diff-btn unified-{line.type} {getBlockLineClass(
+                                    line.id,
+                                    line.blockRole,
+                                )}"
                                 data-part-id={line.id}
                                 title={titleMsg}
-                                use:unifiedPartClickAction={(e) => handleBlockLineClick(e, line.id!, line.blockId!, line.blockRole!)}
+                                use:unifiedPartClickAction={(e) =>
+                                    handleBlockLineClick(
+                                        e,
+                                        line.id!,
+                                        line.blockId!,
+                                        line.blockRole!,
+                                    )}
                             >
                                 {line.content}
                             </span>
                         {:else if line.id}
-                            {@const isReverted = getDecisionClass(line.id, line.type) === "reverted"}
+                            {@const isReverted =
+                                getDecisionClass(line.id, line.type) ===
+                                "reverted"}
                             <span
                                 role="button"
                                 tabindex="0"
-                                class="unified-diff-btn unified-{line.type} {getDecisionClass(line.id, line.type)}"
+                                class="unified-diff-btn unified-{line.type} {getDecisionClass(
+                                    line.id,
+                                    line.type,
+                                )}"
                                 data-part-id={line.id}
-                                title={isReverted ? "Reverted (Click to Accept)" : "Accepted (Click to Revert)"}
-                                use:unifiedPartClickAction={(e) => handlePartClick(e, line.id!)}
+                                title={isReverted
+                                    ? "Reverted (Click to Accept)"
+                                    : "Accepted (Click to Revert)"}
+                                use:unifiedPartClickAction={(e) =>
+                                    handlePartClick(e, line.id!)}
                             >
                                 {line.content}
                             </span>

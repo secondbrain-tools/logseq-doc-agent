@@ -2,7 +2,6 @@
     import { MergeActionService } from "../../../application/services/merge-action.service";
     import { Services } from "../../../services";
     import { ICONS } from "../../icons";
-    import { fly } from "svelte/transition";
     import type { MergeState } from "../../../application/usecases/merge-state.svelte";
     import { onMount } from "svelte";
     import DiffModal from "./DiffModal.svelte";
@@ -86,6 +85,22 @@
 
     // ... handleAcceptAll / handleRevertAll unchanged ...
 
+    function collectMergeBlocks(blocks: any[]): string[] {
+        const uuids: string[] = [];
+        for (const block of blocks) {
+            if (
+                block.properties?.["logseqDocAgent.merge"] ||
+                block.content?.includes("logseq-doc-agent.merge::")
+            ) {
+                uuids.push(block.uuid);
+            }
+            if (block.children) {
+                uuids.push(...collectMergeBlocks(block.children));
+            }
+        }
+        return uuids;
+    }
+
     async function handleAcceptAll(
         event?: CustomEvent<{
             content?: string;
@@ -118,26 +133,8 @@
             const blocks = await logseq.Editor.getPageBlocksTree(
                 currentPage.uuid,
             );
-            const collectMergeBlocks = (blocks: any[]): string[] => {
-                const uuids: string[] = [];
-                for (const block of blocks) {
-                    if (
-                        block.properties?.["logseqDocAgent.merge"] ||
-                        block.content?.includes("logseq-doc-agent.merge::")
-                    ) {
-                        uuids.push(block.uuid);
-                    }
-                    if (block.children) {
-                        uuids.push(...collectMergeBlocks(block.children));
-                    }
-                }
-                return uuids;
-            };
 
             const mergeUuids = collectMergeBlocks(blocks);
-            console.log(
-                `[PageMergeToolbar] Accepting all ${mergeUuids.length} merge blocks`,
-            );
 
             for (const uuid of mergeUuids) {
                 await mergeActionService.quickAccept(uuid);
@@ -166,26 +163,8 @@
             const blocks = await logseq.Editor.getPageBlocksTree(
                 currentPage.uuid,
             );
-            const collectMergeBlocks = (blocks: any[]): string[] => {
-                const uuids: string[] = [];
-                for (const block of blocks) {
-                    if (
-                        block.properties?.["logseqDocAgent.merge"] ||
-                        block.content?.includes("logseq-doc-agent.merge::")
-                    ) {
-                        uuids.push(block.uuid);
-                    }
-                    if (block.children) {
-                        uuids.push(...collectMergeBlocks(block.children));
-                    }
-                }
-                return uuids;
-            };
 
             const mergeUuids = collectMergeBlocks(blocks);
-            console.log(
-                `[PageMergeToolbar] Reverting all ${mergeUuids.length} merge blocks`,
-            );
 
             await mergeActionService.revertMerge(mergeUuids);
 

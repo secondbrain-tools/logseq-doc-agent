@@ -1,5 +1,6 @@
 import type { BlockEntity } from '@logseq/libs/dist/LSPlugin.user';
 import type { MergeEntity } from '../../domain/merge/entity';
+import { LDA_MERGE_PROPERTY, LDA_MERGE_PROPERTY_CAMEL } from '../../domain/logseq/properties';
 
 export interface MergeTreeItem {
     uuid: string;
@@ -43,10 +44,9 @@ export class MergeTreeService {
         if (block.properties) {
             // Logseq normalizes properties to camelCase (e.g. logseq-doc-agent.merge -> logseqDocAgent.merge)
             // We access it directly, but check both to be safe in Sim environment.
-            // Note: The specific key should be 'logseqDocAgent.merge' if the property is 'logseq-doc-agent.merge'
-            let mergeProp = block.properties['logseqDocAgent.merge'];
+            let mergeProp = block.properties[LDA_MERGE_PROPERTY_CAMEL];
             if (!mergeProp) {
-                mergeProp = block.properties['logseq-doc-agent.merge'];
+                mergeProp = block.properties[LDA_MERGE_PROPERTY];
             }
 
             if (mergeProp) {
@@ -68,7 +68,7 @@ export class MergeTreeService {
         // Naively strip the merge property line for display
         if (cleanContent) {
             const lines = cleanContent.split('\n');
-            cleanContent = lines.filter(l => !l.includes('logseq-doc-agent.merge::')).join('\n').trim();
+            cleanContent = lines.filter(l => !l.includes(`${LDA_MERGE_PROPERTY}::`)).join('\n').trim();
         }
 
         if (mergeData) {

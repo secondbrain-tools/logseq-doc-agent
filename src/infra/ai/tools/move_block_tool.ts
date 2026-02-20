@@ -4,6 +4,7 @@ import { tool } from 'ai';
 import type { MergeEntity } from '../../../domain/merge/entity';
 
 import { sanitizeBlockId } from './tool-utils';
+import { LDA_MERGE_PROPERTY } from '../../../domain/logseq/properties';
 
 /**
  * Creates the moveBlock tool with injected context.
@@ -70,7 +71,7 @@ export const createMoveBlockTool = (context: { merge: boolean }) => tool({
                     originalPriorSiblingUuid
                 };
 
-                await logseq.Editor.upsertBlockProperty(uuid, 'logseq-doc-agent.merge', JSON.stringify(mergeData));
+                await logseq.Editor.upsertBlockProperty(uuid, LDA_MERGE_PROPERTY, JSON.stringify(mergeData));
             }
 
             // Fetch block content for summary

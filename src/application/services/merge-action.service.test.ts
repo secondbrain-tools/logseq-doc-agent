@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MergeActionService } from './merge-action.service';
+import { LDA_MERGE_PROPERTY, LDA_MERGE_PROPERTY_CAMEL } from '../../domain/logseq/properties';
 
 // Mock logseq global
 const mockLogseq = {
@@ -27,7 +28,7 @@ describe('MergeActionService', () => {
             const uuid = 'add-uuid';
             mockLogseq.Editor.getBlock.mockResolvedValue({
                 uuid,
-                properties: { 'logseq-doc-agent.merge': { type: 'add' } },
+                properties: { [LDA_MERGE_PROPERTY]: { type: 'add' } },
                 content: ''
             });
 
@@ -51,7 +52,7 @@ describe('MergeActionService', () => {
             await service.revertMerge([uuid]);
 
             expect(mockLogseq.Editor.updateBlock).toHaveBeenCalledWith(uuid, originalContent);
-            expect(mockLogseq.Editor.removeBlockProperty).toHaveBeenCalledWith(uuid, 'logseq-doc-agent.merge');
+            expect(mockLogseq.Editor.removeBlockProperty).toHaveBeenCalledWith(uuid, LDA_MERGE_PROPERTY);
             expect(mockLogseq.Editor.removeBlock).not.toHaveBeenCalled();
         });
 
@@ -62,7 +63,7 @@ describe('MergeActionService', () => {
             mockLogseq.Editor.getBlock.mockResolvedValue({
                 uuid,
                 properties: {},
-                content: `some content\nlogseq-doc-agent.merge:: {"type":"add"}`
+                content: `some content\n${LDA_MERGE_PROPERTY}:: {"type":"add"}`
             });
 
             await service.revertMerge([uuid]);
@@ -75,14 +76,14 @@ describe('MergeActionService', () => {
             const mergeData = { type: 'update' }; // No base
             mockLogseq.Editor.getBlock.mockResolvedValue({
                 uuid,
-                properties: { 'logseq-doc-agent.merge': mergeData },
+                properties: { [LDA_MERGE_PROPERTY]: mergeData },
                 content: ''
             });
 
             await service.revertMerge([uuid]);
 
             expect(mockLogseq.Editor.updateBlock).not.toHaveBeenCalled(); // No content update
-            expect(mockLogseq.Editor.removeBlockProperty).toHaveBeenCalledWith(uuid, 'logseq-doc-agent.merge');
+            expect(mockLogseq.Editor.removeBlockProperty).toHaveBeenCalledWith(uuid, LDA_MERGE_PROPERTY);
         });
 
         it('should handle camelCase property normalization (logseqDocAgent.merge)', async () => {
@@ -91,7 +92,7 @@ describe('MergeActionService', () => {
             mockLogseq.Editor.getBlock.mockResolvedValue({
                 uuid,
                 properties: {
-                    'logseqDocAgent.merge': { type: 'add' }
+                    [LDA_MERGE_PROPERTY_CAMEL]: { type: 'add' }
                 },
                 content: `some content`
             });
@@ -106,7 +107,7 @@ describe('MergeActionService', () => {
             mockLogseq.Editor.getBlock.mockResolvedValue({
                 uuid,
                 properties: {},
-                content: `some content\nlogseq-doc-agent.merge:: {"type":"add"}`
+                content: `some content\n${LDA_MERGE_PROPERTY}:: {"type":"add"}`
             });
 
             await service.revertMerge([uuid]);

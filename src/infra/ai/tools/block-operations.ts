@@ -2,6 +2,7 @@
 import { type ParsedBlock, type InsertedNode } from './subtree-parser';
 import type { LogseqBlock } from './types';
 import type { MergeEntity } from '../../../domain/merge/entity';
+import { LDA_MERGE_PROPERTY } from '../../../domain/logseq/properties';
 
 // Access the global logseq object
 const getLogseq = () => (window as any).logseq;
@@ -83,10 +84,9 @@ export async function insertSubtreeRecursive(
         }
         result.id = blockId !== undefined ? blockId : 'unknown';
 
-        // Add merge metadata if enabled
         if (merge && newBlock.uuid) {
             const mergeData: MergeEntity = { type: 'add' };
-            await logseq.Editor.upsertBlockProperty(newBlock.uuid, 'logseq-doc-agent.merge', JSON.stringify(mergeData));
+            await logseq.Editor.upsertBlockProperty(newBlock.uuid, LDA_MERGE_PROPERTY, JSON.stringify(mergeData));
         }
 
         // Recursively insert children (children don't use the anchor options)

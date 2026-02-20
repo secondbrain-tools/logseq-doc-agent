@@ -1,4 +1,4 @@
-import { filterProperties } from '../../domain/logseq/properties';
+import { filterProperties, LDA_MERGE_PROPERTY, LDA_MERGE_PROPERTY_CAMEL } from '../../domain/logseq/properties';
 
 export class MergeActionService {
 
@@ -40,7 +40,7 @@ export class MergeActionService {
         // Also remove merge property
         await logseq.Editor.removeBlockProperty(
             uuid,
-            "logseq-doc-agent.merge",
+            LDA_MERGE_PROPERTY,
         );
     }
 
@@ -97,7 +97,7 @@ export class MergeActionService {
 
                     // Final fallback: Content Regex
                     if (!mergeData && !rawContent && block.content) {
-                        const match = block.content.match(/logseq-doc-agent\.merge::\s*(.+)/);
+                        const match = block.content.match(new RegExp(`${LDA_MERGE_PROPERTY}::\\s*(.+)`));
                         if (match && match[1]) {
                             rawContent = match[1];
                         }
@@ -130,12 +130,12 @@ export class MergeActionService {
                 }
 
                 // Default: Just remove the property (cleans up 'update' markers or unknown types)
-                await logseq.Editor.removeBlockProperty(uuid, "logseq-doc-agent.merge");
+                await logseq.Editor.removeBlockProperty(uuid, LDA_MERGE_PROPERTY);
 
             } catch (e) {
                 console.warn(`[MergeActionService] Error reverting block ${uuid}:`, e);
                 // Fallback: just remove property
-                await logseq.Editor.removeBlockProperty(uuid, "logseq-doc-agent.merge");
+                await logseq.Editor.removeBlockProperty(uuid, LDA_MERGE_PROPERTY);
             }
         }
     }
@@ -145,7 +145,7 @@ export class MergeActionService {
      */
     async quickAccept(uuid: string): Promise<void> {
         console.log(`[MergeActionService] Quick accept for block: ${uuid}`);
-        await logseq.Editor.removeBlockProperty(uuid, "logseq-doc-agent.merge");
+        await logseq.Editor.removeBlockProperty(uuid, LDA_MERGE_PROPERTY);
     }
 
     /**
@@ -183,7 +183,7 @@ export class MergeActionService {
 
 
         for (const u of uuids) {
-            await logseq.Editor.removeBlockProperty(u, "logseq-doc-agent.merge");
+            await logseq.Editor.removeBlockProperty(u, LDA_MERGE_PROPERTY);
         }
     }
 

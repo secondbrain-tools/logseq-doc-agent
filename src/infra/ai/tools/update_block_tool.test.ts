@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createUpdateBlockTool } from './update_block_tool';
 import * as blockOps from './block-operations';
 import * as subtreeParser from './subtree-parser';
+import { LDA_MERGE_PROPERTY } from '../../../domain/logseq/properties';
 
 // Mock types
 const mockLogseq = {
@@ -70,7 +71,7 @@ describe('updateBlock tool', () => {
         );
 
         expect(mockLogseq.Editor.updateBlock).toHaveBeenCalledWith('uuid-1', 'New content');
-        expect(mockLogseq.Editor.upsertBlockProperty).toHaveBeenCalledWith('uuid-1', 'logseq-doc-agent.merge', expect.stringContaining('"type":"update"'));
+        expect(mockLogseq.Editor.upsertBlockProperty).toHaveBeenCalledWith('uuid-1', LDA_MERGE_PROPERTY, expect.stringContaining('"type":"update"'));
     });
 
     it('should parse subtrees and insert children', async () => {

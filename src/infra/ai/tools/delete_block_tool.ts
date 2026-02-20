@@ -4,6 +4,7 @@ import { tool } from 'ai';
 import type { MergeEntity } from '../../../domain/merge/entity';
 
 import { sanitizeBlockId } from './tool-utils';
+import { LDA_MERGE_PROPERTY } from '../../../domain/logseq/properties';
 
 /**
  * Creates the deleteBlock tool with injected context.
@@ -45,7 +46,7 @@ export const createDeleteBlockTool = (context: { merge: boolean }) => tool({
                     // originalContent removed as per user request (tag is sufficient)
                 };
 
-                await logseq.Editor.upsertBlockProperty(uuid, 'logseq-doc-agent.merge', JSON.stringify(mergeData));
+                await logseq.Editor.upsertBlockProperty(uuid, LDA_MERGE_PROPERTY, JSON.stringify(mergeData));
                 return `Marked block ${id} for deletion "${currentContent.substring(0, 50)}..."`;
 
             } else {

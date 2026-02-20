@@ -9,7 +9,11 @@
         MergeTreeService,
         type MergeTreeItem,
     } from "../../../application/services/merge-tree.service";
-    import { filterProperties } from "../../../domain/logseq/properties";
+    import {
+        filterProperties,
+        LDA_MERGE_PROPERTY,
+        LDA_MERGE_PROPERTY_CAMEL,
+    } from "../../../domain/logseq/properties";
     import type { MergeEntity } from "../../../domain/merge/entity";
 
     let {
@@ -89,8 +93,8 @@
         const uuids: string[] = [];
         for (const block of blocks) {
             if (
-                block.properties?.["logseqDocAgent.merge"] ||
-                block.content?.includes("logseq-doc-agent.merge::")
+                block.properties?.[LDA_MERGE_PROPERTY_CAMEL] ||
+                block.content?.includes(`${LDA_MERGE_PROPERTY}::`)
             ) {
                 uuids.push(block.uuid);
             }

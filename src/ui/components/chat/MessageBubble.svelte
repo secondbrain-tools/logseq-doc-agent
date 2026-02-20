@@ -174,7 +174,7 @@
                 } else {
                     // Flush sub
                     subgroups.push({
-                        toolName: prevName,
+                        toolName: prevName || "unknown",
                         parts: currentSub,
                         count: currentSub.length,
                         label: `${currentSub.length} × ${prevName}`,
@@ -187,7 +187,7 @@
         if (currentSub.length > 0) {
             const name = currentSub[0].part.toolName;
             subgroups.push({
-                toolName: name,
+                toolName: name || "unknown",
                 parts: currentSub,
                 count: currentSub.length,
                 label: `${currentSub.length} × ${name}`,

@@ -5,6 +5,7 @@ import PageMergeToolbar from '../../ui/components/merge/PageMergeToolbar.svelte'
 import type { MergeEntity } from '../../domain/merge/entity';
 import { mount, unmount } from 'svelte';
 import { MergeState } from './merge-state.svelte';
+import { LDA_MERGE_PROPERTY, LDA_MERGE_PROPERTY_CAMEL } from '../../domain/logseq/properties';
 
 const TOOLBAR_CONTAINER_ID = 'lda-merge-toolbar-slot';
 
@@ -22,11 +23,9 @@ export class InjectMergesUseCase {
     ) { }
 
     public dispose() {
-        console.log('[InjectMergesUseCase] Disposing...');
         // We do NOT want to remove the page toolbar on dispose of the usecase if it's a singleton service 
         // effectively. But if the plugin reloads, we do.
-        // For now, let's keep behavior: hide/remove it.
-        this.removePageToolbar();
+        this.hidePageToolbar();
 
         if (this.observer) {
             this.observer.disconnect();
@@ -48,8 +47,6 @@ export class InjectMergesUseCase {
     public registerPagebarItem() {
         if (this.pageToolbarRegistered) return;
 
-        console.log('[InjectMerges] Registering pagebar item...');
-
         // Register a placeholder for the merge toolbar in the global toolbar
         logseq.App.registerUIItem('toolbar', {
             key: 'lda-merge-toolbar',
@@ -57,7 +54,6 @@ export class InjectMergesUseCase {
         });
 
         this.pageToolbarRegistered = true;
-        console.log('[InjectMerges] Pagebar item registered');
     }
 
     async execute() {
@@ -65,26 +61,19 @@ export class InjectMergesUseCase {
             // Get current page to scope the query
             const currentPage = await this.logseqApi.getCurrentPage();
             if (!currentPage) {
-                console.log('[InjectMerges] No current page found, skipping injection.');
                 this.hidePageToolbar(); // This will unmount and reset state, which is correct for switching to a non-page
                 return;
             }
 
-            console.log(`[InjectMerges] Current page: ${currentPage.originalName || currentPage.name} (${currentPage.uuid})`);
-
             // Query DB for accurate merge count on the CURRENT PAGE
             // Using Simple Query syntax as requested by user
-            const query = `(and (property :logseq-doc-agent.merge) (page [[${currentPage.originalName || currentPage.name}]]))`;
-            console.log(`[InjectMerges] Running query: ${query}`);
+            const query = `(and (property :${LDA_MERGE_PROPERTY}) (page [[${currentPage.originalName || currentPage.name}]]))`;
 
             const mergeBlocksFromDb = await this.logseqApi.q(query) || [];
             const dbMergeCount = mergeBlocksFromDb.length;
 
-            console.log(`[InjectMerges] DB query found ${dbMergeCount} blocks with merge property on current page.`);
-
             // Handle page toolbar based on DB merge count
             if (dbMergeCount === 0) {
-                console.log('[InjectMerges] No blocks with pending merges found in DB for this page.');
                 this.hidePageToolbar();
             } else {
                 // Show/update page toolbar with accurate count from DB
@@ -115,20 +104,13 @@ export class InjectMergesUseCase {
     private setupSelectionListener() {
         const editor = this.logseqApi.Editor as any;
         if (typeof editor.onBlockSelected === 'function') {
-            console.log('[InjectMerges] Setting up onBlockSelected listener');
             editor.onBlockSelected(async (block: any) => {
                 if (block && block.uuid) {
-                    // Check if is a valid merge block
                     if (this.validMergeUuidsCache.has(block.uuid)) {
                         await this.injectForBlock(block.uuid);
-                    } else {
-                        // Optional: Check if the block has the property but wasn't in our initial DB query (e.g. newly created)
-                        // For now, adhere to the cache. 
-                        // But strictly complying to "check if it has the merge property":
-                        if (block.properties && (block.properties['logseq-doc-agent.merge'] || block.properties['logseqDocAgent.merge'])) {
-                            this.validMergeUuidsCache.add(block.uuid);
-                            await this.injectForBlock(block.uuid);
-                        }
+                    } else if (this.hasMergeProperty(block)) {
+                        this.validMergeUuidsCache.add(block.uuid);
+                        await this.injectForBlock(block.uuid);
                     }
                 }
             });
@@ -136,14 +118,8 @@ export class InjectMergesUseCase {
     }
 
     private async injectForBlock(uuid: string) {
-        // Reuse logic? Or simplified injection for single block
-        // We can just call injectFromCache but optimization:
-        console.log(`[InjectMerges] Triggering injection for selected block ${uuid}`);
-
         const elements = this.componentInjector.findBlockElements([uuid]);
         if (elements.length > 0) {
-            // We can reuse the loop logic from injectFromCache by making it reusable or just copy specific logic
-            // Let's extract the injection logic for a list of elements
             await this.injectElements(elements);
         } else {
             console.warn(`[InjectMerges] Selected block ${uuid} not found in DOM`);
@@ -152,9 +128,6 @@ export class InjectMergesUseCase {
 
     private async injectElements(elements: HTMLElement[]) {
         for (const element of elements) {
-            // ... logic from injectFromCache ...
-            // We need to refactor injectFromCache to call this or duplicate slightly.
-            // Refactoring is cleaner.
             await this.processMergeElement(element);
         }
     }
@@ -202,8 +175,6 @@ export class InjectMergesUseCase {
             return;
         }
 
-        console.log('[InjectMerges] Setting up MutationObserver for virtualization support');
-
         this.observer = new MutationObserver((mutations) => {
             let shouldUpdate = false;
             for (const mutation of mutations) {
@@ -237,7 +208,6 @@ export class InjectMergesUseCase {
 
         // Find all injected merge controls
         const allMergeControls = doc.querySelectorAll('.lda-merge-controls');
-        console.log(`[InjectMerges] Cleanup: Found ${allMergeControls.length} existing merge controls`);
 
         allMergeControls.forEach((control: HTMLElement) => {
             // Find the parent block element
@@ -245,7 +215,6 @@ export class InjectMergesUseCase {
             if (blockElement) {
                 const blockId = blockElement.getAttribute('blockid');
                 if (blockId && !validMergeUuids.has(blockId)) {
-                    console.log(`[InjectMerges] Removing stale merge control for block ${blockId}`);
                     // Remove the control via injector to trigger unmount/onDestroy
                     const container = control.closest('.feedback-rating-container') as HTMLElement;
                     if (container) {
@@ -268,8 +237,6 @@ export class InjectMergesUseCase {
     }
 
     private showPageToolbar(mergeCount: number) {
-        console.log('[InjectMerges] showPageToolbar called with count:', mergeCount);
-
         const container = this.getToolbarContainer();
 
         if (!container) {
@@ -284,7 +251,6 @@ export class InjectMergesUseCase {
 
         // Check if we already have the app mounted
         if (!this.pageToolbarApp) {
-            console.log('[InjectMerges] Mounting Page Toolbar App');
             // Create shared state
             this.mergeState = new MergeState(mergeCount);
 
@@ -296,13 +262,10 @@ export class InjectMergesUseCase {
             });
         } else {
             // Update state
-            console.log('[InjectMerges] Updating Page Toolbar State');
             if (this.mergeState) {
                 this.mergeState.updateCount(mergeCount);
             }
         }
-
-        console.log(`[InjectMerges] Page toolbar shown with ${mergeCount} pending merges`);
     }
 
     private hidePageToolbar() {
@@ -318,79 +281,56 @@ export class InjectMergesUseCase {
             container.style.display = 'none';
             container.innerHTML = ''; // Clear content
         }
-
-        console.log('[InjectMerges] Page toolbar hidden');
     }
 
-    private removePageToolbar() {
-        this.hidePageToolbar();
+    private hasMergeControlsMounted(element: HTMLElement): boolean {
+        // We must use strict scoping to avoid false positives for parent blocks.
+        const mainContainer = element.querySelector('.block-main-container');
+        if (mainContainer) {
+            const siblingContainer = mainContainer.nextElementSibling;
+            return !!(siblingContainer?.classList.contains('feedback-rating-container') && siblingContainer.querySelector('.lda-merge-controls'));
+        }
+        return !!element.querySelector(':scope > .feedback-rating-container .lda-merge-controls');
+    }
+
+    private hasMergeProperty(block: any): boolean {
+        return !!(block?.properties && (block.properties[LDA_MERGE_PROPERTY] || block.properties[LDA_MERGE_PROPERTY_CAMEL]));
+    }
+
+    private parseMergeData(block: any): MergeEntity | null {
+        const propVal = block.properties[LDA_MERGE_PROPERTY] || block.properties[LDA_MERGE_PROPERTY_CAMEL];
+        if (!propVal) return null;
+
+        if (typeof propVal === 'string') {
+            try {
+                return JSON.parse(propVal);
+            } catch (e) {
+                console.warn(`[InjectMerges] Failed to parse merge content for block ${block.uuid}`);
+                return null;
+            }
+        }
+        return propVal as MergeEntity;
+    }
+
+    private getCleanContent(content: string): string {
+        if (!content) return '';
+        const lines = content.split('\n');
+        return lines.filter(l => !l.includes(`${LDA_MERGE_PROPERTY}::`)).join('\n').trim();
     }
 
     private async processMergeElement(element: HTMLElement) {
         try {
             const blockId = this.componentInjector.getBlockIdFromElement(element);
-            if (!blockId) return;
+            if (!blockId || this.hasMergeControlsMounted(element)) return;
 
-            // Fix for Duplicate Detection:
-            // We must check strict scoping. accessing element.querySelector will find controls in CHILDREN blocks
-            // which causes false positives for parent blocks.
-            const mainContainer = element.querySelector('.block-main-container');
-
-            // Check for existing controls strictly within the intended target
-            // We inject as NextSibling, so check the sibling container
-            let alreadyHasControls = false;
-            if (mainContainer) {
-                const siblingContainer = mainContainer.nextElementSibling;
-                if (siblingContainer?.classList.contains('feedback-rating-container')) {
-                    if (siblingContainer.querySelector('.lda-merge-controls')) {
-                        alreadyHasControls = true;
-                    }
-                }
-            } else {
-                // Fallback for non-standard blocks?
-                if (element.querySelector(':scope > .feedback-rating-container .lda-merge-controls')) {
-                    // Use :scope to limit to direct children
-                    alreadyHasControls = true;
-                }
-            }
-
-            if (alreadyHasControls) {
-                return;
-            }
-
-            // Fetch block to get both properties and content
-            // We need content for inline diffs (Tier 2)
             const block = await this.logseqApi.Editor.getBlock(blockId);
+            if (!block || !this.hasMergeProperty(block)) return;
 
-            if (block && block.properties) {
-                const propVal = block.properties['logseq-doc-agent.merge'] || block.properties['logseqDocAgent.merge'];
-
-                if (propVal) {
-                    let mergeData: MergeEntity;
-                    if (typeof propVal === 'string') {
-                        try {
-                            mergeData = JSON.parse(propVal);
-                        } catch (e) {
-                            // If parse fails, maybe it's just a raw string, but usually it's JSON
-                            console.warn(`[InjectMerges] Failed to parse merge content for block ${blockId}`);
-                            return;
-                        }
-                    } else {
-                        mergeData = propVal as any;
-                    }
-
-                    // Populate currentContent for diffing
-                    if (block.content) {
-                        // Naively strip the merge property line to avoid self-diffing
-                        const lines = block.content.split('\n');
-                        const cleanContent = lines.filter(l => !l.includes('logseq-doc-agent.merge::')).join('\n').trim();
-                        mergeData.currentContent = cleanContent;
-                    }
-
-                    this.doInject(element, blockId, mergeData);
-                }
+            const mergeData = this.parseMergeData(block);
+            if (mergeData) {
+                mergeData.currentContent = this.getCleanContent(block.content);
+                this.doInject(element, blockId, mergeData);
             }
-
         } catch (e) {
             console.error('[InjectMerges] Error processing element:', e);
         }
@@ -400,7 +340,6 @@ export class InjectMergesUseCase {
         // Inject the component
         const mainContainer = element.querySelector('.block-main-container');
         if (mainContainer) {
-            // console.log(`[InjectMerges] Injecting into .block-main-container for ${blockId}`);
             this.componentInjector.injectComponentWithPosition(
                 mainContainer as HTMLElement,
                 MergeControls,
@@ -412,7 +351,6 @@ export class InjectMergesUseCase {
             );
         } else {
             // Fallback to old behavior
-            console.log(`[InjectMerges] Fallback strategy for ${blockId}`);
             this.componentInjector.injectComponentWithPosition(
                 element,
                 MergeControls,

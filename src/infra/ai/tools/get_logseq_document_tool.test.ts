@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createGetLogseqDocumentTool, formatBlockTree, cleanBlockContent } from './get_logseq_document_tool';
+import { LDA_MERGE_PROPERTY } from '../../../domain/logseq/properties';
 
 // Mock types
 const mockLogseq = {
@@ -81,7 +82,7 @@ describe('getLogseqDocument tool', () => {
         it('should return error if no page is active', async () => {
             mockLogseq.Editor.getCurrentPage.mockResolvedValue(null);
             const tool = createGetLogseqDocumentTool({ mergeDefault: false, mergeBoth: false });
-            const result = await tool.execute({});
+            const result = await (tool as any).execute({});
             expect(result).toBe('No document currently active.');
         });
 
@@ -96,7 +97,7 @@ describe('getLogseqDocument tool', () => {
             ]);
 
             const tool = createGetLogseqDocumentTool({ mergeDefault: false, mergeBoth: false });
-            const result = await tool.execute({});
+            const result = await (tool as any).execute({});
 
             expect(result).toContain('Page: Test Page (id:999)');
             expect(result).toContain('- id:1 Root');
@@ -107,7 +108,7 @@ describe('getLogseqDocument tool', () => {
 
             // Block with merge property
             const mergeData = JSON.stringify({ base: 'Original', type: 'update' });
-            const blockContent = `New Content\nlogseq-doc-agent.merge:: ${mergeData}`;
+            const blockContent = `New Content\n${LDA_MERGE_PROPERTY}:: ${mergeData}`;
 
             mockLogseq.Editor.getPageBlocksTree.mockResolvedValue([
                 { id: 1, content: blockContent, children: [] }
@@ -115,11 +116,11 @@ describe('getLogseqDocument tool', () => {
 
             // Merge default = true (show proposed only, which is 'New Content')
             const tool = createGetLogseqDocumentTool({ mergeDefault: true, mergeBoth: false });
-            const result = await tool.execute({});
+            const result = await (tool as any).execute({});
 
             // Should show 'New Content' and NOT the property line
             expect(result).toContain('New Content');
-            expect(result).not.toContain('logseq-doc-agent.merge::');
+            expect(result).not.toContain(`${LDA_MERGE_PROPERTY}::`);
         });
 
         it('should apply merge visualization when context.mergeBoth is true', async () => {
@@ -127,7 +128,7 @@ describe('getLogseqDocument tool', () => {
 
             // Block with merge property
             const mergeData = JSON.stringify({ base: 'Original', type: 'update' });
-            const blockContent = `New Content\nlogseq-doc-agent.merge:: ${mergeData}`;
+            const blockContent = `New Content\n${LDA_MERGE_PROPERTY}:: ${mergeData}`;
 
             mockLogseq.Editor.getPageBlocksTree.mockResolvedValue([
                 { id: 1, content: blockContent, children: [] }
@@ -135,7 +136,7 @@ describe('getLogseqDocument tool', () => {
 
             // Merge both = true (show [BASE] and [PROPOSED])
             const tool = createGetLogseqDocumentTool({ mergeDefault: false, mergeBoth: true });
-            const result = await tool.execute({});
+            const result = await (tool as any).execute({});
 
             expect(result).toContain('[BASE]');
             expect(result).toContain('Original');

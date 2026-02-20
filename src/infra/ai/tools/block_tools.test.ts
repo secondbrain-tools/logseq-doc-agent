@@ -4,6 +4,7 @@ import { createAddBlockTool } from './add_block_tool';
 import { createDeleteBlockTool } from './delete_block_tool';
 import { createMoveBlockTool } from './move_block_tool';
 import { createUpdateBlockTool } from './update_block_tool';
+import { LDA_MERGE_PROPERTY } from '../../../domain/logseq/properties';
 
 describe('Block Management Tools', () => {
     // Mocks
@@ -73,7 +74,7 @@ describe('Block Management Tools', () => {
             );
             expect(mockUpsertBlockProperty).toHaveBeenCalledWith(
                 'uuid-new',
-                'logseq-doc-agent.merge',
+                LDA_MERGE_PROPERTY,
                 expect.stringContaining('{"type":"add"}')
             );
         });
@@ -133,7 +134,7 @@ describe('Block Management Tools', () => {
             // Should add merge property via upsertBlockProperty
             expect(mockUpsertBlockProperty).toHaveBeenCalledWith(
                 'uuid-target',
-                'logseq-doc-agent.merge',
+                LDA_MERGE_PROPERTY,
                 expect.stringContaining('{"type":"delete"}')
             );
             // updateBlock should NOT be called for delete (unless we decide to modify content, which we don't for now)
@@ -179,17 +180,17 @@ describe('Block Management Tools', () => {
             // 2. Update with history
             expect(mockUpsertBlockProperty).toHaveBeenCalledWith(
                 'uuid-source',
-                'logseq-doc-agent.merge',
+                LDA_MERGE_PROPERTY,
                 expect.stringContaining('"type":"move"')
             );
             expect(mockUpsertBlockProperty).toHaveBeenCalledWith(
                 'uuid-source',
-                'logseq-doc-agent.merge',
+                LDA_MERGE_PROPERTY,
                 expect.stringContaining('"originalParentUuid":"uuid-parent"')
             );
             expect(mockUpsertBlockProperty).toHaveBeenCalledWith(
                 'uuid-source',
-                'logseq-doc-agent.merge',
+                LDA_MERGE_PROPERTY,
                 expect.stringContaining('"originalPriorSiblingUuid":"uuid-sibling"')
             );
         });
@@ -233,20 +234,20 @@ describe('Block Management Tools', () => {
 
             expect(mockUpsertBlockProperty).toHaveBeenCalledWith(
                 'uuid-target',
-                'logseq-doc-agent.merge',
+                LDA_MERGE_PROPERTY,
                 expect.stringContaining('"type":"update"')
             );
             // base should contain the original content
             expect(mockUpsertBlockProperty).toHaveBeenCalledWith(
                 'uuid-target',
-                'logseq-doc-agent.merge',
+                LDA_MERGE_PROPERTY,
                 expect.stringContaining('"base":"Old Content"')
             );
 
             // updateBlock should be called with just the new content
             expect(mockUpdateBlock).toHaveBeenCalledWith(
                 'uuid-target',
-                expect.not.stringContaining('logseq-doc-agent.merge::')
+                expect.not.stringContaining(`${LDA_MERGE_PROPERTY}::`)
             );
             expect(mockUpdateBlock).toHaveBeenCalledWith(
                 'uuid-target',

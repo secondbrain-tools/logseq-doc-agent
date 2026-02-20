@@ -50,6 +50,7 @@ describe('FrontendSidebarInjector', () => {
 
         injector.injectIntoSidebar(component, props, title);
 
+        // @ts-ignore
         expect(window.logseq.App.openRightSidebar).toHaveBeenCalled();
         expect(mount).toHaveBeenCalled();
 

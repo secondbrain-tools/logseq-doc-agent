@@ -10,6 +10,7 @@ import '../ui/styles/merge-components.css';
 import '../ui/styles/modal.css';
 import '../ui/styles/chat.css';
 import '../ui/styles/diff.css';
+import '../ui/styles/sidebar-window.css';
 
 import { InitDataService } from '../application/services/init-data.service';
 

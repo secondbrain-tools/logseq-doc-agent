@@ -1,10 +1,8 @@
 <script lang="ts">
-    import { createEventDispatcher, onMount, mount, unmount } from "svelte";
     import ContextMenu from "./chat/ContextMenu.svelte";
     import { ICONS } from "../icons";
-    import type { ComponentType } from "svelte";
+    import { PopoutManager } from "./chat-popout-manager";
 
-    // Props interface
     interface Props {
         title?: string;
         icon?: string | null;
@@ -29,16 +27,17 @@
         onMaximize = undefined,
     }: Props = $props();
 
-    // State
     let isCollapsed = $state(false);
     let isMaximized = $state(false);
     let isPoppedOut = $state(false);
-    let popoutWindow: Window | null = null;
-    let popoutApp: any = null;
 
-    const dispatch = createEventDispatcher();
+    let popoutManager = new PopoutManager((poppedOut) => {
+        isPoppedOut = poppedOut;
+        if (poppedOut) {
+            isMaximized = false;
+        }
+    });
 
-    // Extract header actions from componentProps if passed there (for SidebarInjector compatibility)
     let EffectiveHeaderActions = $derived(
         headerActions || componentProps?.headerActions,
     );
@@ -53,12 +52,18 @@
         ...effectiveMenuOptionsRaw,
         {
             label: isPoppedOut ? "Restore to Sidebar" : "Pop out window",
-            action: isPoppedOut ? restorePopout : togglePopout,
+            action: isPoppedOut
+                ? () => popoutManager.restorePopout()
+                : () =>
+                      popoutManager.togglePopout(
+                          Component,
+                          componentProps,
+                          isPoppedOut,
+                      ),
             icon: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS.popout}</svg>`,
         },
     ]);
 
-    // Context Menu State
     let contextMenu = $state({
         visible: false,
         x: 0,
@@ -78,7 +83,7 @@
     }
 
     function toggleCollapse() {
-        if (isMaximized || isPoppedOut) return; // Disable collapse when maximized or popped out
+        if (isMaximized || isPoppedOut) return;
         isCollapsed = !isCollapsed;
     }
 
@@ -86,136 +91,47 @@
         if (isPoppedOut) return;
         isMaximized = !isMaximized;
         if (isMaximized) {
-            isCollapsed = false; // Force expand when maximizing
+            isCollapsed = false;
             if (onMaximize) onMaximize();
         }
     }
 
     function closePanel() {
-        if (popoutWindow) {
-            popoutWindow.close();
-        }
+        popoutManager.close();
         if (onClose) onClose();
-        dispatch("close");
     }
-
-    function togglePopout() {
-        if (isPoppedOut) {
-            // Focus existing window
-            popoutWindow?.focus();
-            return;
-        }
-
-        // Open new window
-        const width = 400;
-        const height = 600;
-        const left = window.screenX + window.outerWidth / 2 - width / 2;
-        const top = window.screenY + window.outerHeight / 2 - height / 2;
-
-        popoutWindow = window.open(
-            "",
-            "lda-popout-" + Date.now(),
-            `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`,
-        );
-
-        if (!popoutWindow) {
-            console.error("Failed to open popout window");
-            return;
-        }
-
-        // Copy styles
-        const styles = Array.from(
-            document.querySelectorAll('style, link[rel="stylesheet"]'),
-        );
-        styles.forEach((style) => {
-            popoutWindow!.document.head.appendChild(style.cloneNode(true));
-        });
-
-        // Add base styles for the body to match theme
-        const bodyStyle = popoutWindow.document.createElement("style");
-        bodyStyle.textContent = `
-            body {
-                background-color: var(--ls-primary-background-color, #fff);
-                color: var(--ls-primary-text-color, #333);
-                margin: 0;
-                padding: 0;
-                height: 100vh;
-                display: flex;
-                flex-direction: column;
-            }
-            #app {
-                flex: 1;
-                display: flex;
-                flex-direction: column;
-                overflow: hidden;
-            }
-            /* Force ChatContainer to fill height */
-            #app .lda-chat-container {
-                height: 100% !important;
-                flex: 1 !important;
-                display: flex !important;
-                flex-direction: column !important;
-                max-height: none !important;
-            }
-            /* Force messages list to fill remaining space */
-            #app .lda-chat-messages {
-                flex: 1 1 0% !important;
-                height: auto !important;
-                max-height: none !important;
-                overflow-y: auto !important;
-            }
-        `;
-        popoutWindow.document.head.appendChild(bodyStyle);
-
-        // Create container
-        const container = popoutWindow.document.createElement("div");
-        container.id = "app";
-        popoutWindow.document.body.appendChild(container);
-
-        // Mount component
-        popoutApp = mount(Component, {
-            target: container,
-            props: componentProps,
-        });
-
-        isPoppedOut = true;
-        isMaximized = false; // Reset max state
-
-        // Handle close
-        popoutWindow.onbeforeunload = () => {
-            if (popoutApp) {
-                unmount(popoutApp);
-                popoutApp = null;
-            }
-            isPoppedOut = false;
-            popoutWindow = null;
-        };
-    }
-
-    function restorePopout() {
-        if (popoutWindow) {
-            popoutWindow.close(); // This triggers onbeforeunload
-        }
-    }
-
-    // Default icons if not provided
-    const defaultIcon = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`;
 </script>
 
+{#snippet headerButton(
+    title: string,
+    icon: string,
+    action: (e: MouseEvent) => void,
+    disabled: boolean = false,
+)}
+    <button
+        class="ui__button inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm gap-1 font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 select-none h-7 px-2"
+        {title}
+        type="button"
+        onclick={action}
+        {disabled}
+        style={disabled ? "opacity: 0.3; cursor: not-allowed;" : ""}
+    >
+        <span class="ui__icon ti">
+            {@html icon}
+        </span>
+    </button>
+{/snippet}
+
 <div
-    class="flex sidebar-item content color-level rounded-md shadow-lg item-type-contents {isCollapsed
+    class="flex sidebar-item content color-level rounded-md shadow-lg item-type-contents lda-sidebar-container {isCollapsed
         ? 'collapsed'
         : ''} {isMaximized ? 'lda-sidebar-maximized' : ''}"
-    style="border: 1px solid var(--ls-border-color); background: var(--ls-secondary-background-color);"
 >
     <div class="flex flex-col w-full relative">
-        <!-- Header: Window border with name and buttons -->
         <div
             draggable="true"
-            class="flex flex-row justify-between pr-2 sidebar-item-header color-level rounded-t-md"
-            style="background-color: var(--ls-secondary-background-color); border-bottom: 1px solid var(--ls-border-color); cursor: default; position: sticky; top: 0; z-index: 10;"
+            class="flex flex-row justify-between pr-2 sidebar-item-header color-level rounded-t-md lda-sidebar-header"
         >
-            <!-- Left: Toggle & Title -->
             <button
                 class="flex flex-row p-2 items-center flex-1 overflow-hidden"
                 onclick={toggleCollapse}
@@ -256,111 +172,42 @@
                 </div>
             </button>
 
-            <!-- Right: Actions -->
             <div class="item-actions flex items-center">
                 {#if EffectiveHeaderActions}
                     <EffectiveHeaderActions {...effectiveHeaderActionsProps} />
                 {/if}
 
-                <!-- Menu -->
                 {#if effectiveMenuOptions && effectiveMenuOptions.length > 0}
-                    <button
-                        class="ui__button inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm gap-1 font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 select-none h-10 py-2 px-3"
-                        title="Options"
-                        type="button"
-                        onclick={openMenu}
-                    >
-                        <span class="ui__icon ti ls-icon-dots">
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                class="icon icon-tabler icon-tabler-dots"
-                                width="18"
-                                height="18"
-                                viewBox="0 0 24 24"
-                                stroke-width="2"
-                                stroke="currentColor"
-                                fill="none"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                            >
-                                <path
-                                    stroke="none"
-                                    d="M0 0h24v24H0z"
-                                    fill="none"
-                                ></path>
-                                <circle cx="5" cy="12" r="1"></circle>
-                                <circle cx="12" cy="12" r="1"></circle>
-                                <circle cx="19" cy="12" r="1"></circle>
-                            </svg>
-                        </span>
-                    </button>
+                    {@render headerButton(
+                        "Options",
+                        `<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-dots" width="18" height="18" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><circle cx="5" cy="12" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle></svg>`,
+                        openMenu,
+                    )}
                 {/if}
 
-                <!-- Maximize/Restore Button -->
-                <button
-                    class="ui__button inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm gap-1 font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 select-none h-10 py-2 px-3"
-                    title={isMaximized ? "Restore" : "Maximize"}
-                    type="button"
-                    onclick={toggleMaximize}
-                    disabled={isPoppedOut}
-                    style={isPoppedOut
-                        ? "opacity: 0.3; cursor: not-allowed;"
-                        : ""}
-                >
-                    <span class="ui__icon ti">
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="18"
-                            height="18"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                        >
-                            {@html isMaximized ? ICONS.restore : ICONS.maximize}
-                        </svg>
-                    </span>
-                </button>
+                {@render headerButton(
+                    isMaximized ? "Restore" : "Maximize",
+                    `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${isMaximized ? ICONS.restore : ICONS.maximize}</svg>`,
+                    toggleMaximize,
+                    isPoppedOut,
+                )}
 
-                <!-- Close Button -->
-                <button
-                    class="ui__button inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm gap-1 font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 select-none h-10 py-2 px-3"
-                    title="Close"
-                    type="button"
-                    onclick={(e) => {
+                {@render headerButton(
+                    "Close",
+                    `<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-x" width="18" height="18" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">${ICONS.close}</svg>`,
+                    (e) => {
                         e.stopPropagation();
                         closePanel();
-                    }}
-                >
-                    <span class="ui__icon ti ls-icon-x">
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            class="icon icon-tabler icon-tabler-x"
-                            width="18"
-                            height="18"
-                            viewBox="0 0 24 24"
-                            stroke-width="2"
-                            stroke="currentColor"
-                            fill="none"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                        >
-                            {@html ICONS.close}
-                        </svg>
-                    </span>
-                </button>
+                    },
+                )}
             </div>
         </div>
 
-        <!-- Body: Content -->
         <div
             role="region"
             class="sidebar-item-content {isCollapsed
                 ? 'hidden'
-                : 'initial'} bg-white"
-            style="background-color: var(--ls-bg-color); color: var(--ls-primary-text-color); padding: 10px;"
+                : 'initial'} bg-white lda-sidebar-content"
         >
             <div class="contents flex-col flex">
                 {#if isPoppedOut}
@@ -392,7 +239,7 @@
                         </p>
                         <button
                             class="ui__button whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2"
-                            onclick={restorePopout}
+                            onclick={() => popoutManager.restorePopout()}
                         >
                             Restore to Sidebar
                         </button>
@@ -416,95 +263,3 @@
         }}
     />
 {/if}
-
-<style>
-    /* Utilities used in template */
-    .hidden {
-        display: none;
-    }
-    .flex {
-        display: flex;
-    }
-    .items-center {
-        align-items: center;
-    }
-    .justify-between {
-        justify-content: space-between;
-    }
-    .flex-col {
-        flex-direction: column;
-    }
-    .gap-1 {
-        gap: 0.25rem;
-    }
-    .p-2 {
-        padding: 0.5rem;
-    }
-    .w-full {
-        width: 100%;
-    }
-    .select-none {
-        user-select: none;
-    }
-    .text-sm {
-        font-size: 0.875rem;
-    }
-
-    /* Ensure styles are robust */
-    .sidebar-item-header {
-        font-family: var(--ls-font-family, sans-serif);
-    }
-
-    /* Maximize Styles */
-    :global(.lda-sidebar-maximized) {
-        position: fixed !important;
-        top: 40px !important;
-        left: 0 !important;
-        right: 0 !important;
-        bottom: 0 !important;
-        width: 100vw !important;
-        height: calc(100vh - 20px) !important;
-        z-index: 9999 !important;
-        margin: 0 !important;
-        max-width: none !important;
-        max-height: none !important;
-        border-radius: 8px !important;
-        box-shadow: 0 4px 12px
-            color-mix(in srgb, var(--ls-primary-text-color), transparent 85%) !important;
-    }
-
-    :global(.lda-sidebar-maximized) .sidebar-item-content {
-        height: 95% !important;
-        max-height: none !important;
-        display: flex !important;
-        flex-direction: column !important;
-    }
-
-    /* Force inner content to fill height */
-    :global(.lda-sidebar-maximized) .sidebar-item-content > .contents {
-        height: 90% !important;
-        flex: 1 !important;
-        display: flex !important;
-        flex-direction: column !important;
-    }
-
-    /* Force ChatContainer/ChatInterface to fill height */
-    /* Target direct children of .contents to ensure they expand */
-    :global(.lda-sidebar-maximized)
-        .sidebar-item-content
-        > .contents
-        > :global(div) {
-        height: 90% !important;
-        flex: 1 !important;
-        display: flex !important;
-        flex-direction: column !important;
-    }
-
-    /* Ensure message list expands */
-    :global(.lda-sidebar-maximized) :global(.lda-chat-messages) {
-        flex: 1 1 0% !important;
-        height: auto !important;
-        max-height: none !important;
-        overflow-y: auto !important;
-    }
-</style>

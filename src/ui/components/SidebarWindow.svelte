@@ -1,10 +1,8 @@
 <script lang="ts">
-    import { createEventDispatcher, onMount } from "svelte";
     import ContextMenu from "./chat/ContextMenu.svelte";
+    import { ICONS } from "../icons";
+    import { PopoutManager } from "./chat-popout-manager";
 
-    import type { ComponentType } from "svelte";
-
-    // Props interface
     interface Props {
         title?: string;
         icon?: string | null;
@@ -14,6 +12,7 @@
         headerActions?: any;
         headerActionsProps?: any;
         menuOptions?: any[];
+        onMaximize?: () => void;
     }
 
     let {
@@ -25,20 +24,46 @@
         headerActions = undefined,
         headerActionsProps = undefined,
         menuOptions = undefined,
+        onMaximize = undefined,
     }: Props = $props();
 
-    // Extract header actions from componentProps if passed there (for SidebarInjector compatibility)
+    let isCollapsed = $state(false);
+    let isMaximized = $state(false);
+    let isPoppedOut = $state(false);
+
+    let popoutManager = new PopoutManager((poppedOut) => {
+        isPoppedOut = poppedOut;
+        if (poppedOut) {
+            isMaximized = false;
+        }
+    });
+
     let EffectiveHeaderActions = $derived(
         headerActions || componentProps?.headerActions,
     );
     let effectiveHeaderActionsProps = $derived(
         headerActionsProps || componentProps?.headerActionsProps || {},
     );
-    let effectiveMenuOptions = $derived(
+    let effectiveMenuOptionsRaw = $derived(
         menuOptions || componentProps?.menuOptions || [],
     );
 
-    // Context Menu State
+    let effectiveMenuOptions = $derived([
+        ...effectiveMenuOptionsRaw,
+        {
+            label: isPoppedOut ? "Restore to Sidebar" : "Pop out window",
+            action: isPoppedOut
+                ? () => popoutManager.restorePopout()
+                : () =>
+                      popoutManager.togglePopout(
+                          Component,
+                          componentProps,
+                          isPoppedOut,
+                      ),
+            icon: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS.popout}</svg>`,
+        },
+    ]);
+
     let contextMenu = $state({
         visible: false,
         x: 0,
@@ -57,38 +82,56 @@
         };
     }
 
-    // State
-    let isCollapsed = $state(false);
-
-    const dispatch = createEventDispatcher();
-
     function toggleCollapse() {
+        if (isMaximized || isPoppedOut) return;
         isCollapsed = !isCollapsed;
     }
 
-    function closePanel() {
-        if (onClose) onClose();
-        dispatch("close");
+    export function toggleMaximize() {
+        if (isPoppedOut) return;
+        isMaximized = !isMaximized;
+        if (isMaximized) {
+            isCollapsed = false;
+            if (onMaximize) onMaximize();
+        }
     }
 
-    // Default icons if not provided
-    const defaultIcon = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`;
+    function closePanel() {
+        popoutManager.close();
+        if (onClose) onClose();
+    }
 </script>
 
+{#snippet headerButton(
+    title: string,
+    icon: string,
+    action: (e: MouseEvent) => void,
+    disabled: boolean = false,
+)}
+    <button
+        class="ui__button inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm gap-1 font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 select-none h-7 px-2"
+        {title}
+        type="button"
+        onclick={action}
+        {disabled}
+        style={disabled ? "opacity: 0.3; cursor: not-allowed;" : ""}
+    >
+        <span class="ui__icon ti">
+            {@html icon}
+        </span>
+    </button>
+{/snippet}
+
 <div
-    class="flex sidebar-item content color-level rounded-md shadow-lg item-type-contents {isCollapsed
+    class="flex sidebar-item content color-level rounded-md shadow-lg item-type-contents lda-sidebar-container {isCollapsed
         ? 'collapsed'
-        : ''}"
-    style="border: 1px solid var(--ls-border-color); background: var(--ls-secondary-background-color);"
+        : ''} {isMaximized ? 'lda-sidebar-maximized' : ''}"
 >
     <div class="flex flex-col w-full relative">
-        <!-- Header: Window border with name and buttons -->
         <div
             draggable="true"
-            class="flex flex-row justify-between pr-2 sidebar-item-header color-level rounded-t-md"
-            style="background-color: var(--ls-secondary-background-color); border-bottom: 1px solid var(--ls-border-color); cursor: default; position: sticky; top: 0; z-index: 10;"
+            class="flex flex-row justify-between pr-2 sidebar-item-header color-level rounded-t-md lda-sidebar-header"
         >
-            <!-- Left: Toggle & Title -->
             <button
                 class="flex flex-row p-2 items-center flex-1 overflow-hidden"
                 onclick={toggleCollapse}
@@ -103,20 +146,7 @@
                             ? ''
                             : 'not-collapsed'}"
                     >
-                        <svg
-                            aria-hidden="true"
-                            version="1.1"
-                            viewBox="0 0 192 512"
-                            fill="currentColor"
-                            display="inline-block"
-                            class="h-4 w-4"
-                            style="margin-left: 2px;"
-                        >
-                            <path
-                                d="M0 384.662V127.338c0-17.818 21.543-26.741 34.142-14.142l128.662 128.662c7.81 7.81 7.81 20.474 0 28.284L34.142 398.804C21.543 411.404 0 402.48 0 384.662z"
-                                fill-rule="evenodd"
-                            ></path>
-                        </svg>
+                        {@html ICONS.collapseArrow}
                     </span>
                 </span>
                 <div class="ml-1 font-medium overflow-hidden whitespace-nowrap">
@@ -129,87 +159,77 @@
                 </div>
             </button>
 
-            <!-- Right: Actions -->
             <div class="item-actions flex items-center">
                 {#if EffectiveHeaderActions}
                     <EffectiveHeaderActions {...effectiveHeaderActionsProps} />
                 {/if}
 
-                <!-- Menu -->
                 {#if effectiveMenuOptions && effectiveMenuOptions.length > 0}
-                    <button
-                        class="ui__button inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm gap-1 font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 select-none h-10 py-2 px-3"
-                        title="Options"
-                        type="button"
-                        onclick={openMenu}
-                    >
-                        <span class="ui__icon ti ls-icon-dots">
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                class="icon icon-tabler icon-tabler-dots"
-                                width="18"
-                                height="18"
-                                viewBox="0 0 24 24"
-                                stroke-width="2"
-                                stroke="currentColor"
-                                fill="none"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                            >
-                                <path
-                                    stroke="none"
-                                    d="M0 0h24v24H0z"
-                                    fill="none"
-                                ></path>
-                                <circle cx="5" cy="12" r="1"></circle>
-                                <circle cx="12" cy="12" r="1"></circle>
-                                <circle cx="19" cy="12" r="1"></circle>
-                            </svg>
-                        </span>
-                    </button>
+                    {@render headerButton("Options", ICONS.options, openMenu)}
                 {/if}
 
-                <!-- Close Button -->
-                <button
-                    class="ui__button inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm gap-1 font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 select-none h-10 py-2 px-3"
-                    title="Close"
-                    type="button"
-                    onclick={(e) => {
+                {@render headerButton(
+                    isMaximized ? "Restore" : "Maximize",
+                    `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${isMaximized ? ICONS.restore : ICONS.maximize}</svg>`,
+                    toggleMaximize,
+                    isPoppedOut,
+                )}
+
+                {@render headerButton(
+                    "Close",
+                    `<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-x" width="18" height="18" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">${ICONS.close}</svg>`,
+                    (e) => {
                         e.stopPropagation();
                         closePanel();
-                    }}
-                >
-                    <span class="ui__icon ti ls-icon-x">
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            class="icon icon-tabler icon-tabler-x"
-                            width="18"
-                            height="18"
-                            viewBox="0 0 24 24"
-                            stroke-width="2"
-                            stroke="currentColor"
-                            fill="none"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                        >
-                            <path stroke="none" d="M0 0h24v24H0z" fill="none"
-                            ></path>
-                            <line x1="18" y1="6" x2="6" y2="18"></line>
-                            <line x1="6" y1="6" x2="18" y2="18"></line>
-                        </svg>
-                    </span>
-                </button>
+                    },
+                )}
             </div>
         </div>
 
-        <!-- Body: Content -->
         <div
             role="region"
-            class="{isCollapsed ? 'hidden' : 'initial'} bg-white"
-            style="background-color: var(--ls-bg-color); color: var(--ls-primary-text-color); padding: 10px;"
+            class="sidebar-item-content {isCollapsed
+                ? 'hidden'
+                : 'initial'} bg-white lda-sidebar-content"
         >
             <div class="contents flex-col flex">
-                <Component {...componentProps} />
+                {#if isPoppedOut}
+                    <div
+                        class="flex flex-col items-center justify-center p-8 text-center"
+                        style="height: 200px; color: var(--ls-primary-text-color);"
+                    >
+                        <div class="mb-4 opacity-50">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="48"
+                                height="48"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="1.5"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                            >
+                                {@html ICONS.popout}
+                            </svg>
+                        </div>
+                        <h3 class="text-lg font-medium mb-2">
+                            Chat Popped Out
+                        </h3>
+                        <p class="text-sm opacity-70 mb-4">
+                            The chat window is currently open in a separate
+                            window.
+                        </p>
+                        <button
+                            class="ui__button whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2"
+                            onclick={() => popoutManager.restorePopout()}
+                        >
+                            Restore to Sidebar
+                        </button>
+                    </div>
+                {:else}
+                    <Component {...componentProps} />
+                {/if}
             </div>
         </div>
     </div>
@@ -226,42 +246,3 @@
         }}
     />
 {/if}
-
-<style>
-    /* Utilities used in template */
-    .hidden {
-        display: none;
-    }
-    .flex {
-        display: flex;
-    }
-    .items-center {
-        align-items: center;
-    }
-    .justify-between {
-        justify-content: space-between;
-    }
-    .flex-col {
-        flex-direction: column;
-    }
-    .gap-1 {
-        gap: 0.25rem;
-    }
-    .p-2 {
-        padding: 0.5rem;
-    }
-    .w-full {
-        width: 100%;
-    }
-    .select-none {
-        user-select: none;
-    }
-    .text-sm {
-        font-size: 0.875rem;
-    }
-
-    /* Ensure styles are robust */
-    .sidebar-item-header {
-        font-family: var(--ls-font-family, sans-serif);
-    }
-</style>

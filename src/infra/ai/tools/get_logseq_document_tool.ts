@@ -3,7 +3,6 @@ import { z } from 'zod';
 import {
     type LogseqSelection,
     type LogseqBlock,
-    type OutlineAnnotation,
     isLogseqBlockEntity
 } from './types';
 
@@ -11,8 +10,11 @@ import {
 // Access the global logseq object
 const getLogseq = () => (window as any).logseq;
 
-export const getLogseqDocument = tool({
-    description: 'Returns the active page or block from Logseq with each outline entry prefixed by its hierarchy id (1, 1.1, 1.1.1, ...).',
+export const createGetLogseqDocumentTool = (context: {
+    mergeDefault: boolean,
+    mergeBoth: boolean
+}) => tool({
+    description: 'Returns the active page or block from Logseq as a markdown tree with IDs.',
     inputSchema: z.object({}),
     execute: async (_args: any) => {
         const logseq = getLogseq();
@@ -25,90 +27,72 @@ export const getLogseqDocument = tool({
             return 'No document currently active.';
         }
 
-        // According to user request: "selection is current page from: logseq.Editor.getCurrentPage"
-        // And "return a list of the items" -> assuming we need to fetch blocks for the page.
-        // The user snippet uses `blocks: LogseqBlock[]` in buildDocumentResponse.
-
         let blocks: LogseqBlock[] = [];
         if (currentPage.uuid) {
-            // Fetch blocks for the page. 
-            // We usually receive a tree. We might need to flatten it or the user snippet expects a specific format.
-            // The user snippet 'buildOutlineAnnotations' (not provided in the prompt but implied) 
-            // and 'formatBlocks' iterate over annotations.
+            // Get blocks tree
+            blocks = await logseq.Editor.getPageBlocksTree(currentPage.uuid) || [];
+        }
 
-            // Wait, the user provided: 
-            // function buildDocumentResponse(selection: LogseqSelection, blocks: LogseqBlock[])
-
-            // Checking the user snippet again... 
-            // "const annotations = buildOutlineAnnotations(blocks)" -> This function was NOT provided in the snippet.
-            // "const blockLines = formatBlocks(annotations)"
-
-            // I need to implement `buildOutlineAnnotations` or ask the user.
-            // Given the instruction "can you implement this and complete it ? ask for further information if required?",
-            // I should try to infer a sensible default or ask.
-            // "with each outline entry prefixed by its hierarchy id (1, 1.1, 1.1.1, …)."
-
-            // Let's implement a simple `buildOutlineAnnotations` that assigns hierarchy IDs if not present.
-            // Getting the page blocks:
-            const pageBlocksTree = await logseq.Editor.getPageBlocksTree(currentPage.uuid);
-            blocks = flattenBlocks(pageBlocksTree);
+        // Apply Merge Logic locally if enabled (recursive walk needed if blocks are a tree)
+        if (context.mergeDefault || context.mergeBoth) {
+            blocks = applyMergeLogicToTree(blocks, context);
         }
 
         return buildDocumentResponse(currentPage, blocks);
     },
 } as any);
 
-export function flattenBlocks(tree: any[], prefix: string = '', result: LogseqBlock[] = []): LogseqBlock[] {
-    // This is a guess at how to flatten and adding hierarchy IDs if they are missing,
-    // although `get_logseq_document` description says it returns them prefixed.
-    // The user snippet `getHierarchyLabel` checks `block.hierarchyId`.
+/**
+ * recursively applies merge logic to a tree of blocks
+ */
+export function applyMergeLogicToTree(blocks: LogseqBlock[], context: { mergeDefault: boolean, mergeBoth: boolean }): LogseqBlock[] {
+    return blocks.map(block => {
+        let newBlock = { ...block };
 
-    // Logseq API `getPageBlocksTree` returns a recursive structure.
+        // Process current block content
+        const content = newBlock.content || '';
+        const match = content.match(/logseq-doc-agent\.merge::\s*(.+)/);
+        if (match && match[1]) {
+            try {
+                const mergeData = JSON.parse(match[1]);
+                if (mergeData) {
+                    const cleanedBody = cleanBlockContent(newBlock.content);
 
-    // Let's assume we just pass the raw blocks and let the helper handle it, 
-    // BUT we need `hierarchyId`. Logseq blocks usually don't have `hierarchyId` property by default in all API responses.
-    // We might need to calculate it.
-
-    // Let's try to calculate it during flattening.
-    tree.forEach((node, index) => {
-        const currentId = prefix ? `${prefix}.${index + 1}` : `${index + 1}`;
-        const flattenedNode = { ...node, hierarchyId: currentId };
-        result.push(flattenedNode);
-        if (node.children && Array.isArray(node.children)) {
-            flattenBlocks(node.children, currentId, result);
+                    if (context.mergeBoth) {
+                        newBlock.content = `[BASE]\n${mergeData.base || ''}\n[PROPOSED]\n${cleanedBody}`;
+                    } else if (context.mergeDefault) {
+                        newBlock.content = cleanedBody;
+                    }
+                }
+            } catch (e) {
+                // Ignore parse errors
+            }
         }
-    });
-    return result;
-}
 
-// --- User Provided Functions (Adapted) ---
+        // Recursively process children
+        if (newBlock.children && newBlock.children.length > 0) {
+            newBlock.children = applyMergeLogicToTree(newBlock.children, context);
+        }
+
+        return newBlock;
+    });
+}
 
 export function buildDocumentResponse(selection: LogseqSelection, blocks: LogseqBlock[]) {
     const summaryLines = describeSelection(selection);
-    // Missing function from user snippet, implementing it based on context
-    const annotations = buildOutlineAnnotations(blocks);
-    const blockLines = formatBlocks(annotations);
-    return [...summaryLines, '', 'Blocks:', ...(blockLines.length ? blockLines : ['(none)'])].join('\n');
-}
+    const blockTree = formatBlockTree(blocks);
 
-// INFERRED implementation
-export function buildOutlineAnnotations(blocks: LogseqBlock[]): OutlineAnnotation[] {
-    return blocks.map(block => ({
-        block,
-        // Tagging logic is custom. defaulting to undefined or basic heuristics?
-        // User snippet had `tag === 'chapter' ? 'Chapter ' : ...`
-        // For now, let's leave tag undefined as we don't have logic for it.
-        tag: undefined
-    }));
+    if (!blockTree) {
+        return [...summaryLines, '', '(no blocks)'].join('\n');
+    }
+
+    return [...summaryLines, '', blockTree].join('\n');
 }
 
 export function describeSelection(selection: LogseqSelection) {
     if (isLogseqBlockEntity(selection)) {
         const pageLabel = extractPageLabel(selection);
-        const blockLabel =
-            (typeof selection.hierarchyId === 'string' && selection.hierarchyId.length > 0
-                ? selection.hierarchyId
-                : selection.uuid?.toString()) ?? 'unknown-block';
+        const blockLabel = selection.id !== undefined ? `id:${selection.id}` : (selection.uuid || 'unknown-block');
         const preview = cleanBlockContent(selection.content) || '(empty block)';
         return [
             `Selection Type: block`,
@@ -117,6 +101,7 @@ export function describeSelection(selection: LogseqSelection) {
             `Active Block Preview: ${preview}`,
         ];
     }
+
     const pageName =
         (typeof selection.originalName === 'string' && selection.originalName.length
             ? selection.originalName
@@ -154,46 +139,44 @@ export function extractPageLabel(selection: LogseqBlock) {
     return 'Unknown Page';
 }
 
-export function formatBlocks(annotations: OutlineAnnotation[]) {
-    const lines: string[] = [];
-    for (const annotation of annotations ?? []) {
-        lines.push(...formatBlockLines(annotation));
-    }
-    return lines;
+/**
+ * Formats a list of root blocks into a markdown tree string.
+ * This function handles recursive children locally.
+ */
+export function formatBlockTree(blocks: LogseqBlock[], depth: number = 0): string {
+    if (!blocks || blocks.length === 0) return '';
+
+    return blocks.map(block => formatSingleBlock(block, depth)).join('\n');
 }
 
+function formatSingleBlock(block: LogseqBlock, depth: number): string {
+    const indent = '  '.repeat(depth);
+    const content = cleanBlockContent(block.content) || '(empty block)';
+    const lines = content.split('\n');
 
-// ... (existing imports)
+    // Header line: "- id:123 First line of content"
+    // Use hierarchy list style
+    const idLabel = block.id !== undefined ? `id:${block.id}` : (block.uuid ? `uuid:${block.uuid}` : 'block');
 
-export function formatBlockLines(annotation: OutlineAnnotation) {
-    const { block, tag } = annotation;
-    const idLabel = getHierarchyLabel(block);
-    const roleLabel = tag === 'chapter' ? 'Chapter ' : tag === 'section' ? 'Section ' : '';
+    let result = `${indent}- ${idLabel} ${lines[0]}`;
 
-    const basePrefix = `[${roleLabel}${idLabel}]`;
-    const text = cleanBlockContent(block.content) || '(empty block)';
-    const lines = text.split('\n');
-    const formatted = lines.map((line, index) => {
-        if (index === 0) {
-            return `${basePrefix} ${line}`.trimEnd();
+    // Additional lines of content, indented relative to the bullet
+    // Bullet is "- " (2 chars) so text starts at indent + 2 spaces
+    if (lines.length > 1) {
+        const contentIndent = indent + '  ';
+        const remainingLines = lines.slice(1).map(l => `${contentIndent}${l}`).join('\n');
+        result += '\n' + remainingLines;
+    }
+
+    // Children
+    if (block.children && block.children.length > 0) {
+        const childrenStr = formatBlockTree(block.children, depth + 1);
+        if (childrenStr) {
+            result += '\n' + childrenStr;
         }
-        const indent = ' '.repeat(basePrefix.length + 1);
-        return `${indent}${line}`;
-    });
-    return formatted;
-}
+    }
 
-export function getHierarchyLabel(block: LogseqBlock) {
-    if (typeof block.hierarchyId === 'string' && block.hierarchyId.length > 0) {
-        return block.hierarchyId;
-    }
-    if (block.id !== undefined) {
-        return `id:${block.id}`;
-    }
-    if (typeof block.uuid === 'string' && block.uuid.length > 0) {
-        return `uuid:${block.uuid}`;
-    }
-    return 'block';
+    return result;
 }
 
 export function cleanBlockContent(content?: string | null) {
@@ -202,7 +185,7 @@ export function cleanBlockContent(content?: string | null) {
     }
     const lines = content.split('\n');
     const filtered = lines
-        .filter((line) => !/^(?:[-*+]\s+)?[\w.-]+::/.test(line.trim()))
+        .filter((line) => !/^(?:[-*+]\s+)?[\w.-]+::/.test(line.trim())) // Remove properties
         .map((line) => line.trimEnd());
     return filtered.join('\n').trim();
 }

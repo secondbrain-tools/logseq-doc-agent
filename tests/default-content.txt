@@ -1,9 +1,9 @@
 Embracing Imperfection Guide
 * property:: true
   ls-type:: guide
-  feedback:: {"CONTENT":{"ACCURACY":{"rating":3,"feedback":"Gesamtdokument – überwiegend fachlich korrekt mit fundierten Zahlen, Zitaten und Referenzen; vereinzelt vereinfachende Formulierungen und kleine Ungenauigkeiten sollten noch präzisiert werden."},"ARGUMENT":{"rating":3,"feedback":"Gesamtdokument – klarer inhaltlicher roten Faden vom Compute über Scaling Laws und Trainingsdaten hin zu Base Models, Psychologie und Assistenten; explizite Leitfrage und Fazit könnten noch stärker herausgearbeitet werden."},"EVIDENCE":{"rating":3,"feedback":"Gesamtdokument – gute Mischung aus Zahlen, Zitaten, Quellenlinks und anschaulichen Beispielen; bei einigen Aussagen könnten Quellen oder Datumsangaben ergänzt werden, um die Nachvollziehbarkeit zu erhöhen."},"ORIGINALITY":{"rating":4,"feedback":"Gesamtdokument – originelle Metaphern wie Bühne, Animatronics und Puppenspieler, gut gewählte Beispiele (Spiele, Supercomputer, RLHF) und ein klarer didaktischer Fokus heben den Inhalt über ein reines Standard-LLM-Tutorial hinaus."},"RELEVANCE":{"rating":4,"feedback":"Gesamtdokument – Inhaltlich sehr fokussiert auf LLM-gestützte Softwareentwicklung, Compute, Trainingsdaten, Modelle und Nutzung; es fehlen nur noch eine klarere Einleitung und ein zusammenfassender Ausblick."}},"STRUCTURE":{"ORDER":{"rating":4,"feedback":"Gesamtdokument – die Reihenfolge (Compute → Scaling Laws → Trainingsdaten → Base Models → Psychologie → Assistenten) baut sinnvoll aufeinander auf und unterstützt das Verständnis."},"GLOBAL":{"rating":3,"feedback":"Gesamtdokument – erkennbare Kapitelstruktur (2–13) mit logisch wachsender Komplexität; einige Kapitel sind jedoch noch leer oder skizzenhaft, und Einleitung/Schluss könnten als eigenständige Blöcke klarer ausgebaut werden."},"PARAGRAPHS":{"rating":3,"feedback":"Gesamtdokument – die Aufteilung in Kapitel und Sektionen ist grundsätzlich klar; vereinzelt gibt es Wiederholungen (z. B. Trainingsmengen) und wenige leere Blöcke, die den strukturellen Eindruck etwas schwächen."},"TRANSITIONS":{"rating":3,"feedback":"Gesamtdokument – Übergänge zwischen den Hauptteilen sind implizit über Themenwechsel gegeben; explizite Übergangsfolien oder kurze Zwischenzusammenfassungen würden Orientierung und Flow noch verbessern."}},"LANGUAGE":{"PRECISION":{"rating":3,"feedback":"Gesamtdokument – Zahlen und Begriffe sind meist präzise; an einigen Stellen gibt es leichte Redundanzen und Formulierungen, die noch geschärft oder vereinheitlicht werden könnten (z. B. Wiederholungen bei Trainingsdaten-Folien)."},"CLARITY":{"rating":3,"feedback":"Gesamtdokument – überwiegend gut verständliche Erklärungen, insbesondere bei Scaling Laws und RLHF; einzelne Stellen sind etwas dicht oder mischen Deutsch/Englisch stark, was für weniger versierte Leser anspruchsvoll sein kann."},"CORRECTNESS":{"rating":3,"feedback":"Gesamtdokument – einige Tippfehler und kleinere orthografische Ungenauigkeiten (z. B. „Reinforecement“, „Besererer“) sind sichtbar, stören aber die Verständlichkeit nur moderat."},"TONE":{"rating":4,"feedback":"Gesamtdokument – konsistent sachlich-anschaulicher, lehrender Ton, der technische Tiefe mit zugänglichen Beispielen verbindet und gut zu einem Vortrags-/Seminar-Setting passt."},"RHETORIC":{"rating":4,"feedback":"Gesamtdokument – gute Nutzung von Fragen, Metaphern (Bühne, Animatronics, Puppenspieler) und Beispielen aus Alltag und Games; das unterstützt Interesse und Behaltenswert deutlich."}},"AUDIENCE_FORM":{"AUDIENCE_FIT":{"rating":4,"feedback":"Gesamtdokument – inhaltliche Tiefe und Beispiele sind gut auf ein fachlich interessierteres, aber nicht unbedingt Forschungs-Publikum abgestimmt; Grundlagen werden erklärt, ohne zu stark zu vereinfachen."},"PURPOSE_FIT":{"rating":4,"feedback":"Gesamtdokument – der didaktische Zweck (Verständnis von LLMs, ihrer Skalierung und Nutzung im Alltag/Entwicklung) ist deutlich erkennbar und weitgehend überzeugend umgesetzt."},"ENGAGEMENT":{"rating":4,"feedback":"Gesamtdokument – Fragen an das Publikum, anschauliche Beispiele (Games, iPhone vs. Supercomputer) und interaktive Elemente wie Schätzfragen unterstützen eine aktive Auseinandersetzung mit dem Stoff."},"DESIGN":{"rating":3,"feedback":"Gesamtdokument – reichhaltiger Einsatz von Bildern, Videos und Diagrammen spricht für eine starke visuelle Unterstützung; teils wirken Blöcke textlastig oder redundant, was noch geglättet werden könnte."},"ACCESSIBILITY":{"rating":3,"feedback":"Gesamtdokument – Überschriften und Struktur helfen bei der Orientierung; Fachbegriffe und englische Originalzitate könnten punktuell noch stärker eingeführt oder übersetzt werden, um Barrieren für weniger Expert:innen zu senken."}}}
+  feedback:: {"CONTENT":{"ACCURACY":{"rating":3,"feedback":"Gesamtdokument – überwiegend fachlich korrekt..."}}}
 * Embracing Imperfection
-  feedback:: {"LANGUAGE":{"CLARITY":{"rating":3,"feedback":"Sektion 2.1 – klarer, verständlicher Titel; inhaltliche Ausführung fehlt noch."}},"CONTENT":{"RELEVANCE":{"rating":3,"feedback":"Sektion 2.1 – passende Überschrift zur Denkweise großer Sprachmodelle; inhaltlich könnte hier noch mehr Substanz (kurze Erklärung/Fallbeispiel) folgen."}},"AUDIENCE_FORM":{"AUDIENCE_FIT":{"rating":3,"feedback":"Sektion 2.1 – adressiert ein zentrales Verständnisproblem für das Publikum, benötigt aber noch konkreten Text, um Mehrwert zu bieten."}}}
+  feedback:: {"LANGUAGE":{"CLARITY":{"rating":3,"feedback":"Sektion 2.1 – klarer, verständlicher Titel..."}}}
   * Our society glorifies perfection and achievement, but the truth is that **imperfection is an inevitable** part of the human experience. Instead of constantly striving for perfection, it's important to learn to embrace our imperfections.
   * Accepting imperfection:
     status:: active
@@ -23,21 +23,46 @@ Embracing Imperfection Guide
     * Positive perfectionism is associated with high achievement and success.
     * Negative perfectionism is associated with anxiety, depression, and burnout.
   * Perfectionism can be overcome by practicing self-compassion and focusing on progress, not perfection.
-* Merge Example
-  logseq-doc-agent.merge:: {"originalContent": "First page, a breath between two worlds,\nA quiet hinge that swings to light.\nBlank margins tremble, ready to hold\nThe small confessions of the night.\nWords arrive like birds at dawn,\nFeathers of thought, soft and plain.\nWrite one line and watch it grow—\nThe first step home, begun again.", "newContent": "First page, a breath between two worlds,\nA quiet hinge that opens to the day.\nBlank margins hold the hush of evening,\nSmall confessions folded into light.\nWords arrive like sparrows at dawn,\nFeathers of thought, bright and plain.\nWrite a single line and watch the house grow—\nThe patient path that brings you home.\n\nGerman translation:\nErste Seite, ein Atem zwischen zwei Welten,\nEin ruhiges Scharnier, das zum Tag sich öffnet.\nLeere Ränder halten das Flüstern des Abends,\nKleine Geständnisse, gefaltet ins Licht.\nWorte kommen wie Sperlinge bei Morgengrauen,\nFederspuren des Denkens, schlicht und klar.\nSchreib eine Zeile und sieh das Haus wachsen—\nDer geduldige Weg, der dich nach Hause führt."}
-* Root block of the tree. It has a general description.
-  logseq-doc-agent.merge:: {"originalContent": "Root block of the tree.It has a general description.", "newContent": "Root block of the tree.\nIt has a REVISED general description."}
-  * Concept A is defined as...
-    logseq-doc-agent.merge:: {"originalContent": "Concept A is defined as...", "newContent": "Concept A is better defined as..."}
-    * Detail 1.1 goes here.
-      logseq-doc-agent.merge:: {"originalContent": "Detail 1.1 goes here.", "newContent": "Detail 1.1 is now more detailed."}
+* First page, a breath between two worlds,
+  A quiet hinge that opens to the day.
+  Blank margins hold the hush of evening,
+  Small confessions folded into light.
+  Words arrive like sparrows at dawn,
+  Feathers of thought, bright and plain.
+  Write a single line and watch the house grow—
+  The patient path that brings you home.
+
+  German translation:
+  Erste Seite, ein Atem zwischen zwei Welten,
+  Ein ruhiges Scharnier, das zum Tag sich öffnet.
+  Leere Ränder halten das Flüstern des Abends,
+  Kleine Geständnisse, gefaltet ins Licht.
+  Worte kommen wie Sperlinge bei Morgengrauen,
+  Federspuren des Denkens, schlicht und klar.
+  Schreib eine Zeile und sieh das Haus wachsen—
+  Der geduldige Weg, der dich nach Hause führt.
+  logseq-doc-agent.merge:: {"type": "update", "base": "First page, a breath between two worlds,\nA quiet hinge that swings to light.\nBlank margins tremble, ready to hold\nThe small confessions of the night.\nWords arrive like birds at dawn,\nFeathers of thought, soft and plain.\nWrite one line and watch it grow—\nThe first step home, begun again."}
+* Root block of the tree.
+  It has a REVISED general description.
+  logseq-doc-agent.merge:: {"type": "update", "base": "Root block of the tree.It has a general description."}
+  * Concept A is better defined as...
+    logseq-doc-agent.merge:: {"type": "update", "base": "Concept A is defined as..."}
+    * Detail 1.1 is now more detailed.
+      logseq-doc-agent.merge:: {"type": "update", "base": "Detail 1.1 goes here."}
   * Child 2: Context (No Merge)
-    * Deep nested merge.
-      logseq-doc-agent.merge:: {"originalContent": "Deep nested merge.", "newContent": "Deep nested merge [UPDATED]."}
-    * Deep nested merge 2.
-      logseq-doc-agent.merge:: {"originalContent": "Deep nested merge 2.", "newContent": "Deep nested merge 2 [UPDATED]."}
+    * Deep nested merge [UPDATED].
+      logseq-doc-agent.merge:: {"type": "update", "base": "Deep nested merge."}
+    * Deep nested merge 2 [UPDATED].
+      logseq-doc-agent.merge:: {"type": "update", "base": "Deep nested merge 2."}
   * Child 3 Context (No Merge)
-    * Deep nested merge.
-      logseq-doc-agent.merge:: {"originalContent": "Deep nested merge.", "newContent": "Deep nested merge [UPDATED]."}
-    * Deep nested merge 2.
-      logseq-doc-agent.merge:: {"originalContent": "Deep nested merge 2.", "newContent": "Deep nested merge 2 [UPDATED]."}
+    * Deep nested merge [UPDATED].
+      logseq-doc-agent.merge:: {"type": "update", "base": "Deep nested merge."}
+    * Deep nested merge 2 [UPDATED].
+      logseq-doc-agent.merge:: {"type": "update", "base": "Deep nested merge 2."}
+* La Nacht tombe en silence.
+  La Meer de vieux mots comme un navire fatigué —
+  et soudain elle appelle mon nom, comme si j'étais un Verbrecher qu'elle condamnait.
+  La lumière du soir webt des fils d'or sur les toits de la ville.
+  Ils leuchten comme l'espoir, m'invitant à marcher —
+  mais j'y entre et je réalise : ce sont des Netze, tendus pour me retenir.
+  logseq-doc-agent.merge:: {"type":"update","base":"La nuit tombe en silence.\nLa mer murmure de vieux mots comme un navire fatigué —\net soudain elle appelle mon nom, comme si j'étais un criminel qu'elle condamnait.\nLa lumière du soir tisse des fils d'or sur les toits de la ville.\nIls brillent comme l'espoir, m'invitant à marcher —\nmais j'y entre et je réalise : ce sont des filets, tendus pour me retenir."}

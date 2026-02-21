@@ -2,6 +2,9 @@
  * Helper to filter properties based on glob patterns
  * Returns [cleanContent, headerString]
  */
+export const LDA_MERGE_PROPERTY = 'logseq-doc-agent.merge';
+export const LDA_MERGE_PROPERTY_CAMEL = 'logseqDocAgent.merge';
+
 export function filterProperties(
     content: string,
     patterns: string[],

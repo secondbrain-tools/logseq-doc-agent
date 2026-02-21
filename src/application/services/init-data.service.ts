@@ -16,13 +16,14 @@ export class InitDataService {
         // 1. Get Storage Root from settings
         const storageRoot = this.settings.get('storageRoot', 'logseq-doc-agent');
 
-        console.log(`[InitDataService] Storage Root: ${storageRoot}`);
-
         // 2. Ensure Root Page
-        await this.ensurePage(storageRoot, {
+        const { page, isNew } = await this.ensurePage(storageRoot, {
             description: 'Root page for Logseq Doc Agent plugin data'
         });
 
+        if (isNew) {
+            await this.logseqApi.UI.showMsg(`Storage root page '${storageRoot}' created.`, 'info');
+        }
         // 3. Ensure Subpages
         await this.ensurePage(`${storageRoot}/chatlogs`, {
             description: 'Storage for chat logs'
@@ -49,6 +50,7 @@ export class InitDataService {
             await this.populateDefaultSkills(skillsResult.page.name);
         }
 
+        // temporary disabled - need a better source definition concept
         // if (agentsResult.isNew && agentsResult.page) {
         //     await this.populateDefaultAgents(agentsResult.page.name);
         // }
@@ -58,7 +60,6 @@ export class InitDataService {
         let page = await this.logseqApi.getPage(name);
         if (!page) {
             console.log(`[InitDataService] Page '${name}' not found. Creating...`);
-            await this.logseqApi.UI.showMsg(`Creating storage page: ${name}`, 'info');
             page = await this.logseqApi.createPage(name, properties, { createFirstBlock: false });
             return { page, isNew: true };
         } else {

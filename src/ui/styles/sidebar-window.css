@@ -1,0 +1,113 @@
+/* Maximize Styles */
+.lda-sidebar-maximized {
+    position: fixed !important;
+    top: 40px !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100vw !important;
+    height: calc(100vh - 20px) !important;
+    z-index: 9999 !important;
+    margin: 0 !important;
+    max-width: none !important;
+    max-height: none !important;
+    border-radius: 8px !important;
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--ls-primary-text-color), transparent 85%) !important;
+}
+
+.lda-sidebar-maximized .sidebar-item-content {
+    height: 95% !important;
+    max-height: none !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+/* Force inner content to fill height */
+.lda-sidebar-maximized .sidebar-item-content>.contents {
+    height: 90% !important;
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+/* Force ChatContainer/ChatInterface to fill height */
+.lda-sidebar-maximized .sidebar-item-content>.contents>div {
+    height: 90% !important;
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+/* Force messages list to fill remaining space */
+.lda-sidebar-maximized .lda-chat-messages {
+    flex: 1 1 0% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow-y: auto !important;
+}
+
+/* Base structural styles for Sidebar Window */
+.lda-sidebar-container {
+    border: 1px solid var(--ls-border-color);
+    background: var(--ls-secondary-background-color);
+}
+
+.lda-sidebar-header {
+    background-color: var(--ls-secondary-background-color);
+    border-bottom: 1px solid var(--ls-border-color);
+    cursor: default;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    padding: 0 4px !important;
+    min-height: 40px !important;
+    max-height: 40px !important;
+    align-items: center !important;
+}
+
+.lda-sidebar-content {
+    background-color: var(--ls-bg-color);
+    color: var(--ls-primary-text-color);
+    padding: 10px;
+}
+
+/* Utilities used in template */
+.hidden {
+    display: none;
+}
+
+.flex {
+    display: flex;
+}
+
+.items-center {
+    align-items: center;
+}
+
+.justify-between {
+    justify-content: space-between;
+}
+
+.flex-col {
+    flex-direction: column;
+}
+
+.gap-1 {
+    gap: 0.25rem;
+}
+
+.p-2 {
+    padding: 0.5rem;
+}
+
+.w-full {
+    width: 100%;
+}
+
+.select-none {
+    user-select: none;
+}
+
+.text-sm {
+    font-size: 0.875rem;
+}

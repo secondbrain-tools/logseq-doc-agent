@@ -6,7 +6,7 @@ import { streamText, generateText } from 'ai';
  * tool execution, and message history management.
  */
 export class AgentRunner {
-    private readonly MAX_LOOPS = 5;
+    private maxLoops: number;
 
     constructor(
         private model: any,
@@ -14,7 +14,11 @@ export class AgentRunner {
         private messages: any[],
         private disableStreaming: boolean,
         private options: any = {}
-    ) { }
+    ) {
+        // Use maxLoops from options if provided, otherwise default to 10 (or previously 5)
+        // Ensure it's at least 1
+        this.maxLoops = Math.max(1, options.maxLoops || 10);
+    }
 
     /**
      * Starts the agent execution loop and returns a readable stream of events.
@@ -38,7 +42,8 @@ export class AgentRunner {
      * @param loopCount - The current iteration of the loop (to prevent infinite loops).
      */
     private async runLoop(controller: ReadableStreamDefaultController, currentMessages: any[], loopCount: number) {
-        if (loopCount >= this.MAX_LOOPS) {
+        if (loopCount >= this.maxLoops) {
+            controller.enqueue({ type: 'control', value: 'max_cycles_reached' });
             controller.close();
             return;
         }
@@ -145,12 +150,13 @@ export class AgentRunner {
         }
 
         if (result.toolCalls && result.toolCalls.length > 0) {
+            console.log('[AgentRunner] Blocking result toolCalls:', JSON.stringify(result.toolCalls));
             for (const tc of result.toolCalls) {
                 const toolCallChunk = {
                     type: 'tool-call',
                     toolCallId: tc.toolCallId,
                     toolName: tc.toolName,
-                    args: (tc as any).args
+                    args: (tc as any).args || (tc as any).input // Fix: Map input to args if args is missing
                 };
                 controller.enqueue(toolCallChunk);
                 accumulatedToolCalls.push(toolCallChunk);
@@ -232,6 +238,7 @@ export class AgentRunner {
             if (toolDef && toolDef.execute) {
                 try {
                     // Ensure args is defined object (check input first per recent detailed logs)
+                    console.log('[AgentRunner] Raw ToolCall object:', JSON.stringify(tc));
                     let args = tc.input || tc.args || {};
                     if (typeof args === 'string') {
                         try {
@@ -242,6 +249,7 @@ export class AgentRunner {
                         }
                     }
 
+                    console.log(`[AgentRunner] Executing tool ${toolName} with args:`, JSON.stringify(args));
                     const result = await toolDef.execute(args, { messages: currentMessages }); // Pass context if needed
                     resultString = typeof result === 'string' ? result : JSON.stringify(result);
                 } catch (err: any) {

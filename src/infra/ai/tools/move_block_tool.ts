@@ -3,6 +3,9 @@ import { z } from 'zod';
 import { tool } from 'ai';
 import type { MergeEntity } from '../../../domain/merge/entity';
 
+import { sanitizeBlockId } from './tool-utils';
+import { LDA_MERGE_PROPERTY } from '../../../domain/logseq/properties';
+
 /**
  * Creates the moveBlock tool with injected context.
  */
@@ -15,8 +18,11 @@ export const createMoveBlockTool = (context: { merge: boolean }) => tool({
     }),
     execute: async ({ id, targetId, anchor = 'parent' }: { id: number | string, targetId: number | string, anchor?: 'parent' | 'before' | 'after' }) => {
         try {
-            const block = await logseq.Editor.getBlock(id);
-            const targetBlock = await logseq.Editor.getBlock(targetId);
+            const cleanId = sanitizeBlockId(id);
+            const cleanTargetId = sanitizeBlockId(targetId);
+
+            const block = await logseq.Editor.getBlock(cleanId);
+            const targetBlock = await logseq.Editor.getBlock(cleanTargetId);
 
             if (!block || !block.uuid) return `Error: Could not find block ${id}`;
             if (!targetBlock || !targetBlock.uuid) return `Error: Could not find target ${targetId}`;
@@ -42,43 +48,22 @@ export const createMoveBlockTool = (context: { merge: boolean }) => tool({
 
             // Perform Move
             const options: any = {};
-            if (anchor === 'before') {
+            if (anchor === 'parent') {
+                // Explicitly set children: true to insert as child of target
+                options.children = true;
+            } else if (anchor === 'before') {
                 options.sibling = true;
                 options.before = true;
             } else if (anchor === 'after') {
                 options.sibling = true;
                 options.before = false;
             }
-            // else 'parent' -> defaults (child)
 
             await logseq.Editor.moveBlock(uuid, targetUuid, options);
 
             if (context.merge) {
                 // Post-move: Update block with history
-                const currentContent = block.content || "";
-
-                // Standard property filtering
-                const lines = currentContent.split('\n');
-                const cleanLines: string[] = [];
-                const propertyLines: string[] = [];
-                let inProperties = true;
-                const propertyRegex = /^.+::/;
-
-                for (const line of lines) {
-                    if (inProperties) {
-                        if (propertyRegex.test(line)) {
-                            if (!line.startsWith('logseq-doc-agent.merge')) {
-                                propertyLines.push(line);
-                            }
-                        } else {
-                            inProperties = false;
-                            cleanLines.push(line);
-                        }
-                    } else {
-                        cleanLines.push(line);
-                    }
-                }
-                const body = cleanLines.join('\n');
+                // We don't need to touch content, just add the property
 
                 const mergeData: MergeEntity = {
                     type: 'move',
@@ -86,15 +71,14 @@ export const createMoveBlockTool = (context: { merge: boolean }) => tool({
                     originalPriorSiblingUuid
                 };
 
-                propertyLines.push(`logseq-doc-agent.merge:: ${JSON.stringify(mergeData)}`);
-
-                let newContent = propertyLines.join('\n');
-                if (body) newContent += '\n' + body;
-
-                await logseq.Editor.updateBlock(uuid, newContent);
+                await logseq.Editor.upsertBlockProperty(uuid, LDA_MERGE_PROPERTY, JSON.stringify(mergeData));
             }
 
-            return `Successfully moved block ${id} ${anchor} ${targetId}.`;
+            // Fetch block content for summary
+            const movedBlock = await logseq.Editor.getBlock(uuid);
+            const content = movedBlock?.content || "";
+
+            return `Moved block ${id} "${content.substring(0, 50)}..." ${anchor} ${targetId}.`;
 
         } catch (e) {
             console.error('[MoveBlockTool] Error:', e);

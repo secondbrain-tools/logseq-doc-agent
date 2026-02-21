@@ -1,5 +1,6 @@
 import type { BlockEntity } from '@logseq/libs/dist/LSPlugin.user';
 import type { MergeEntity } from '../../domain/merge/entity';
+import { LDA_MERGE_PROPERTY, LDA_MERGE_PROPERTY_CAMEL } from '../../domain/logseq/properties';
 
 export interface MergeTreeItem {
     uuid: string;
@@ -24,63 +25,38 @@ export class MergeTreeService {
         return items;
     }
 
+    async getPageMergeTree(pageUuid: string): Promise<MergeTreeItem[]> {
+        const blocks = await logseq.Editor.getPageBlocksTree(pageUuid);
+        const items: MergeTreeItem[] = [];
+
+        // Page blocks are an array of root blocks
+        for (const block of blocks) {
+            await this.traverse(block, 0, items);
+        }
+
+        return items;
+    }
+
     private async traverse(block: BlockEntity, level: number, result: MergeTreeItem[]) {
         // Parse merge data if present
         let mergeData: MergeEntity | undefined;
-        // Logseq properties are usually in 'properties' object, 
-        // OR embedded in content. 
-        // But getBlockPropertyContent works reliably for specifics.
-        // However, iterating whole tree and calling property API for each might be slow?
-        // Better: Check `block.properties['logseq-doc-agent.merge']`.
 
-        let rawMerge: any = block.properties?.['logseqDocAgent.merge']; // Logseq normalizes keys? 
-        // Usually it normalizes to camelCase or similar.
-        // "logseq-doc-agent.merge" -> "logseqDocAgent.merge" ?? 
-        // Or "logseq-doc-agent/merge"?
-        // Let's rely on checking the raw content if properties map is tricky, 
-        // OR try to guess the property name.
-        // Actually, in `InjectMergesUseCase`, we used `Editor.getBlockPropertyContent(..., 'logseq-doc-agent.merge')`.
-
-        // Strategy: Inspect `block.properties` if available.
         if (block.properties) {
-            // Logseq properties often keys are normalized.
-            // But let's check generic loop if we don't know the exact normalization.
-            // Or better: The content usually has it.
-            // But we need the clean content for display.
-            // Let's try to parse it from properties using a safe guess,
-            // or fallback to checking raw content text.
-
-            // The most robust way without making N calls is to check standard props.
-            // If we use `includeChildren: true`, we get the structure.
-            // Does `block.properties` contain it?
-            // Let's assume yes. Key might be `logseqDocAgent.merge` or `logseqDocAgentMerge`?
-            // Actually, `logseq-doc-agent.merge` usually becomes `logseqDocAgent.merge` in JS object?
-            // Let's look for any key containing "merge" and "logseq".
-            const keys = Object.keys(block.properties);
-            const mergeKey = keys.find(k => k.includes('logseq') && k.includes('merge'));
-
-            if (mergeKey) {
-                const val = block.properties[mergeKey];
-                // It might be parsed object or string?
-                // If double spaced property, it's likely a string in the prop.
-                if (typeof val === 'string') {
-                    try {
-                        mergeData = JSON.parse(val);
-                    } catch (e) {/* ignore */ }
-                } else if (typeof val === 'object') {
-                    mergeData = val as MergeEntity;
-                }
+            // Logseq normalizes properties to camelCase (e.g. logseq-doc-agent.merge -> logseqDocAgent.merge)
+            // We access it directly, but check both to be safe in Sim environment.
+            let mergeProp = block.properties[LDA_MERGE_PROPERTY_CAMEL];
+            if (!mergeProp) {
+                mergeProp = block.properties[LDA_MERGE_PROPERTY];
             }
-        }
 
-        // If not found in properties (Sim might not parse complex keys correctly?), 
-        // maybe try to extract from content regex?
-        if (!mergeData && block.content) {
-            const match = block.content.match(/logseq-doc-agent\.merge::\s*(.+)$/m);
-            if (match) {
-                try {
-                    mergeData = JSON.parse(match[1]);
-                } catch (e) { }
+            if (mergeProp) {
+                if (typeof mergeProp === 'string') {
+                    try {
+                        mergeData = JSON.parse(mergeProp);
+                    } catch (e) {/* ignore */ }
+                } else if (typeof mergeProp === 'object') {
+                    mergeData = mergeProp as MergeEntity;
+                }
             }
         }
 
@@ -92,7 +68,7 @@ export class MergeTreeService {
         // Naively strip the merge property line for display
         if (cleanContent) {
             const lines = cleanContent.split('\n');
-            cleanContent = lines.filter(l => !l.includes('logseq-doc-agent.merge::')).join('\n').trim();
+            cleanContent = lines.filter(l => !l.includes(`${LDA_MERGE_PROPERTY}::`)).join('\n').trim();
         }
 
         if (mergeData) {

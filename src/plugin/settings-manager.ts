@@ -177,6 +177,22 @@ export const configureSettings = () => {
         inputAs: 'textarea'
     });
 
+    settings.push({
+        key: 'get_merged_content_default',
+        type: 'boolean',
+        title: 'Use Merged Content by Default',
+        description: 'If enabled, the AI will see the content from the merge property (proposed changes) instead of the block body (original content).',
+        default: true
+    });
+
+    settings.push({
+        key: 'get_merged_content_both',
+        type: 'boolean',
+        title: 'Provide Both Original and Merged Content',
+        description: 'If enabled, the AI will receive both the original content and the merged/proposed content.',
+        default: false
+    });
+
     // 2. Active Model Selection
     const modelEnumChoices = enabledModels.map(m => m.value);
 
@@ -247,6 +263,23 @@ export const configureSettings = () => {
         enumChoices: ['none', 'low', 'medium', 'high'],
     });
 
+    // 2.5 Agent Configuration
+    settings.push({
+        key: 'heading_agent_config',
+        type: 'heading',
+        title: 'Agent Configuration',
+        description: '',
+        default: null
+    });
+
+    settings.push({
+        key: 'maxAgentCycles',
+        type: 'number',
+        title: 'Max Agent Cycles',
+        description: 'Maximum number of autonomous cycles (tool calls -> output -> continue) the agent can perform per request. Default: 10',
+        default: 10,
+    });
+
     // 3. Storage Settings
     settings.push({
         key: 'heading_storage',
@@ -254,6 +287,14 @@ export const configureSettings = () => {
         title: 'Storage Settings',
         description: '',
         default: null
+    });
+
+    settings.push({
+        key: 'maximizedChatWidth',
+        type: 'string',
+        title: 'Maximized Chat Width',
+        description: 'Width of the chat area when maximized (e.g. "900px", "60%", "40rem"). Default: 900px',
+        default: '80rem',
     });
 
     settings.push({

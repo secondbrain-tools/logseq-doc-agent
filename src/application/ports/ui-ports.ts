@@ -16,6 +16,7 @@ export interface ComponentInjector {
 
   // New methods for enhanced injection functionality
   findBlockElementsWithProperty(property: string): HTMLElement[];
+  findBlockElements(uuids: string[]): HTMLElement[];
   getBlockIdFromElement(element: HTMLElement): string | null;
   injectComponentWithPosition(
     target: HTMLElement,

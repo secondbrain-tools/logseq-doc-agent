@@ -4,154 +4,99 @@ import { FeedbackParser } from '../../domain/rating';
 import type { FeedbackRating } from '../../domain/rating';
 import FeedbackRatingComponent from '../../ui/components/rating/FeedbackRating.svelte';
 import cssContent from '../../ui/styles/feedback-components.css?raw';
+import { BaseBlockInjector, type InjectionConfig } from '../services/base-injector';
 
 /**
  * Specific use case for injecting FeedbackRating components into elements with 'feedback' property
  * This use case is an orchestrator that specifically handles feedback rating injection
  */
-export class InjectRatingsUseCase {
-  constructor(private componentInjector: ComponentInjector, private styleInjector: StyleInjector, private logseqApi: LogseqApi) { }
+export class InjectRatingsUseCase extends BaseBlockInjector<FeedbackRating> {
 
-  /**
-   * Injects FeedbackRating components into all elements with 'feedback' property in their data-refs-self attribute
-   */
-  async execute() {
+  constructor(
+    componentInjector: ComponentInjector,
+    private styleInjector: StyleInjector,
+    logseqApi: LogseqApi
+  ) {
+    super(componentInjector, logseqApi, 'InjectRatings');
+  }
+
+  public override async execute() {
+    console.log('[InjectRatingsUseCase] Executing...');
+
+    // Inject styles
+    this.styleInjector.removeStyles('feedback-rating-styles');
+    this.styleInjector.injectStyles(cssContent, 'feedback-rating-styles');
+
+    // Execute base injection logic
+    await super.execute();
+  }
+
+  protected override onDispose() {
+    this.styleInjector.removeStyles('feedback-rating-styles');
+  }
+
+  protected getInjectionConfig(): InjectionConfig {
+    return {
+      position: InjectionPosition.LastChild,
+
+      containerClass: 'feedback-rating-container'
+    };
+  }
+
+  protected getComponent(): any {
+    return FeedbackRatingComponent;
+  }
+
+  protected getPropertyName(): string {
+    return 'feedback';
+  }
+
+  protected getComponentSelector(): string {
+    // Based on containerClass or specific selector
+    return '.feedback-rating-container';
+  }
+
+  protected getQuery(currentPage: any): string {
+    return `(and (property :feedback) (page [[${currentPage.originalName || currentPage.name}]]))`;
+  }
+
+  protected parseProperty(content: string, blockId: string): FeedbackRating | null {
     try {
-
-      const position = InjectionPosition.LastChild;
-      const containerClass = 'feedback-rating-container';
-
-      this.styleInjector.removeStyles('feedback-rating-styles');
-      this.styleInjector.injectStyles(cssContent, 'feedback-rating-styles');
-
-      // Find all elements with 'feedback' property in data-refs-self attribute
-      const feedbackElements = this.componentInjector.findBlockElementsWithProperty('feedback');
-
-      if (feedbackElements.length === 0) {
-        console.log('No elements with feedback property found');
-        return {
-          success: true,
-          injectedRatings: []
-        };
-      }
-
-      console.log(`Found ${feedbackElements.length} elements with feedback property`);
-
-      const injectedRatings: Array<{
-        targetId: string;
-        container: HTMLElement;
-        blockId?: string;
-        feedbackData?: FeedbackRating;
-      }> = [];
-
-      // Process each element sequentially to avoid race conditions
-      for (const element of feedbackElements) {
-        try {
-          // Create a unique ID for the target element
-          const targetId = this.generateTargetId(element);
-
-          // Extract block ID from 'blockid' attribute
-          const blockId = this.componentInjector.getBlockIdFromElement(element);
-
-          console.log(`Processing element: ${targetId}, blockId: ${blockId || 'N/A'}`);
-
-          let feedbackData: FeedbackRating | undefined;
-          let props: any = null;// Default rating
-
-          if (blockId) {
-            const feedbackContent = await this.logseqApi.Editor.getBlockPropertyContent(blockId, 'feedback');
-            console.log(`Feedback property content for blockId ${blockId}:`, feedbackContent);
-
-            if (feedbackContent) {
-              try {
-                // Parse the feedback content using our parser
-                feedbackData = FeedbackParser.parseFromJsonString(targetId, feedbackContent, targetId);
-                console.log(`Parsed feedback data for blockId ${blockId}:`, feedbackData);
-                props = {
-                  rating: feedbackData.overallRating,
-                  feedbackData: feedbackData,
-                  categoryRatings: feedbackData.categoryRatings
-                };
-
-                console.log(`Successfully parsed feedback data for blockId ${blockId}, overall rating: ${feedbackData.overallRating}`);
-              } catch (parseError) {
-                console.warn(`Failed to parse feedback content for blockId ${blockId}:`, parseError);
-                // Fall back to default rating if parsing fails
-
-              }
-            } else {
-              console.log(`No feedback content found for blockId ${blockId}`);
-
-            }
-          }
-
-          if (props) {
-            // Inject the FeedbackRating component at the specified position
-            const container = this.componentInjector.injectComponentWithPosition(
-              element,
-              FeedbackRatingComponent,
-              position,
-              props
-            );
-
-
-            // Apply custom container class if provided
-            if (containerClass) {
-              container.className = containerClass;
-            }
-
-            injectedRatings.push({
-              targetId,
-              container,
-              blockId: blockId || undefined,
-              feedbackData
-            });
-            console.log(`Successfully injected FeedbackRating component for element: ${targetId}, rating: ${props.rating}`);
-          }
-        } catch (error) {
-          console.error('Failed to inject FeedbackRating component for element:', error);
-        }
-      }
-
-      return {
-        success: true,
-        injectedRatings
-      };
-
-    } catch (error) {
-      console.error('Error in injectRatings use case:', error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        injectedRatings: []
-      };
+      // We need a targetId for the parser.
+      // In original code: `generateTargetId(element)`
+      // Here we don't have the element reference easily inside parseProperty?
+      // Actually `parseProperty` is called before injection.
+      // But `FeedbackParser.parseFromJsonString` takes `targetId`?
+      // Let's see what `targetId` was used for. 
+      // `targetId` was passed to `FeedbackRatingComponent` as a prop.
+      // It seems `FeedbackParser` uses it to set an ID in the object?
+      // Let's assume we can generate a targetId here or use blockId.
+      const targetId = `block-${blockId}`;
+      return FeedbackParser.parseFromJsonString(targetId, content, targetId);
+    } catch (e) {
+      console.warn(`[InjectRatings] Failed to parse content for ${blockId}: ${e}`);
+      return null;
     }
   }
 
-  /**
-   * Generates a unique identifier for a target element
-   */
-  private generateTargetId(element: HTMLElement): string {
-    // Try to use block ID if available
-    const blockId = this.componentInjector.getBlockIdFromElement(element);
-    if (blockId) {
-      return `block-${blockId}`;
-    }
-
-    // Fall back to element ID if available
-    if (element.id) {
-      return `element-${element.id}`;
-    }
-
-    // Generate a unique ID based on element position
-    const parent = element.parentElement;
-    if (parent) {
-      const siblings = Array.from(parent.children);
-      const index = siblings.indexOf(element);
-      return `element-${parent.tagName.toLowerCase()}-${index}`;
-    }
-
-    // Last resort: use a random ID
-    return `element-${Math.random().toString(36).substr(2, 9)}`;
+  protected getComponentProps(blockId: string, data: FeedbackRating): any {
+    return {
+      rating: data.overallRating,
+      feedbackData: data,
+      categoryRatings: data.categoryRatings,
+      // Original code passed `targetId` implicitly via the injectedRatings array return,
+      // but mapped props explicitly in `props` object:
+      /*
+      props = {
+            rating: feedbackData.overallRating,
+            feedbackData: feedbackData,
+            categoryRatings: feedbackData.categoryRatings
+      };
+      */
+      // So targetId wasn't passed as prop?
+      // Ah, checking original code...
+      // `targetId` was not in props! It was just for internal tracking in `injectedRatings` array.
+      // So we are good.
+    };
   }
 }

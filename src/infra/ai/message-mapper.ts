@@ -1,8 +1,8 @@
 
 import type { Message } from '../../domain/chat/types';
-import type { CoreMessage, ToolCallPart, ToolResultPart, TextPart, CoreAssistantMessage, CoreToolMessage, CoreUserMessage, CoreSystemMessage } from 'ai';
+import type { ModelMessage, ToolCallPart, ToolResultPart, TextPart, AssistantModelMessage, ToolModelMessage, UserModelMessage, SystemModelMessage } from 'ai';
 
-export function mapMessages(messages: Message[]): CoreMessage[] {
+export function mapMessages(messages: Message[]): ModelMessage[] {
     const flatMessages = messages.flatMap(m => {
         // 1. User Message
         if (m.role === 'user') {
@@ -28,7 +28,7 @@ export function mapMessages(messages: Message[]): CoreMessage[] {
                 }
             }
 
-            const userMsg: CoreUserMessage = {
+            const userMsg: UserModelMessage = {
                 role: 'user',
                 content: [{ type: 'text', text: contentText }]
             };
@@ -38,7 +38,7 @@ export function mapMessages(messages: Message[]): CoreMessage[] {
         // 2. Assistant Message
         if (m.role === 'assistant') {
             if (m.parts && m.parts.length > 0) {
-                const resultMessages: CoreMessage[] = [];
+                const resultMessages: ModelMessage[] = [];
                 let currentAssistantContent: Array<TextPart | ToolCallPart> = [];
                 let currentToolResults: Array<ToolResultPart> = [];
 
@@ -53,8 +53,8 @@ export function mapMessages(messages: Message[]): CoreMessage[] {
                         currentAssistantContent.push({
                             type: 'tool-call',
                             toolCallId: p.toolCallId || 'unknown',
-                            toolName: p.toolName,
-                            input: p.toolArgs || {} // Mapped from toolArgs to input
+                            toolName: p.toolName || 'unknown',
+                            input: p.toolArgs || {}
                         });
                     } else if (p.type === 'tool_result') {
                         // Flush pending assistant content if any
@@ -103,7 +103,7 @@ export function mapMessages(messages: Message[]): CoreMessage[] {
             const hasTextContent = m.content && m.content.trim().length > 0;
             if (!hasTextContent) return [];
 
-            return [{ role: 'assistant', content: [{ type: 'text', text: m.content }] }] as CoreMessage[];
+            return [{ role: 'assistant', content: [{ type: 'text', text: m.content }] }] as ModelMessage[];
         }
 
         // 3. Tool Message (Fallback)
@@ -126,14 +126,14 @@ export function mapMessages(messages: Message[]): CoreMessage[] {
                 }).filter((item): item is any => item !== null);
 
                 if (content.length === 0) return [];
-                return [{ role: 'tool', content }] as CoreMessage[];
+                return [{ role: 'tool', content }] as ModelMessage[];
             }
             return [];
         }
 
         // 4. System Message
         if (m.role === 'system') {
-            const sysMsg: CoreSystemMessage = {
+            const sysMsg: SystemModelMessage = {
                 role: 'system',
                 content: m.content || "" // Strict string content
             };
@@ -144,11 +144,11 @@ export function mapMessages(messages: Message[]): CoreMessage[] {
         return [{
             role: m.role as any,
             content: [{ type: 'text', text: m.content || "" }]
-        }] as CoreMessage[];
+        }] as ModelMessage[];
     });
 
     // Post-processing: Fix formatting issues (e.g. Tool message followed by User message without Assistant response)
-    const fixedMessages: CoreMessage[] = [];
+    const fixedMessages: ModelMessage[] = [];
     for (let i = 0; i < flatMessages.length; i++) {
         const current = flatMessages[i];
         const next = flatMessages[i + 1];

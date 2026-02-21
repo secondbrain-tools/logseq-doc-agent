@@ -190,10 +190,9 @@ describe('AgentRunner', () => {
             toolCalls: [{ toolCallId: 'loop', toolName: 'testTool', args: {} }]
         });
 
-        const runner = new AgentRunner(mockModel, mockToolsMap, [], true);
-        // Force a small MAX_LOOPS effectively by checking call count, but since I can't change private constant,
-        // I rely on the fact that I mocked generateText to always return tool calls.
-        // The default MAX_LOOPS is 5. So it should call generateText 5 times and then stop.
+        // Use custom maxLoops option
+        const runner = new AgentRunner(mockModel, mockToolsMap, [], true, { maxLoops: 5 });
+        // The default MAX_LOOPS is now 10, but we configured 5. So it should call generateText 5 times and then stop.
 
         const stream = runner.run();
         const reader = stream.getReader();
@@ -203,16 +202,13 @@ describe('AgentRunner', () => {
             if (done) break;
         }
 
-        // 1st call starts loop 1.
+        // Loop logic:
+        // loopCount = 0; Check < 5? Yes. Run.
+        // loopCount = 1; Check < 5? Yes. Run.
         // ...
-        // 5th call starts loop 5.
-        // Next iteration loopCount becomes 5 (0-indexed? No, initialized 0, incremented at start of loop).
-        // Let's check logic:
-        // loopCount = 0;
-        // runLoop check if loopCount >= 5 -> return.
-        // loopCount++; (now 1)
-        // ...
-        // So it runs 5 times.
+        // loopCount = 4; Check < 5? Yes. Run.
+        // loopCount = 5; Check < 5? No. Stop.
+        // Total 5 calls.
         expect(mockGenerateText).toHaveBeenCalledTimes(5);
     });
 });

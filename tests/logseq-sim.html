@@ -45,6 +45,25 @@
                 console.error("[Sim] Failed to load content:", e);
                 mountApp("app", "* Error loading content");
             });
+
+        // Initialize Custom Selection Listener for Merge Feature Demo
+        setTimeout(() => {
+            if (window.logseq && window.logseq.Editor && window.logseq.Editor.onBlockSelected) {
+                console.log("[Sim] Registering Selection Listener for Merge...");
+                window.logseq.Editor.onBlockSelected((block) => {
+                    const props = block.properties || {};
+                    const mergeProp = props['logseq-doc-agent.merge'];
+
+                    if (mergeProp) {
+                        console.log("[Sim] Block selected with Merge Content:", block.uuid);
+                        // window.logseq.UI.showMsg(`Merge Menu Triggered for ${block.uuid}`, 'success');
+
+                        // In a real implementation, this would mount the MergeControls 
+                        // explicitly if they weren't already injected inline.
+                    }
+                });
+            }
+        }, 2000); // Wait for app and mock api to be fully ready
     </script>
 </body>
 

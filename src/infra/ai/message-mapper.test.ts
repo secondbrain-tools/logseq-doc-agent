@@ -144,7 +144,7 @@ describe('mapMessages', () => {
             const result = streamText({
                 model: openai('gpt-4o'),
                 messages: coreMessages as any[],
-                maxSteps: 1
+                // maxSteps: 1 removed as it is not in CallSettings
             });
             for await (const _chunk of result.fullStream) { }
         } catch (e: any) {

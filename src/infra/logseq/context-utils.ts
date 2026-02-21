@@ -1,10 +1,9 @@
-
 import {
     type LogseqSelection,
     type LogseqBlock,
     type OutlineAnnotation,
 } from '../ai/tools/types';
-import { flattenBlocks, buildDocumentResponse } from '../ai/tools/get_logseq_document_tool';
+import { buildDocumentResponse } from '../ai/tools/get_logseq_document_tool';
 
 const getLogseq = () => (window as any).logseq;
 
@@ -79,12 +78,10 @@ export async function getContextContent(context: ContextItem): Promise<string> {
         return `[Context Error: Page ${context.name} not found]`;
     }
 
-    let blocks: LogseqBlock[] = [];
     // Get the tree
     const pageBlocksTree = await logseq.Editor.getPageBlocksTree(context.id);
-    // Flatten it using existing tool logic
-    blocks = flattenBlocks(pageBlocksTree);
 
     // Build the string representation
-    return buildDocumentResponse(page, blocks);
+    // Pass the tree directly as buildDocumentResponse now handles trees
+    return buildDocumentResponse(page, pageBlocksTree);
 }

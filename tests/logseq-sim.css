@@ -300,3 +300,58 @@ textarea#source-input {
     color: var(--ls-secondary-text-color);
     font-style: italic;
 }
+/* Selected Block */
+.ls-block.selected > .block-main-container {
+    background-color: var(--ls-secondary-background-color);
+    box-shadow: -4px 0 0 var(--ls-link-text-color);
+    border-radius: 4px;
+}
+
+/* Children of selected block */
+.ls-block.selected .ls-block > .block-main-container {
+     background-color: var(--ls-tertiary-background-color);
+     opacity: 0.9;
+}
+
+/* Selected Block Visibility for Merge Controls */
+.ls-block.selected .block-main-container ~ .feedback-rating-container .lda-merge-controls {
+    display: inline-flex !important;
+    opacity: 1 !important;
+    transform: translateY(0) scale(1) !important;
+    pointer-events: auto !important;
+}
+
+/* Hide indicator when selected */
+.ls-block.selected .block-main-container ~ .feedback-rating-container .lda-merge-indicator {
+    display: none !important;
+}
+
+/* Force simulator block selection state to trigger control visibility */
+.ls-block.selected > .block-children-container .feedback-rating-container .lda-merge-controls,
+.ls-block.selected > .block-main-container ~ .feedback-rating-container .lda-merge-controls {
+    display: inline-flex !important;
+    opacity: 1 !important;
+    transform: translateY(0) scale(1) !important;
+    pointer-events: auto !important;
+}
+
+.ls-block.selected > .block-main-container ~ .feedback-rating-container .lda-merge-indicator {
+    display: none !important;
+}
+
+/* Scoped selection fix for Simulator */
+.ls-block.selected > .block-children-container .feedback-rating-container .lda-merge-controls {
+    display: none !important; /* Ensure children don't inherit accidentally */
+}
+
+/* Explicitly show only for the selected block's own controls */
+.ls-block.selected > .block-main-container ~ .feedback-rating-container .lda-merge-controls {
+    display: inline-flex !important;
+    opacity: 1 !important;
+    transform: translateY(0) scale(1) !important;
+    pointer-events: auto !important;
+}
+
+.ls-block.selected > .block-main-container ~ .feedback-rating-container .lda-merge-indicator {
+    display: none !important;
+}

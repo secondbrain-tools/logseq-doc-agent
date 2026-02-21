@@ -1,0 +1,6 @@
+#!/bin/sh
+set -e
+
+mkdir -p .agent/rules
+{ printf '%s\n' '---' 'trigger: always_on' '---' ''; cat AGENTS.md; } > .agent/rules/agents.md
+git add .agent/rules/agents.md

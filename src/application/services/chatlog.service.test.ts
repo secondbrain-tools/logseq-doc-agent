@@ -214,4 +214,38 @@ Last Model Answer: Last A`;
             expect(mockRepository.deleteChatlog).toHaveBeenCalledWith('delete-id');
         });
     });
+
+    describe('loadChatlog', () => {
+        it('should cache title from loaded chatlog to prevent regeneration', async () => {
+            const mockEntry = {
+                metadata: {
+                    id: 'existing-id',
+                    title: 'Existing Title',
+                    created: '',
+                    updated: '',
+                    messageCount: 1
+                },
+                messages: [{ id: '1', role: 'user' as const, content: 'New message triggering save' }]
+            };
+            mockRepository.loadChatlog = vi.fn().mockResolvedValue(mockEntry);
+
+            // 1. Load the chatlog (should cache "Existing Title")
+            await service.loadChatlog('existing-id');
+
+            // 2. Request save with new messages
+            await service.requestSave('existing-id', mockEntry.messages, 'model', 'provider');
+
+            // 3. Verify title was NOT regenerated
+            expect(mockMiniModelRunner.generateTitle).not.toHaveBeenCalled();
+
+            // 4. Verify save used the existing title
+            expect(mockRepository.saveChatlog).toHaveBeenCalledWith(
+                'existing-id',
+                'Existing Title',
+                mockEntry.messages,
+                'model',
+                'provider'
+            );
+        });
+    });
 });

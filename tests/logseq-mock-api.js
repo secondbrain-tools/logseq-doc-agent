@@ -1,4 +1,5 @@
-import { getBlocks, blockState, registerContextMenuItem } from './logseq-sim-lib.js';
+import { effect } from 'https://esm.sh/@preact/signals@1.2.2';
+import { getBlocks, blockState, registerContextMenuItem, selectedBlockUuid } from './logseq-sim-lib.js';
 
 // Recursive helper to find a block by ID
 function findBlockById(roots, id) {
@@ -14,6 +15,7 @@ function findBlockById(roots, id) {
 
 // Mock implementation of the Logseq API
 export const logseq = {
+
     App: {
         getCurrentGraph: async () => ({
             name: 'localtests',
@@ -21,6 +23,42 @@ export const logseq = {
         }),
         registerUIItem: (location, config) => {
             console.log(`[MockLogseq] registerUIItem: ${location}`, config);
+
+            // Map Logseq locations to Simulator DOM IDs
+            let targetId = null;
+            if (location === 'pagebar') targetId = 'sim-pagebar';
+            else if (location === 'toolbar') targetId = 'sim-toolbar';
+
+            if (targetId) {
+                // Defer slightly to ensure DOM is ready? 
+                // Usually registerUIItem is called early. 
+                // Sim app might be mounted. Try immediate, if fails rely on retry or document check.
+                const tryInject = () => {
+                    const target = document.getElementById(targetId);
+                    if (target) {
+                        const temp = document.createElement('div');
+                        temp.innerHTML = config.template;
+                        const el = temp.firstElementChild;
+                        if (el) {
+                            // Remove existing by ID to avoid dupes
+                            const existing = document.getElementById(el.id);
+                            if (existing) existing.remove();
+
+                            target.appendChild(el);
+                            console.log(`[MockLogseq] Injected ${el.id} into ${targetId}`);
+                        }
+                    }
+                };
+
+                // If document is ready, try. If not, wait.
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', tryInject);
+                } else {
+                    tryInject();
+                    // Also retry a bit later for React/Preact mount
+                    setTimeout(tryInject, 500);
+                }
+            }
         },
         openRightSidebar: () => {
             console.log('[MockLogseq] openRightSidebar');
@@ -39,6 +77,23 @@ export const logseq = {
             if (logseq.App._routeChangedCallback) {
                 logseq.App._routeChangedCallback({ path, template: template || 'page' });
             }
+        },
+        registerCommandPalette: (config, callback) => {
+            console.log('[MockLogseq] registerCommandPalette registered:', config);
+            logseq.App._commands = logseq.App._commands || {};
+            logseq.App._commands[config.key] = { config, callback };
+
+            // Bind key listener in Sim?
+            // For now, simpler to expose a trigger helper
+        },
+        // Helper to trigger commands in simulation
+        _triggerCommand: (key) => {
+            console.log(`[MockLogseq] Triggering command: ${key}`);
+            if (logseq.App._commands && logseq.App._commands[key]) {
+                logseq.App._commands[key].callback();
+            } else {
+                console.warn(`[MockLogseq] Command not found: ${key}`);
+            }
         }
     },
     Editor: {
@@ -52,9 +107,12 @@ export const logseq = {
             return { uuid: 'new-block-uuid-' + Date.now() };
         },
         insertBlock: async (srcBlock, content, options) => {
-            console.log(`[MockLogseq] insertBlock: ${srcBlock}`, content);
-            // Naive implementation: Appends to the same page as the srcBlock
-            // 1. Find the page containing srcBlock
+            console.log(`[MockLogseq] insertBlock: ${srcBlock}`, content, options);
+            // Generate a unique ID for the new block
+            const blockId = Math.floor(Math.random() * 100000);
+            const blockUuid = 'mock-block-' + Math.random().toString(36).substr(2, 5);
+
+            // Find the page containing srcBlock
             let targetPage = null;
             for (const p of logseq._pages) {
                 if (p.blocks && p.blocks.find(b => b.uuid === srcBlock)) {
@@ -65,23 +123,28 @@ export const logseq = {
 
             // If not found, try to use the last active page or just fail gracefully
             if (!targetPage) {
-                // Fallback: If we just created a block in appendBlockInPage, maybe we can assume it's the last page in _pages?
                 if (logseq._pages.length > 0) {
                     targetPage = logseq._pages[logseq._pages.length - 1];
                 }
             }
 
+            const newBlock = {
+                id: blockId,
+                uuid: blockUuid,
+                content: content,
+                properties: options?.properties || {}
+            };
+
             if (targetPage) {
-                const newBlock = {
-                    uuid: 'mock-block-' + Math.random().toString(36).substr(2, 5),
-                    content: content
-                };
                 if (!targetPage.blocks) targetPage.blocks = [];
                 targetPage.blocks.push(newBlock);
-                return newBlock;
             }
 
-            return { uuid: 'new-block-uuid-' + Date.now() };
+            // Also add to blockState for getBlock lookups
+            const state = blockState.value;
+            state[blockUuid] = newBlock;
+
+            return newBlock;
         },
         registerSlashCommand: (name, callback) => {
             console.log(`[MockLogseq] registerSlashCommand: /${name}`);
@@ -184,12 +247,48 @@ export const logseq = {
                 console.warn(`[MockLogseq] updateBlock: Block not found ${uuid}`);
             }
         },
+        removeBlock: async (uuid) => {
+            console.log(`[MockLogseq] removeBlock: ${uuid}`);
+            const state = blockState.value;
+            const block = state[uuid];
+            if (block) {
+                // Remove from state
+                delete state[uuid];
+
+                // Also need to remove from parent's children array if possible
+                // This is hard without back-references in this simple mock
+                // But for `updateBlock` testing we might just check if children are gone from the parent object we hold
+                // Ideally we find the parent page or block
+
+                // Iterate pages to find parent
+                for (const p of logseq._pages) {
+                    if (p.blocks) {
+                        const idx = p.blocks.findIndex(b => b.uuid === uuid);
+                        if (idx !== -1) {
+                            p.blocks.splice(idx, 1);
+                            return;
+                        }
+                        // Recursive search for block parent
+                        const removeFromChildren = (nodes) => {
+                            const idx = nodes.findIndex(n => n.uuid === uuid);
+                            if (idx !== -1) {
+                                nodes.splice(idx, 1);
+                                return true;
+                            }
+                            for (const n of nodes) {
+                                if (n.children && removeFromChildren(n.children)) return true;
+                            }
+                            return false;
+                        };
+                        if (removeFromChildren(p.blocks)) return;
+                    }
+                }
+            } else {
+                console.warn(`[MockLogseq] removeBlock: Block not found ${uuid}`);
+            }
+        },
         removeBlockProperty: async (uuid, propName) => {
             console.log(`[MockLogseq] removeBlockProperty: ${uuid}, ${propName}`);
-            // Mock removing property
-            // Just update content to remove the property line?
-            // Since we don't have perfect source text mapping, let's just ignore or clean content in memory.
-            // We can strip it from `block.content` if present.
             const state = blockState.value;
             const block = state[uuid];
             if (block && block.content) {
@@ -198,13 +297,48 @@ export const logseq = {
                 const newLines = lines.filter(l => !l.includes(propName));
                 block.content = newLines.join('\n');
             }
+            if (block && block.properties) {
+                delete block.properties[propName];
+            }
         },
+        upsertBlockProperty: async (uuid, propName, propValue) => {
+            console.log(`[MockLogseq] upsertBlockProperty: ${uuid}, ${propName} = ${propValue}`);
+            const state = blockState.value;
+            const block = state[uuid];
+            if (block) {
+                if (!block.properties) block.properties = {};
+                // Normalize key to camelCase unless it's a logseq-doc-agent key
+                let normKey = propName;
+                if (!propName.startsWith('logseq-doc-agent')) {
+                    const normalize = (k) => k.split('.').map(part => part.replace(/-./g, x => x[1].toUpperCase())).join('.');
+                    normKey = normalize(propName);
+                }
+                block.properties[normKey] = propValue;
+                // Also update content to include property line so it persists in text if possible?
+                // Sim usually parses from text, so updating property object is temporary unless text changes.
+                // But for pure mock API testing, object update is enough.
+            } else {
+                console.warn(`[MockLogseq] upsertBlockProperty: Block not found ${uuid}`);
+            }
+        },
+        /**
+         * Custom Listener for Simulation
+         */
+        onBlockSelected: (callback) => {
+            console.log('[MockLogseq] onBlockSelected registered');
+            logseq.Editor._onBlockSelectedCallbacks = logseq.Editor._onBlockSelectedCallbacks || [];
+            logseq.Editor._onBlockSelectedCallbacks.push(callback);
+            return () => {
+                const idx = logseq.Editor._onBlockSelectedCallbacks.indexOf(callback);
+                if (idx > -1) logseq.Editor._onBlockSelectedCallbacks.splice(idx, 1);
+            };
+        }
     },
     DB: {
         q: async (query) => {
             console.log(`[MockLogseq] DB.q query: ${query}`);
             // Simple mock: if query is (property :propname), filter blocks having that property
-            const propMatch = query.match(/\(property :([\w-]+)\)/);
+            const propMatch = query.match(/\(property :([\w-.]+)\)/);
             if (propMatch) {
                 const propName = propMatch[1];
                 const results = [];
@@ -229,6 +363,14 @@ export const logseq = {
             }
 
             return [];
+        },
+        onChanged: (callback) => {
+            console.log('[MockLogseq] DB.onChanged registered');
+            // We could potentially store the callback to trigger DB changes manually
+            // logseq.DB._onChangedCallback = callback;
+            return () => {
+                console.log('[MockLogseq] DB.onChanged unsubscribed');
+            };
         },
     },
     UI: {
@@ -429,18 +571,57 @@ logseq.Editor.getPage = async (name) => {
 };
 
 logseq.Editor.getPageBlocksTree = async (name) => {
-    const page = logseq._pages.find(p => p.name === name || p.originalName === name);
+    // If the requested page matches the current simulation page title, return the live blocks
+    // Note: getBlocks returns the root blocks from logseq-sim-lib
+    const currentTitle = document.querySelector('.page-title')?.innerText;
+
+    // Check if name matches current page name, or current page UUID, or specific test page
+    // Also default to live blocks if name is null (current page)
+    const isCurrentPage = !name || name === currentTitle || name === 'Embracing Imperfection Guide' || name === 'page-uuid-123' || name === 'start-page';
+
+    // Helper to map internal sim nodes to BlockEntity and stringify properties
+    const mapNode = (node) => {
+        const props = node.properties || {};
+        const stringifiedProps = {};
+        for (const k in props) {
+            const val = props[k];
+            // Logseq returns complex properties as JSON strings usually
+            stringifiedProps[k] = typeof val === 'object' ? JSON.stringify(val) : val;
+        }
+
+        return {
+            uuid: node.uuid,
+            content: node.content,
+            properties: stringifiedProps,
+            children: node.children ? node.children.map(mapNode) : []
+        };
+    };
+
+    if (isCurrentPage) {
+        const blocks = getBlocks();
+        return blocks.map(mapNode);
+    }
+
+    // Fallback to the mocked _pages if defined
+    const page = logseq._pages.find(p => p.name === name || p.originalName === name || p.uuid === name);
     if (page && page.blocks) {
         // Return simulated blocks
         return page.blocks.map(b => ({
             uuid: b.uuid,
             content: b.content,
-            properties: {},
+            properties: b.properties || {}, // Properties here should already be strings if mocked manually
             children: []
         }));
     }
-    return [];
+
+    // If still not found, and we are in Sim, maybe just return live blocks as fallback?
+    // This helps when the plugin asks for a page by UUID that we don't know but is likely the current one.
+    console.warn(`[MockLogseq] getPageBlocksTree: Page "${name}" not found. Returning attributes of current page.`);
+    const blocks = getBlocks();
+    return blocks.map(mapNode);
 };
+
+logseq.Editor.getCurrentPageBlocksTree = () => logseq.Editor.getPageBlocksTree();
 
 // extend Editor.appendBlockInPage to update our mock pages
 const originalAppendBlock = logseq.Editor.appendBlockInPage;
@@ -464,6 +645,35 @@ logseq.Editor.appendBlockInPage = async (pageId, content) => {
 const originalQ = logseq.DB.q;
 logseq.DB.q = async (query) => {
     console.log(`[MockLogseq] DB.q query: ${query}`);
+
+    // Merge property query support
+    if (query.includes('logseq-doc-agent.merge') || query.includes('logseqDocAgent.merge')) {
+        console.log('[MockLogseq] Matched merge query');
+        const blocks = getBlocks();
+        const results = [];
+
+        const traverse = (nodes) => {
+            for (const node of nodes) {
+                const props = node.properties || {};
+                if (props['logseq-doc-agent.merge'] || props['logseqDocAgent.merge']) {
+                    // Stringify properties to match expected API behavior
+                    const stringifiedProps = {};
+                    for (const k in props) {
+                        const val = props[k];
+                        stringifiedProps[k] = typeof val === 'object' ? JSON.stringify(val) : val;
+                    }
+                    results.push({
+                        uuid: node.uuid,
+                        content: node.content,
+                        properties: stringifiedProps
+                    });
+                }
+                if (node.children) traverse(node.children);
+            }
+        };
+        traverse(blocks);
+        return results;
+    }
 
     // Agent property query: (property logseq-doc-agent.agent)
     if (query.includes('logseq-doc-agent.agent')) {
@@ -627,3 +837,16 @@ logseq.provideModel = (model) => {
     console.log(`[MockLogseq] provideModel received`, model);
     logseq._model = { ...logseq._model, ...model };
 };
+
+// --- Signal Effect for Selection ---
+effect(() => {
+    const uuid = selectedBlockUuid.value;
+    if (uuid && logseq.Editor._onBlockSelectedCallbacks) {
+        // Fetch full block details via getBlock to simulate realistic async fetch
+        logseq.Editor.getBlock(uuid).then(block => {
+            if (block) {
+                logseq.Editor._onBlockSelectedCallbacks.forEach(cb => cb(block));
+            }
+        });
+    }
+});

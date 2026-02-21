@@ -146,20 +146,7 @@
                             ? ''
                             : 'not-collapsed'}"
                     >
-                        <svg
-                            aria-hidden="true"
-                            version="1.1"
-                            viewBox="0 0 192 512"
-                            fill="currentColor"
-                            display="inline-block"
-                            class="h-4 w-4"
-                            style="margin-left: 2px;"
-                        >
-                            <path
-                                d="M0 384.662V127.338c0-17.818 21.543-26.741 34.142-14.142l128.662 128.662c7.81 7.81 7.81 20.474 0 28.284L34.142 398.804C21.543 411.404 0 402.48 0 384.662z"
-                                fill-rule="evenodd"
-                            ></path>
-                        </svg>
+                        {@html ICONS.collapseArrow}
                     </span>
                 </span>
                 <div class="ml-1 font-medium overflow-hidden whitespace-nowrap">
@@ -178,11 +165,7 @@
                 {/if}
 
                 {#if effectiveMenuOptions && effectiveMenuOptions.length > 0}
-                    {@render headerButton(
-                        "Options",
-                        `<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-dots" width="18" height="18" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"></path><circle cx="5" cy="12" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle></svg>`,
-                        openMenu,
-                    )}
+                    {@render headerButton("Options", ICONS.options, openMenu)}
                 {/if}
 
                 {@render headerButton(

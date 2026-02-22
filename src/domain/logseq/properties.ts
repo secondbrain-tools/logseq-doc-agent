@@ -4,6 +4,7 @@
  */
 export const LDA_MERGE_PROPERTY = 'logseq-doc-agent.merge';
 export const LDA_MERGE_PROPERTY_CAMEL = 'logseqDocAgent.merge';
+export const LDA_EVALUATION_PROPERTY = 'logseq-doc-agent.evaluation';
 
 export function filterProperties(
     content: string,

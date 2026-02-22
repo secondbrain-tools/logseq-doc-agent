@@ -4,10 +4,11 @@ import { createAddBlockTool } from './add_block_tool';
 import { createDeleteBlockTool } from './delete_block_tool';
 import { createMoveBlockTool } from './move_block_tool';
 import { createGetBlockTool } from './get_block_tool';
+import { createSubmitBlockEvaluationTool } from './submit_block_evaluation_tool';
 
 /** Tool categories for agent filtering */
 export const READONLY_TOOLS = ['getLogseqDocument', 'getBlock'] as const;
-export const WRITE_TOOLS = ['updateBlock', 'addBlock', 'deleteBlock', 'moveBlock'] as const;
+export const WRITE_TOOLS = ['updateBlock', 'addBlock', 'deleteBlock', 'moveBlock', 'submitBlockEvaluation'] as const;
 export const ALL_TOOL_NAMES = [...READONLY_TOOLS, ...WRITE_TOOLS] as const;
 
 export const createTools = (context: {
@@ -27,6 +28,7 @@ export const createTools = (context: {
     addBlock: createAddBlockTool(context),
     deleteBlock: createDeleteBlockTool(context),
     moveBlock: createMoveBlockTool(context),
+    submitBlockEvaluation: createSubmitBlockEvaluationTool(),
 });
 
 /**

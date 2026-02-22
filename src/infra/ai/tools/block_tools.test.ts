@@ -43,7 +43,7 @@ describe('Block Management Tools', () => {
             mockGetBlock.mockResolvedValue({ uuid: 'uuid-target' });
             mockInsertBlock.mockResolvedValue({ uuid: 'uuid-new', id: 999 });
 
-            const result = await (tool as any).execute({ targetId: 10, content: 'New Block' });
+            const result = await (tool as any).execute({ targetId: 10, content: 'New Block', parse_subtrees: false });
 
             expect(mockGetBlock).toHaveBeenCalledWith(10);
             expect(mockInsertBlock).toHaveBeenCalledWith('uuid-target', 'New Block', {});
@@ -258,7 +258,7 @@ describe('Block Management Tools', () => {
             const tool = createUpdateBlockTool({ merge: false });
             mockGetBlock.mockResolvedValue({ uuid: 'uuid-target' });
 
-            await (tool as any).execute({ id: 10, content: '- List item\n  - Nested item' });
+            await (tool as any).execute({ id: 10, content: '- List item\n  - Nested item', parse_subtrees: false });
 
             expect(mockUpdateBlock).toHaveBeenCalledWith(
                 'uuid-target',

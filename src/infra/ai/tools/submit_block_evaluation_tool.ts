@@ -9,7 +9,7 @@ const getLogseq = () => (window as any).logseq;
 
 export const createSubmitBlockEvaluationTool = () => tool({
     description: `Persist an agent-produced evaluation for a specific text block. The agent must provide per-criterion scores (1-5) with reasons, and may optionally include evidence selectors (span references) and improvement suggestions.`,
-    parameters: z.object({
+    inputSchema: z.object({
         block_id: z.union([z.number(), z.string()]).describe('Identifier of the block being evaluated (provided by the host application).'),
         evaluation: BlockEvaluationSchema
     }),

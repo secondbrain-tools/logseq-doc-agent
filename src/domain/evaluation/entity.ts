@@ -66,3 +66,13 @@ export const BlockEvaluationSchema = z.object({
 });
 
 export type BlockEvaluation = z.infer<typeof BlockEvaluationSchema>;
+
+export function parseEvaluation(jsonString: string): BlockEvaluation | null {
+    try {
+        const parsed = JSON.parse(jsonString);
+        return BlockEvaluationSchema.parse(parsed);
+    } catch (e) {
+        console.error("Failed to parse BlockEvaluation", e);
+        return null;
+    }
+}

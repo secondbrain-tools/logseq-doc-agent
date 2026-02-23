@@ -1,2 +1,2 @@
-export * from './inject-ratings.usecase';
+export * from './inject-evaluations.usecase';
 export * from './add-to-sidebar.usecase';

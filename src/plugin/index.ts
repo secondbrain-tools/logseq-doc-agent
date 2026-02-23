@@ -5,7 +5,7 @@ import '@logseq/libs';
 
 // Standard imports to include in the bundle (dist/index.css)
 import '../app.css';
-import '../ui/styles/feedback-components.css';
+import '../ui/styles/evaluation-components.css';
 import '../ui/styles/merge-components.css';
 import '../ui/styles/modal.css';
 import '../ui/styles/chat.css';
@@ -44,7 +44,7 @@ export const setupPlugin = async () => {
             Services.instance.sidebarInjector.dispose();
 
             // Clean up injected ratings and merge icons
-            Services.instance.injectRatingsUseCase.dispose();
+            Services.instance.injectEvaluationsUseCase.dispose();
             Services.instance.injectMergesUseCase.dispose();
         });
     }
@@ -199,7 +199,7 @@ export const setupPlugin = async () => {
         // Small delay to ensure DOM is ready (especially for route changes)
         setTimeout(() => {
             try {
-                services.injectRatingsUseCase.execute();
+                services.injectEvaluationsUseCase.execute();
                 services.injectMergesUseCase.execute();
             } catch (error) {
                 console.error('Error injecting feedback components:', error);

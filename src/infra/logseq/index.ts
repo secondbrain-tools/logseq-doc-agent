@@ -2,7 +2,7 @@
  * Logseq-specific infrastructure implementations
  */
 
-export { LogseqRatingCalculator } from './rating-calculator';
+export { LogseqEvaluationCalculator } from './evaluation-calculator';
 export { LogseqApiImpl } from './logseq-api';
 
 // Re-export the consolidated frontend component injector for use in Logseq

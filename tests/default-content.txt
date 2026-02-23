@@ -1,9 +1,9 @@
 Embracing Imperfection Guide
 * property:: true
   ls-type:: guide
-  feedback:: {"CONTENT":{"ACCURACY":{"rating":3,"feedback":"Gesamtdokument – überwiegend fachlich korrekt..."}}}
+  logseq-doc-agent.evaluation:: {"results":[{"criterion_id":"ACCURACY","category":"CONTENT","score":3,"reason":"Gesamtdokument – überwiegend fachlich korrekt...","evidence":[],"suggestions":[]},{"criterion_id":"RELEVANCE","category":"CONTENT","score":4,"reason":"The content is highly relevant to the topic of imperfection.","evidence":[],"suggestions":[]},{"criterion_id":"DEPTH","category":"CONTENT","score":2,"reason":"Could explore the psychological aspects more deeply.","evidence":[],"suggestions":[]}],"summary":{"overall_score":3,"overall_reason":"Good","category_aggregates":[]}}
 * Embracing Imperfection
-  feedback:: {"LANGUAGE":{"CLARITY":{"rating":3,"feedback":"Sektion 2.1 – klarer, verständlicher Titel..."}}}
+  logseq-doc-agent.evaluation:: {"results":[{"criterion_id":"CLARITY","category":"LANGUAGE","score":3,"reason":"Sektion 2.1 – klarer, verständlicher Titel...","evidence":[],"suggestions":[]},{"criterion_id":"GRAMMAR","category":"LANGUAGE","score":5,"reason":"No grammatical errors found.","evidence":[],"suggestions":[]},{"criterion_id":"FLOW","category":"STRUCTURE","score":4,"reason":"The ideas flow logically from one to the next.","evidence":[],"suggestions":[]},{"criterion_id":"FORMATTING","category":"STRUCTURE","score":2,"reason":"Bullet points are nested inconsistently in some areas.","evidence":[],"suggestions":[]},{"criterion_id":"EMPATHY","category":"TONE","score":5,"reason":"The tone is highly empathetic and encouraging.","evidence":[],"suggestions":[]}],"summary":{"overall_score":3.8,"overall_reason":"Very Good","category_aggregates":[]}}
   * Our society glorifies perfection and achievement, but the truth is that **imperfection is an inevitable** part of the human experience. Instead of constantly striving for perfection, it's important to learn to embrace our imperfections.
   * Accepting imperfection:
     status:: active

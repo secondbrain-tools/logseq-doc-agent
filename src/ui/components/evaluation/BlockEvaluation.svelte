@@ -1,21 +1,21 @@
 <script lang="ts">
   import { createEventDispatcher, onMount, onDestroy } from "svelte";
-  import RatingPopover from "./RatingPopover.svelte";
-  import RatingStars from "./RatingStars.svelte";
-  import { RatingValue } from "../../../domain/rating";
-  import type { FeedbackRating, CategoryRating } from "../../../domain/rating";
+  import EvaluationPopover from "./EvaluationPopover.svelte";
+  import EvaluationScore from "./EvaluationScore.svelte";
+  import type { BlockEvaluation } from "../../../domain/evaluation/entity";
+  import { FrontendEvaluationCalculator } from "../../../infra/frontend/evaluation-calculator";
 
   let {
-    rating = 0,
-    feedbackData,
-    categoryRatings = [],
+    evaluationData,
   }: {
-    rating?: number;
-    feedbackData?: FeedbackRating;
-    categoryRatings?: CategoryRating[];
+    evaluationData: BlockEvaluation;
   } = $props();
 
   let showPopover = $state(false);
+
+  // Calculate the overall score dynamically or use summary
+  const calculator = new FrontendEvaluationCalculator();
+  const rating = $derived(calculator.calculateOverallScore(evaluationData));
 
   // Element references
   let buttonRef = $state<HTMLElement>();
@@ -24,12 +24,6 @@
 
   const dispatch = createEventDispatcher();
   let cleanupListeners = () => {};
-
-  // Generate star display based on rating
-  function getStarDisplay(ratingValue: number): string {
-    const rating = RatingValue.fromNumber(ratingValue);
-    return rating.toStars();
-  }
 
   // --- Positioning Logic ---
 
@@ -171,7 +165,7 @@
     title="Rating: {rating}/5 - Click for details"
     aria-label="Rating {rating} out of 5 stars, click for details"
   >
-    <RatingStars {rating} showValue={false} size="md" />
+    <EvaluationScore {rating} showValue={false} size="md" />
   </button>
 
   {#if showPopover}
@@ -186,9 +180,8 @@
       aria-labelledby="popover-title"
       tabindex="0"
     >
-      <RatingPopover
-        {feedbackData}
-        {categoryRatings}
+      <EvaluationPopover
+        {evaluationData}
         {showPopover}
         on:close={() => {
           showPopover = false;
@@ -197,5 +190,3 @@
     </div>
   {/if}
 </div>
-
-<!-- Styles in src/ui/styles/feedback-components.css -->

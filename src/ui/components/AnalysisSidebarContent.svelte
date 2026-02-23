@@ -1,18 +1,16 @@
 <script lang="ts">
     import { createEventDispatcher } from "svelte";
-    import { RatingValue } from "../../domain/rating";
+    import { slide } from "svelte/transition";
     import type {
-        FeedbackRating,
-        CategoryRating,
-        CriterionRating,
-    } from "../../domain/rating";
-    import { fade, slide } from "svelte/transition";
-    import RatingStars from "./rating/RatingStars.svelte";
+        BlockEvaluation,
+        CriterionResult,
+    } from "../../domain/evaluation/entity";
+    import EvaluationScore from "./evaluation/EvaluationScore.svelte";
 
     let {
-        feedbackData,
+        evaluationData,
     }: {
-        feedbackData: FeedbackRating;
+        evaluationData: BlockEvaluation;
     } = $props();
 
     const dispatch = createEventDispatcher();
@@ -27,54 +25,78 @@
     let expandedFeedback = $state<Record<string, boolean>>({});
 
     // --- Derived ---
+    // Group results by category
+    const groupedByCategory = $derived(() => {
+        const groups: Record<string, CriterionResult[]> = {};
+        for (const res of evaluationData?.results || []) {
+            const cat = res.category || "Uncategorized";
+            if (!groups[cat]) groups[cat] = [];
+            groups[cat].push(res);
+        }
+        return groups;
+    });
 
     // Filter and Sort Categories
-    const filteredCategories = $derived(
-        (feedbackData?.categoryRatings || [])
-            .map((cat) => {
-                // Filter criteria within category
-                const filteredCriteria = (cat.criteriaRatings || [])
-                    .filter((c) => {
-                        const matchesSearch = c.criterion
-                            .toLowerCase()
-                            .includes(searchQuery.toLowerCase());
-                        const matchesScore = showLowScoresOnly
-                            ? c.rating <= 2 && c.rating > 0
-                            : true; // Assuming <=2 includes 1 and 2.
-                        const matchesApplicable = showApplicableOnly
-                            ? c.rating > 0
-                            : true;
-                        return (
-                            matchesSearch && matchesScore && matchesApplicable
-                        );
-                    })
-                    .sort((a, b) => {
-                        // Default sorting: lowest score first.
-                        // Treat 0 (N/A) as high or low? Usually N/A is at bottom.
-                        const aVal = a.rating === 0 ? 99 : a.rating;
-                        const bVal = b.rating === 0 ? 99 : b.rating;
-                        return aVal - bVal;
-                    });
+    const filteredCategories = $derived(() => {
+        const groups = groupedByCategory();
+        const result = [];
 
-                return {
-                    ...cat,
-                    criteriaRatings: filteredCriteria,
-                    // Recalculate stats for the visible items if needed,
-                    // but the header usually shows stats for the *whole* category or filtered?
-                    // "Category header: Average + (applicable/total)" usually implies the category's source truth.
-                    // Let's keep the category stats as is, but maybe dim if empty?
-                };
-            })
-            .filter((cat) => cat.criteriaRatings.length > 0), // Only show categories that have matching criteria
-    );
+        for (const [categoryName, criteria] of Object.entries(groups)) {
+            const filteredCriteria = criteria
+                .filter((c) => {
+                    const matchesSearch = c.criterion_id
+                        .toLowerCase()
+                        .includes(searchQuery.toLowerCase());
+                    const matchesScore = showLowScoresOnly
+                        ? c.score <= 2 && c.score > 0
+                        : true;
+                    const matchesApplicable = showApplicableOnly
+                        ? c.score > 0
+                        : true;
+                    return matchesSearch && matchesScore && matchesApplicable;
+                })
+                .sort((a, b) => {
+                    const aVal = a.score === 0 ? 99 : a.score;
+                    const bVal = b.score === 0 ? 99 : b.score;
+                    return aVal - bVal;
+                });
+
+            if (filteredCriteria.length > 0) {
+                // Determine category mock average score
+                const sum = filteredCriteria.reduce(
+                    (acc, c) => acc + c.score,
+                    0,
+                );
+                const avg =
+                    filteredCriteria.length > 0
+                        ? Math.round((sum / filteredCriteria.length) * 10) / 10
+                        : 0;
+
+                result.push({
+                    category: categoryName,
+                    criteria: filteredCriteria,
+                    avgScore: avg,
+                    totalCount: criteria.length,
+                    applicableCount: criteria.filter((c) => c.score > 0).length,
+                });
+            }
+        }
+        return result;
+    });
 
     // --- Helpers ---
+    function getSeverity(
+        score: number,
+    ): "excellent" | "good" | "warning" | "bad" | "muted" {
+        if (score === 0) return "muted";
+        if (score > 4) return "excellent";
+        if (score > 3) return "good";
+        if (score > 2) return "warning";
+        return "bad";
+    }
 
-    // getStarColor helper removed in favor of CSS classes
-    // .lda-bg-{severity} and .lda-text-{severity}
-
-    function getApplicableCount(criteria: CriterionRating[]) {
-        return criteria.filter((c) => c.rating > 0).length;
+    function getPercentage(score: number): number {
+        return Math.round((score / 5) * 100);
     }
 
     function toggleCategory(categoryName: string) {
@@ -87,20 +109,17 @@
 
     function copyFeedback(text: string) {
         navigator.clipboard.writeText(text);
-        // Could add toast here
     }
 
     function ignoreBlock() {
-        console.log("Ignore block triggered");
-        dispatch("ignore", { feedbackData });
+        dispatch("ignore", { evaluationData });
     }
 
     function reRunAnalysis() {
-        console.log("Rerun analysis triggered");
-        dispatch("rerun", { feedbackData });
+        dispatch("rerun", { evaluationData });
     }
 
-    // Icons (Simple SVG strings)
+    // Icons
     const icons = {
         chevronDown: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>`,
         chevronRight: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>`,
@@ -110,18 +129,109 @@
     };
 </script>
 
+{#snippet criterionRow(categoryName: string, criterion: any)}
+    {@const uniqueId = categoryName + "-" + criterion.criterion_id}
+    <div class="lda-criterion-row">
+        <div class="lda-criterion-top">
+            <div class="lda-rating-wrapper">
+                <EvaluationScore
+                    rating={criterion.score}
+                    showValue={false}
+                    size="sm"
+                />
+            </div>
+            <div class="lda-criterion-info">
+                <div class="lda-criterion-title">
+                    {criterion.criterion_id}
+                </div>
+                <!-- svelte-ignore a11y_click_events_have_key_events -->
+                <!-- svelte-ignore a11y_no_static_element_interactions -->
+                <div
+                    class="lda-feedback-preview"
+                    onclick={() => toggleFeedback(uniqueId)}
+                >
+                    {expandedFeedback[uniqueId]
+                        ? ""
+                        : (criterion.reason || "").slice(0, 60) +
+                          ((criterion.reason?.length || 0) > 60 ? "..." : "")}
+                </div>
+            </div>
+        </div>
+
+        {#if expandedFeedback[uniqueId] || (criterion.reason?.length || 0) <= 60}
+            <div class="lda-feedback-full" transition:slide|local>
+                <p>{criterion.reason}</p>
+
+                {#if criterion.suggestions && criterion.suggestions.length > 0}
+                    <div class="lda-suggestions mt-2 pt-2 border-t">
+                        <strong>Suggestions:</strong>
+                        <ul
+                            class="lda-suggestions-list list-disc pl-4 text-sm mt-1"
+                        >
+                            {#each criterion.suggestions as suggestion}
+                                <li class="lda-suggestion-item pb-1">
+                                    {#if suggestion.selector?.exact}
+                                        <span
+                                            class="lda-suggestion-target italic opacity-75"
+                                            >"{suggestion.selector.exact}"</span
+                                        > ->
+                                    {/if}
+                                    {#if suggestion.proposed_text}
+                                        <span
+                                            class="lda-suggestion-proposal bg-blue-100 dark:bg-blue-900 px-1 rounded"
+                                            >{suggestion.proposed_text}</span
+                                        >
+                                    {/if}
+                                    <div
+                                        class="lda-suggestion-rationale text-xs opacity-75"
+                                    >
+                                        {suggestion.rationale}
+                                    </div>
+                                </li>
+                            {/each}
+                        </ul>
+                    </div>
+                {/if}
+
+                <div class="lda-feedback-actions mt-2">
+                    <button
+                        class="lda-action-btn"
+                        title="Copy Feedback"
+                        onclick={() => copyFeedback(criterion.reason)}
+                    >
+                        {@html icons.copy} Copy
+                    </button>
+                    <button
+                        class="lda-action-btn"
+                        title="Ignore"
+                        onclick={ignoreBlock}
+                    >
+                        {@html icons.ignore} Ignore
+                    </button>
+                    <button
+                        class="lda-action-btn"
+                        title="Re-run"
+                        onclick={reRunAnalysis}
+                    >
+                        {@html icons.refresh} Re-run
+                    </button>
+                </div>
+            </div>
+        {/if}
+    </div>
+{/snippet}
+
 <div class="lda-sidebar">
-    <!-- Header / Filters -->
-    <div class="lda-sidebar-header">
+    <div class="lda-analysis-header">
         <div class="lda-sidebar-title">
             <h3>Analysis Report</h3>
-            {#if feedbackData}
+            {#if evaluationData && evaluationData.summary}
                 <div
-                    class="lda-overall-score lda-text-{RatingValue.fromNumber(
-                        feedbackData.overallRating,
-                    ).getSeverity()}"
+                    class="lda-overall-score lda-text-{getSeverity(
+                        evaluationData.summary.overall_score || 0,
+                    )}"
                 >
-                    {feedbackData.overallRating}/5
+                    {evaluationData.summary.overall_score}/5
                 </div>
             {/if}
         </div>
@@ -146,20 +256,18 @@
         </div>
     </div>
 
-    <!-- Content -->
     <div class="lda-sidebar-scroll">
-        {#if filteredCategories.length === 0}
+        {#if filteredCategories().length === 0}
             <div class="lda-empty-state">No matching criteria found.</div>
+        {:else if filteredCategories().length === 1}
+            {@const category = filteredCategories()[0]}
+            <div style="padding-top: 4px;">
+                {#each category.criteria as criterion (criterion.criterion_id)}
+                    {@render criterionRow(category.category, criterion)}
+                {/each}
+            </div>
         {:else}
-            {#each filteredCategories as category (category.category)}
-                {@const ratingObj = RatingValue.fromNumber(
-                    category.overallRating,
-                )}
-                {@const applicable = getApplicableCount(
-                    category.criteriaRatings,
-                )}
-                {@const total = category.criteriaRatings.length}
-
+            {#each filteredCategories() as category (category.category)}
                 <div class="lda-accordion-item">
                     <button
                         class="lda-accordion-header"
@@ -175,21 +283,24 @@
                                 >{category.category}</span
                             >
                             <span
-                                class="lda-category-avg lda-text-{RatingValue.fromNumber(
-                                    category.overallRating,
-                                ).getSeverity()}"
+                                class="lda-category-avg lda-text-{getSeverity(
+                                    category.avgScore,
+                                )}"
                             >
-                                Avg {category.overallRating}
+                                Avg {category.avgScore}
                             </span>
                             <span class="lda-category-count">
-                                ({applicable}/{total})
+                                ({category.applicableCount}/{category.totalCount})
                             </span>
                         </div>
-                        <!-- Progress Bar -->
                         <div class="lda-dist-bar">
                             <div
-                                class="lda-dist-segment lda-bg-{ratingObj.getSeverity()}"
-                                style="width: {ratingObj.getPercentage()}%;"
+                                class="lda-dist-segment lda-bg-{getSeverity(
+                                    category.avgScore,
+                                )}"
+                                style="width: {getPercentage(
+                                    category.avgScore,
+                                )}%;"
                             ></div>
                         </div>
                     </button>
@@ -199,80 +310,11 @@
                             class="lda-accordion-content-panel"
                             transition:slide|local
                         >
-                            {#each category.criteriaRatings as criterion (criterion.criterion)}
-                                {@const uniqueId =
-                                    category.category +
-                                    "-" +
-                                    criterion.criterion}
-                                <div class="lda-criterion-row">
-                                    <div class="lda-criterion-top">
-                                        <div class="lda-rating-wrapper">
-                                            <RatingStars
-                                                rating={criterion.rating}
-                                                showValue={false}
-                                                size="sm"
-                                            />
-                                        </div>
-                                        <div class="lda-criterion-info">
-                                            <div class="lda-criterion-title">
-                                                {criterion.criterion}
-                                            </div>
-                                            <!-- svelte-ignore a11y_click_events_have_key_events -->
-                                            <!-- svelte-ignore a11y_no_static_element_interactions -->
-                                            <div
-                                                class="lda-feedback-preview"
-                                                onclick={() =>
-                                                    toggleFeedback(uniqueId)}
-                                            >
-                                                {expandedFeedback[uniqueId]
-                                                    ? ""
-                                                    : (
-                                                          criterion.feedback ||
-                                                          ""
-                                                      ).slice(0, 60) +
-                                                      (criterion.feedback
-                                                          ?.length > 60
-                                                          ? "..."
-                                                          : "")}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {#if expandedFeedback[uniqueId] || criterion.feedback?.length <= 60}
-                                        <div
-                                            class="lda-feedback-full"
-                                            transition:slide|local
-                                        >
-                                            <p>{criterion.feedback}</p>
-                                            <div class="lda-feedback-actions">
-                                                <button
-                                                    class="lda-action-btn"
-                                                    title="Copy Feedback"
-                                                    onclick={() =>
-                                                        copyFeedback(
-                                                            criterion.feedback,
-                                                        )}
-                                                >
-                                                    {@html icons.copy} Copy
-                                                </button>
-                                                <button
-                                                    class="lda-action-btn"
-                                                    title="Ignore"
-                                                    onclick={ignoreBlock}
-                                                >
-                                                    {@html icons.ignore} Ignore
-                                                </button>
-                                                <button
-                                                    class="lda-action-btn"
-                                                    title="Re-run"
-                                                    onclick={reRunAnalysis}
-                                                >
-                                                    {@html icons.refresh} Re-run
-                                                </button>
-                                            </div>
-                                        </div>
-                                    {/if}
-                                </div>
+                            {#each category.criteria as criterion (criterion.criterion_id)}
+                                {@render criterionRow(
+                                    category.category,
+                                    criterion,
+                                )}
                             {/each}
                         </div>
                     {/if}

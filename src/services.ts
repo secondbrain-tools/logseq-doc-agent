@@ -1,5 +1,5 @@
 
-import { InjectRatingsUseCase } from './application/usecases/inject-ratings.usecase';
+import { InjectEvaluationsUseCase } from './application/usecases/inject-evaluations.usecase';
 import { InjectMergesUseCase } from './application/usecases/inject-merges.usecase';
 import { FrontendComponentInjector, FrontendStyleInjector } from './infra/frontend';
 import { LogseqApiImpl } from './infra/logseq';
@@ -32,7 +32,7 @@ export class Services {
     public agentRepository: LogseqAgentRepository;
 
     // Use Cases
-    public injectRatingsUseCase: InjectRatingsUseCase;
+    public injectEvaluationsUseCase: InjectEvaluationsUseCase;
     public injectMergesUseCase: InjectMergesUseCase;
     public chatUseCase: ChatSidebarUseCase;
 
@@ -69,7 +69,7 @@ export class Services {
         );
 
         // Initialize Use Cases
-        this.injectRatingsUseCase = new InjectRatingsUseCase(
+        this.injectEvaluationsUseCase = new InjectEvaluationsUseCase(
             new FrontendComponentInjector(),
             new FrontendStyleInjector(),
             this.logseqApi

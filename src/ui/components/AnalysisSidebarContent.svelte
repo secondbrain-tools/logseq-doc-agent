@@ -20,9 +20,8 @@
     let showApplicableOnly = $state(false);
     let searchQuery = $state("");
 
-    // Track expanded state for categories and feedback items
+    // Track expanded state for categories
     let expandedCategories = $state<Record<string, boolean>>({});
-    let expandedFeedback = $state<Record<string, boolean>>({});
 
     // --- Derived ---
     // Group results by category
@@ -56,8 +55,8 @@
                     return matchesSearch && matchesScore && matchesApplicable;
                 })
                 .sort((a, b) => {
-                    const aVal = a.score === 0 ? 99 : a.score;
-                    const bVal = b.score === 0 ? 99 : b.score;
+                    const aVal = (a.score as number) === 0 ? 99 : a.score;
+                    const bVal = (b.score as number) === 0 ? 99 : b.score;
                     return aVal - bVal;
                 });
 
@@ -103,29 +102,16 @@
         expandedCategories[categoryName] = !expandedCategories[categoryName];
     }
 
-    function toggleFeedback(id: string) {
-        expandedFeedback[id] = !expandedFeedback[id];
-    }
-
-    function copyFeedback(text: string) {
-        navigator.clipboard.writeText(text);
-    }
-
     function ignoreBlock() {
         dispatch("ignore", { evaluationData });
-    }
-
-    function reRunAnalysis() {
-        dispatch("rerun", { evaluationData });
     }
 
     // Icons
     const icons = {
         chevronDown: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>`,
         chevronRight: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>`,
-        copy: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>`,
+        reply: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>`,
         ignore: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`,
-        refresh: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>`,
     };
 </script>
 
@@ -144,80 +130,56 @@
                 <div class="lda-criterion-title">
                     {criterion.criterion_id}
                 </div>
-                <!-- svelte-ignore a11y_click_events_have_key_events -->
-                <!-- svelte-ignore a11y_no_static_element_interactions -->
-                <div
-                    class="lda-feedback-preview"
-                    onclick={() => toggleFeedback(uniqueId)}
-                >
-                    {expandedFeedback[uniqueId]
-                        ? ""
-                        : (criterion.reason || "").slice(0, 60) +
-                          ((criterion.reason?.length || 0) > 60 ? "..." : "")}
-                </div>
             </div>
         </div>
 
-        {#if expandedFeedback[uniqueId] || (criterion.reason?.length || 0) <= 60}
-            <div class="lda-feedback-full" transition:slide|local>
-                <p>{criterion.reason}</p>
+        <div class="lda-feedback-full" transition:slide|local>
+            <p>{criterion.reason}</p>
 
-                {#if criterion.suggestions && criterion.suggestions.length > 0}
-                    <div class="lda-suggestions mt-2 pt-2 border-t">
-                        <strong>Suggestions:</strong>
-                        <ul
-                            class="lda-suggestions-list list-disc pl-4 text-sm mt-1"
-                        >
-                            {#each criterion.suggestions as suggestion}
-                                <li class="lda-suggestion-item pb-1">
-                                    {#if suggestion.selector?.exact}
-                                        <span
-                                            class="lda-suggestion-target italic opacity-75"
-                                            >"{suggestion.selector.exact}"</span
-                                        > ->
-                                    {/if}
-                                    {#if suggestion.proposed_text}
-                                        <span
-                                            class="lda-suggestion-proposal bg-blue-100 dark:bg-blue-900 px-1 rounded"
-                                            >{suggestion.proposed_text}</span
-                                        >
-                                    {/if}
-                                    <div
-                                        class="lda-suggestion-rationale text-xs opacity-75"
+            {#if criterion.suggestions && criterion.suggestions.length > 0}
+                <div class="lda-suggestions mt-2 pt-2 border-t">
+                    <strong>Suggestions:</strong>
+                    <ul
+                        class="lda-suggestions-list list-disc pl-4 text-sm mt-1"
+                    >
+                        {#each criterion.suggestions as suggestion}
+                            <li class="lda-suggestion-item pb-1">
+                                {#if suggestion.selector?.exact}
+                                    <span
+                                        class="lda-suggestion-target italic opacity-75"
+                                        >"{suggestion.selector.exact}"</span
+                                    > ->
+                                {/if}
+                                {#if suggestion.proposed_text}
+                                    <span
+                                        class="lda-suggestion-proposal bg-blue-100 dark:bg-blue-900 px-1 rounded"
+                                        >{suggestion.proposed_text}</span
                                     >
-                                        {suggestion.rationale}
-                                    </div>
-                                </li>
-                            {/each}
-                        </ul>
-                    </div>
-                {/if}
-
-                <div class="lda-feedback-actions mt-2">
-                    <button
-                        class="lda-action-btn"
-                        title="Copy Feedback"
-                        onclick={() => copyFeedback(criterion.reason)}
-                    >
-                        {@html icons.copy} Copy
-                    </button>
-                    <button
-                        class="lda-action-btn"
-                        title="Ignore"
-                        onclick={ignoreBlock}
-                    >
-                        {@html icons.ignore} Ignore
-                    </button>
-                    <button
-                        class="lda-action-btn"
-                        title="Re-run"
-                        onclick={reRunAnalysis}
-                    >
-                        {@html icons.refresh} Re-run
-                    </button>
+                                {/if}
+                                <div
+                                    class="lda-suggestion-rationale text-xs opacity-75"
+                                >
+                                    {suggestion.rationale}
+                                </div>
+                            </li>
+                        {/each}
+                    </ul>
                 </div>
+            {/if}
+
+            <div class="lda-feedback-actions mt-2">
+                <button
+                    class="lda-action-btn"
+                    title="Ignore"
+                    onclick={ignoreBlock}
+                >
+                    {@html icons.ignore} Ignore
+                </button>
+                <button class="lda-action-btn" title="Reply" onclick={() => {}}>
+                    {@html icons.reply} Reply
+                </button>
             </div>
-        {/if}
+        </div>
     </div>
 {/snippet}
 

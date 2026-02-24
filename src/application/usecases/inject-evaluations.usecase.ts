@@ -68,7 +68,8 @@ export class InjectEvaluationsUseCase extends BaseBlockInjector<BlockEvaluation>
 
   protected getComponentProps(blockId: string, data: BlockEvaluation): any {
     return {
-      evaluationData: data
+      evaluationData: data,
+      blockId: blockId
     };
   }
 }

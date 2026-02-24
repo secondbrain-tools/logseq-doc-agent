@@ -53,8 +53,13 @@ export class FrontendSidebarInjector implements SidebarInjector {
             instance.app = undefined;
         }
 
-        instance.container?.remove();
-        instance.indicator?.remove();
+        if (instance.container && instance.container.parentNode) {
+            instance.container.parentNode.removeChild(instance.container);
+        }
+        if (instance.indicator && instance.indicator.parentNode) {
+            instance.indicator.parentNode.removeChild(instance.indicator);
+        }
+
         instance.container = undefined;
         instance.indicator = undefined;
         instance.status = 'detached';
@@ -122,6 +127,7 @@ export class FrontendSidebarInjector implements SidebarInjector {
         }
 
         // 2. Prepare instance data
+
         let instance = this.instances.get(title);
         if (instance) {
             // Update existing instance

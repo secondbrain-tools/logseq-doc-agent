@@ -143,8 +143,9 @@
 .lda-accordion-item {
   background: var(--ls-primary-background-color, #ffffff);
   border: 1px solid var(--ls-border-color, #f3f4f6);
-  border-radius: 8px;
-  margin-bottom: 12px;
+  /*border-radius: 8px; */
+  margin-top: 10px;
+  margin-bottom: 10px;
   box-shadow: 0 1px 2px color-mix(in srgb, var(--ls-primary-text-color), transparent 95%);
   overflow: hidden;
   transition: box-shadow 0.2s;
@@ -298,30 +299,51 @@
 }
 
 .lda-analysis-header {
-  padding: 16px;
+  padding: 12px 16px 8px;
   background: var(--ls-secondary-background-color, #f9fafb);
   border-bottom: 1px solid var(--ls-border-color, #e5e7eb);
+  position: sticky;
+  top: 0;
+  z-index: 10;
   flex-shrink: 0;
   box-sizing: border-box;
-  min-height: min-content;
-  height: auto !important;
-  max-height: none !important;
-  position: relative;
-  z-index: 10;
 }
 
 .lda-sidebar-title {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
+  align-items: flex-start;
+  margin-bottom: 8px;
+  gap: 8px;
 }
 
-.lda-sidebar-title h3 {
+.lda-sidebar-title-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.lda-sidebar-title-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ls-secondary-text-color, #6b7280);
+}
+
+.lda-block-preview {
   margin: 0;
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--ls-primary-text-color);
+  padding: 0 0 0 8px;
+  border-left: 2px solid var(--ls-border-color, #d1d5db);
+  font-size: 12px;
+  color: var(--ls-secondary-text-color, #6b7280);
+  font-style: italic;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .lda-overall-score {
@@ -330,19 +352,81 @@
   padding: 4px 8px;
   background: var(--ls-tertiary-background-color, #f3f4f6);
   border-radius: 6px;
+  flex-shrink: 0;
 }
 
-.lda-filters {
+/* Toolbar: filters on left, search icon on right */
+.lda-toolbar {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.lda-filter-toggles {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
   flex-shrink: 0;
-  min-height: min-content;
+  align-items: center;
+}
+
+.lda-toggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--ls-secondary-text-color, #4b5563);
+  cursor: pointer;
+  user-select: none;
+}
+
+.lda-threshold-select {
+  background: transparent;
+  border: 1px solid var(--ls-border-color, #d1d5db);
+  border-radius: 3px;
+  font-size: 11px;
+  color: var(--ls-primary-text-color);
+  padding: 0 2px;
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+/* Search toggle button */
+.lda-toolbar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 4px 6px;
+  cursor: pointer;
+  color: var(--ls-secondary-text-color, #6b7280) !important;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.lda-toolbar-btn:hover {
+  background: var(--ls-tertiary-background-color, #e5e5e5);
+  color: var(--ls-primary-text-color);
+}
+
+.lda-toolbar-btn--active {
+  background: color-mix(in srgb, var(--ls-link-text-color, #3b82f6), transparent 85%);
+  border-color: color-mix(in srgb, var(--ls-link-text-color, #3b82f6), transparent 60%);
+  color: var(--ls-link-text-color, #3b82f6);
+}
+
+/* Search input row (toggleable) */
+.lda-search-row {
+  margin-top: 8px;
 }
 
 .lda-search-input {
   width: 100%;
-  padding: 8px 12px;
+  padding: 6px 10px;
   border: 1px solid var(--ls-border-color, #d1d5db);
   border-radius: 6px;
   font-size: 13px;
@@ -358,28 +442,9 @@
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--ls-link-text-color, #3b82f6), transparent 90%);
 }
 
-.lda-filter-toggles {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  flex-shrink: 0;
-}
-
-.lda-toggle {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--ls-secondary-text-color, #4b5563);
-  cursor: pointer;
-  user-select: none;
-}
-
 .lda-sidebar-scroll {
   flex: 1;
   overflow-y: auto;
-  padding-left: 5px;
-  /* Scrollbar override optional, Logseq usually handles it globally */
 }
 
 /* Sidebar Criterion Rows */

@@ -9,22 +9,24 @@
 
     let {
         evaluationData,
+        blockText = undefined,
     }: {
         evaluationData: BlockEvaluation;
+        blockText?: string;
     } = $props();
 
     const dispatch = createEventDispatcher();
 
     // --- State ---
     let showLowScoresOnly = $state(false);
-    let showApplicableOnly = $state(false);
     let searchQuery = $state("");
+    let showSearch = $state(false);
+    let scoreThreshold = $state(2); // configurable: 1-4
 
     // Track expanded state for categories
     let expandedCategories = $state<Record<string, boolean>>({});
 
     // --- Derived ---
-    // Group results by category
     const groupedByCategory = $derived(() => {
         const groups: Record<string, CriterionResult[]> = {};
         for (const res of evaluationData?.results || []) {
@@ -35,7 +37,6 @@
         return groups;
     });
 
-    // Filter and Sort Categories
     const filteredCategories = $derived(() => {
         const groups = groupedByCategory();
         const result = [];
@@ -47,12 +48,9 @@
                         .toLowerCase()
                         .includes(searchQuery.toLowerCase());
                     const matchesScore = showLowScoresOnly
-                        ? c.score <= 2 && c.score > 0
+                        ? c.score <= scoreThreshold && c.score > 0
                         : true;
-                    const matchesApplicable = showApplicableOnly
-                        ? c.score > 0
-                        : true;
-                    return matchesSearch && matchesScore && matchesApplicable;
+                    return matchesSearch && matchesScore;
                 })
                 .sort((a, b) => {
                     const aVal = (a.score as number) === 0 ? 99 : a.score;
@@ -61,7 +59,6 @@
                 });
 
             if (filteredCriteria.length > 0) {
-                // Determine category mock average score
                 const sum = filteredCriteria.reduce(
                     (acc, c) => acc + c.score,
                     0,
@@ -102,12 +99,20 @@
         dispatch("ignore", { evaluationData });
     }
 
+    // Block text preview (first 50 chars)
+    const blockPreview = $derived(() => {
+        if (!blockText) return null;
+        const clean = blockText.replace(/\[\[|\]\]/g, "").trim();
+        return clean.length > 50 ? clean.slice(0, 50) + "…" : clean;
+    });
+
     // Icons
     const icons = {
         chevronDown: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>`,
         chevronRight: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>`,
         reply: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>`,
         ignore: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`,
+        search: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>`,
     };
 </script>
 
@@ -179,8 +184,16 @@
 
 <div class="lda-sidebar">
     <div class="lda-analysis-header">
+        <!-- Title row: score on right -->
         <div class="lda-sidebar-title">
-            <h3>Analysis Report</h3>
+            <div class="lda-sidebar-title-left">
+                <span class="lda-sidebar-title-label">Analysis Report</span>
+                {#if blockPreview()}
+                    <blockquote class="lda-block-preview">
+                        {blockPreview()}
+                    </blockquote>
+                {/if}
+            </div>
             {#if evaluationData && evaluationData.summary}
                 <div
                     class="lda-overall-score lda-text-{getSeverity(
@@ -192,24 +205,55 @@
             {/if}
         </div>
 
-        <div class="lda-filters">
-            <input
-                type="text"
-                placeholder="Search criteria..."
-                bind:value={searchQuery}
-                class="lda-search-input"
-            />
+        <!-- Toolbar row: toggles + search button -->
+        <div class="lda-toolbar">
             <div class="lda-filter-toggles">
-                <label class="lda-toggle">
+                <label
+                    class="lda-toggle"
+                    title="Show only criteria with low scores"
+                >
                     <input type="checkbox" bind:checked={showLowScoresOnly} />
-                    <span>Matches ≤ 2</span>
-                </label>
-                <label class="lda-toggle">
-                    <input type="checkbox" bind:checked={showApplicableOnly} />
-                    <span>Applicable Only</span>
+                    <span>
+                        Score ≤
+                        <!-- inline threshold selector -->
+                        <select
+                            class="lda-threshold-select"
+                            bind:value={scoreThreshold}
+                            onclick={(e) => e.stopPropagation()}
+                        >
+                            {#each [1, 2, 3, 4] as n}
+                                <option value={n}>{n}</option>
+                            {/each}
+                        </select>
+                    </span>
                 </label>
             </div>
+
+            <button
+                class="lda-toolbar-btn {showSearch
+                    ? 'lda-toolbar-btn--active'
+                    : ''}"
+                title="Toggle search"
+                onclick={() => {
+                    showSearch = !showSearch;
+                    if (!showSearch) searchQuery = "";
+                }}
+            >
+                {@html icons.search}
+            </button>
         </div>
+
+        <!-- Search field: toggleable, slides in below toolbar -->
+        {#if showSearch}
+            <div class="lda-search-row" transition:slide>
+                <input
+                    type="text"
+                    placeholder="Search criteria…"
+                    bind:value={searchQuery}
+                    class="lda-search-input"
+                />
+            </div>
+        {/if}
     </div>
 
     <div class="lda-sidebar-scroll">

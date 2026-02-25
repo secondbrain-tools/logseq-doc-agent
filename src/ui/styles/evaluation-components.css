@@ -393,8 +393,8 @@
   vertical-align: middle;
 }
 
-/* Search toggle button */
-.lda-toolbar-btn {
+/* Search toggle button — scoped to analysis header to avoid conflict with merge toolbar */
+.lda-analysis-header .lda-toolbar-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -408,12 +408,12 @@
   flex-shrink: 0;
 }
 
-.lda-toolbar-btn:hover {
+.lda-analysis-header .lda-toolbar-btn:hover {
   background: var(--ls-tertiary-background-color, #e5e5e5);
   color: var(--ls-primary-text-color);
 }
 
-.lda-toolbar-btn--active {
+.lda-analysis-header .lda-toolbar-btn--active {
   background: color-mix(in srgb, var(--ls-link-text-color, #3b82f6), transparent 85%);
   border-color: color-mix(in srgb, var(--ls-link-text-color, #3b82f6), transparent 60%);
   color: var(--ls-link-text-color, #3b82f6);

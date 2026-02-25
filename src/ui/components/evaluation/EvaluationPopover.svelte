@@ -58,13 +58,6 @@
     }));
   });
 
-  const hasDetailedFeedback = $derived(
-    categories().length > 0 &&
-      categories().some(
-        (cat) => cat.criteriaRatings && cat.criteriaRatings.length > 0,
-      ),
-  );
-
   const overallRating = $derived(
     calculator.calculateOverallScore(evaluationData),
   );
@@ -95,19 +88,6 @@
         node.removeEventListener("mousedown", stop);
       },
     };
-  }
-
-  function getSeverity(rating: number): string {
-    const rounded = Math.round(rating * 2) / 2;
-    if (rating === 0) return "muted";
-    if (rounded > 4) return "excellent";
-    if (rounded > 3) return "good";
-    if (rounded > 2) return "warning";
-    return "bad";
-  }
-
-  function getPercentage(rating: number): number {
-    return Math.round((rating / 5) * 100);
   }
 </script>
 
@@ -221,7 +201,7 @@
   <div class="lda-popover-header">
     <div class="lda-popover-header-row">
       <h4 id="lda-popover-title" class="lda-popover-title">
-        {hasDetailedFeedback ? "Detailed Evaluation" : "Detailed Scores"}
+        Detailed Evaluation
         {#if evaluationData}
           <div style="display: inline-block; margin-left: 8px;">
             <EvaluationScore
@@ -254,81 +234,48 @@
     </div>
   </div>
   <div class="lda-popover-content">
-    {#if hasDetailedFeedback}
-      {#if categories().length === 1}
-        <div style="padding-top: 10px; padding-bottom: 5px;">
-          {@render criterionList(
-            categories()[0].category,
-            categories()[0].criteriaRatings,
-            true,
-          )}
-        </div>
-      {:else}
-        {#each categories() as category}
-          <div class="lda-accordion-item">
-            <button
-              type="button"
-              class="lda-accordion-header"
-              use:genericClick={() => toggleCategory(category.category)}
-            >
-              <div class="lda-accordion-title-row">
-                <span class="lda-accordion-icon">
-                  {@html expandedCategories[category.category]
-                    ? icons.chevronDown
-                    : icons.chevronRight}
-                </span>
-                <span class="lda-category-name">{category.category}</span>
-                <EvaluationScore
-                  rating={category.overallRating}
-                  showValue={true}
-                  size="sm"
-                />
-              </div>
-              <div class="lda-dist-bar">
-                <div
-                  style="width: {getPercentage(category.overallRating)}%;"
-                  class="lda-dist-segment lda-bg-{getSeverity(
-                    category.overallRating,
-                  )}"
-                ></div>
-              </div>
-            </button>
-
-            {#if expandedCategories[category.category]}
-              <div class="lda-accordion-content-panel">
-                {@render criterionList(
-                  category.category,
-                  category.criteriaRatings,
-                  false,
-                )}
-              </div>
-            {/if}
-          </div>
-        {/each}
-      {/if}
+    {#if categories().length === 1}
+      <div style="padding-top: 4px;">
+        {@render criterionList(
+          categories()[0].category,
+          categories()[0].criteriaRatings,
+          true,
+        )}
+      </div>
     {:else}
-      <table class="lda-ratings-table">
-        <thead>
-          <tr>
-            <th>Category</th>
-            <th>Score</th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each categories() as item}
-            <tr>
-              <td class="lda-category-name">{item.category}</td>
-              <td class="lda-rating-stars">
-                <EvaluationScore
-                  rating={item.overallRating}
-                  showValue={true}
-                  size="sm"
-                />
-              </td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
+      {#each categories() as category}
+        <div class="lda-accordion-item">
+          <button
+            type="button"
+            class="lda-accordion-header"
+            use:genericClick={() => toggleCategory(category.category)}
+          >
+            <div class="lda-accordion-title-row">
+              <span class="lda-accordion-icon">
+                {@html expandedCategories[category.category]
+                  ? icons.chevronDown
+                  : icons.chevronRight}
+              </span>
+              <span class="lda-category-name">{category.category}</span>
+              <EvaluationScore
+                rating={category.overallRating}
+                showValue={true}
+                size="sm"
+              />
+            </div>
+          </button>
+
+          {#if expandedCategories[category.category]}
+            <div class="lda-accordion-content-panel">
+              {@render criterionList(
+                category.category,
+                category.criteriaRatings,
+                false,
+              )}
+            </div>
+          {/if}
+        </div>
+      {/each}
     {/if}
   </div>
 </div>

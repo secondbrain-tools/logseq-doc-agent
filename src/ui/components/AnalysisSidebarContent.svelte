@@ -94,10 +94,6 @@
         return "bad";
     }
 
-    function getPercentage(score: number): number {
-        return Math.round((score / 5) * 100);
-    }
-
     function toggleCategory(categoryName: string) {
         expandedCategories[categoryName] = !expandedCategories[categoryName];
     }
@@ -119,17 +115,15 @@
     {@const uniqueId = categoryName + "-" + criterion.criterion_id}
     <div class="lda-criterion-row">
         <div class="lda-criterion-top">
+            <div class="lda-criterion-title">
+                {criterion.criterion_id}
+            </div>
             <div class="lda-rating-wrapper">
                 <EvaluationScore
                     rating={criterion.score}
                     showValue={false}
                     size="sm"
                 />
-            </div>
-            <div class="lda-criterion-info">
-                <div class="lda-criterion-title">
-                    {criterion.criterion_id}
-                </div>
             </div>
         </div>
 
@@ -223,11 +217,10 @@
             <div class="lda-empty-state">No matching criteria found.</div>
         {:else if filteredCategories().length === 1}
             {@const category = filteredCategories()[0]}
-            <div style="padding-top: 4px;">
-                {#each category.criteria as criterion (criterion.criterion_id)}
-                    {@render criterionRow(category.category, criterion)}
-                {/each}
-            </div>
+
+            {#each category.criteria as criterion (criterion.criterion_id)}
+                {@render criterionRow(category.category, criterion)}
+            {/each}
         {:else}
             {#each filteredCategories() as category (category.category)}
                 <div class="lda-accordion-item">
@@ -244,26 +237,14 @@
                             <span class="lda-category-name"
                                 >{category.category}</span
                             >
-                            <span
-                                class="lda-category-avg lda-text-{getSeverity(
-                                    category.avgScore,
-                                )}"
-                            >
-                                Avg {category.avgScore}
-                            </span>
+                            <EvaluationScore
+                                rating={category.avgScore}
+                                showValue={true}
+                                size="sm"
+                            />
                             <span class="lda-category-count">
                                 ({category.applicableCount}/{category.totalCount})
                             </span>
-                        </div>
-                        <div class="lda-dist-bar">
-                            <div
-                                class="lda-dist-segment lda-bg-{getSeverity(
-                                    category.avgScore,
-                                )}"
-                                style="width: {getPercentage(
-                                    category.avgScore,
-                                )}%;"
-                            ></div>
                         </div>
                     </button>
 

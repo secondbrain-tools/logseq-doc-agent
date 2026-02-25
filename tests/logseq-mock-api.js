@@ -321,6 +321,18 @@ export const logseq = {
                 console.warn(`[MockLogseq] upsertBlockProperty: Block not found ${uuid}`);
             }
         },
+        getBlockText: async (uuid) => {
+            const block = await logseq.Editor.getBlock(uuid, { includeChildren: false });
+            if (!block || !block.content) return '';
+            // Strip property lines (key:: value) and empty lines, matching LogseqApiImpl behaviour
+            return block.content
+                .split('\n')
+                .filter(line => {
+                    const t = line.trim();
+                    return t !== '' && !/^[^:]+::\s*.+$/.test(t);
+                })
+                .join('\n');
+        },
         /**
          * Custom Listener for Simulation
          */

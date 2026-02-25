@@ -66,10 +66,13 @@ export class InjectEvaluationsUseCase extends BaseBlockInjector<BlockEvaluation>
     }
   }
 
-  protected getComponentProps(blockId: string, data: BlockEvaluation): any {
+  protected override fetchBlockContent(): boolean { return true; }
+
+  protected getComponentProps(blockId: string, data: BlockEvaluation, blockContent?: string): any {
     return {
       evaluationData: data,
-      blockId: blockId
+      blockId: blockId,
+      blockText: blockContent
     };
   }
 }

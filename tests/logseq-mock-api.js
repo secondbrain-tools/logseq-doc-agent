@@ -349,8 +349,8 @@ export const logseq = {
     DB: {
         q: async (query) => {
             console.log(`[MockLogseq] DB.q query: ${query}`);
-            // Simple mock: if query is (property :propname), filter blocks having that property
-            const propMatch = query.match(/\(property :([\w-.]+)\)/);
+            // Simple mock: if query is (property :propname) or (property propname), filter blocks having that property
+            const propMatch = query.match(/\(property\s*:?([\w-.]+)\)/);
             if (propMatch) {
                 const propName = propMatch[1];
                 const results = [];
@@ -786,6 +786,43 @@ logseq-doc-agent.agent.description:: Writing assistance`,
             properties: c.properties,
             uuid: 'mock-page-uuid-' + c.properties['lda.chatlog.id']
         }));
+    }
+
+    // Generic property query fallback for the simulator
+    // Matches (property :prop-name) or (property prop-name)
+    const genericPropMatch = query.match(/\(property\s*:?([\w-.]+)\)/);
+    if (genericPropMatch) {
+        console.log(`[MockLogseq] Matched generic property query for: ${genericPropMatch[1]}`);
+        const propName = genericPropMatch[1];
+        const blocks = getBlocks();
+        const results = [];
+
+        const traverse = (nodes) => {
+            for (const node of nodes) {
+                const props = node.properties || {};
+
+                // Normalizing key for comparison (e.g. logseqDocAgent.prompt.name vs logseq-doc-agent.prompt.name)
+                // The parser might keep 'logseq-doc-agent' but camelCase others, we just do a simple check
+                if (props[propName] !== undefined ||
+                    Object.keys(props).some(k => k === propName.replace(/-./g, x => x[1].toUpperCase()))) {
+
+                    const stringifiedProps = {};
+                    for (const k in props) {
+                        const val = props[k];
+                        stringifiedProps[k] = typeof val === 'object' ? JSON.stringify(val) : val;
+                    }
+                    results.push({
+                        uuid: node.uuid,
+                        content: node.content,
+                        properties: stringifiedProps,
+                        page: { name: 'Simulator Page', 'original-name': 'Simulator Page' }
+                    });
+                }
+                if (node.children) traverse(node.children);
+            }
+        };
+        traverse(blocks);
+        return results;
     }
 
     return originalQ(query);

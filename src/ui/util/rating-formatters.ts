@@ -2,8 +2,6 @@
  * UI-only mappers/formatters for rating display
  */
 
-import { RatingValue } from '../../domain/rating';
-
 /**
  * Format rating value as a percentage
  */
@@ -16,10 +14,8 @@ export function formatRatingAsPercentage(rating: number, maxRating: number = 4):
  * Format rating value with stars and text
  */
 export function formatRatingWithStars(rating: number, maxRating: number = 4): string {
-  const ratingValue = RatingValue.fromNumber(rating, maxRating);
-  const stars = ratingValue.toStars();
   const percentage = formatRatingAsPercentage(rating, maxRating);
-  return `${stars} (${percentage})`;
+  return `${rating}/${maxRating} (${percentage})`;
 }
 
 /**

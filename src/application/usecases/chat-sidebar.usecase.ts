@@ -7,6 +7,7 @@ import type { ChatlogService } from '../services/chatlog.service';
 import type { ChatlogMetadata } from '../../domain/chatlog/types';
 import type { IAgentRepository } from '../ports/agent-repository';
 import type { AgentDefinition, AgentContext } from '../../domain/agent/types';
+import type { PromptTemplateService } from '../services/prompt-template.service';
 
 // Rewrite file with STORE approach for reactivity
 import { writable, type Writable, get } from 'svelte/store';
@@ -39,7 +40,8 @@ export class ChatSidebarUseCase {
         private sidebarInjector: SidebarInjector,
         private aiService: IAIService,
         private chatlogService?: ChatlogService,
-        private agentRepository?: IAgentRepository
+        private agentRepository?: IAgentRepository,
+        private promptTemplateService?: PromptTemplateService
     ) { }
 
     /**
@@ -122,7 +124,7 @@ export class ChatSidebarUseCase {
                 expandSignal: this.expandSignal,
                 showContinueButton: this.showContinueButton,
                 onContinue: () => this.continueGeneration(),
-                onSendMessage: (text: string, modelId: string, providerId: string, merge: boolean, reasoningEffort?: 'none' | 'low' | 'medium' | 'high', agentName?: string, contextItems?: any[]) => this.handleUserMessage(text, modelId, providerId, merge, reasoningEffort, agentName, contextItems),
+                onSendMessage: (text: string, modelId: string, providerId: string, merge: boolean, reasoningEffort?: 'none' | 'low' | 'medium' | 'high', agentName?: string, contextItems?: any[], selectedPrompts?: string[]) => this.handleUserMessage(text, modelId, providerId, merge, reasoningEffort, agentName, contextItems, selectedPrompts),
                 onStop: () => this.stopGeneration(),
                 onClose: () => {
                     this.isChatOpen = false;
@@ -272,27 +274,52 @@ export class ChatSidebarUseCase {
     }
 
     /**
-     * Build AgentContext from selected agent name
+     * Build AgentContext from selected agent name and selected prompts
      */
-    private buildAgentContext(agentName?: string): AgentContext | undefined {
-        if (!agentName) return undefined;
+    private async buildAgentContext(agentName?: string, selectedPrompts?: string[]): Promise<AgentContext | undefined> {
+        let systemPrompt = '';
+
+        // 1. Get base and selected prompts
+        if (this.promptTemplateService) {
+            systemPrompt += await this.promptTemplateService.getBasePrompt();
+
+            if (selectedPrompts && selectedPrompts.length > 0) {
+                for (const pName of selectedPrompts) {
+                    const content = await this.promptTemplateService.resolvePromptContent(pName);
+                    if (content) {
+                        systemPrompt += `\n\n${content}`;
+                    }
+                }
+            }
+        }
+
+        if (!agentName) {
+            return systemPrompt ? { prompt: systemPrompt, allowedTools: ['*'], agentName: 'DocAgent' } : undefined;
+        }
 
         const agentList = get(this.agents);
         const agent = agentList.find(a => a.name === agentName);
 
         if (!agent) {
             console.warn(`[ChatSidebarUseCase] Agent not found: ${agentName}`);
-            return undefined;
+            return systemPrompt ? { prompt: systemPrompt, allowedTools: ['*'], agentName: 'DocAgent' } : undefined;
+        }
+
+        // Merge tool-specific prompts if available
+        if (systemPrompt && agent.prompt) {
+            systemPrompt = `${systemPrompt}\n\n---\n\n${agent.prompt}`;
+        } else if (agent.prompt) {
+            systemPrompt = agent.prompt;
         }
 
         return {
             agentName: agent.name,
-            prompt: agent.prompt,
+            prompt: systemPrompt,
             allowedTools: agent.tools
         };
     }
 
-    private async handleUserMessage(text: string, modelId: string, providerId: string, merge: boolean, reasoningEffort?: 'none' | 'low' | 'medium' | 'high', agentName?: string, contextItems?: ContextItem[]) {
+    private async handleUserMessage(text: string, modelId: string, providerId: string, merge: boolean, reasoningEffort?: 'none' | 'low' | 'medium' | 'high', agentName?: string, contextItems?: ContextItem[], selectedPrompts?: string[]) {
         // Reset continue button when user types
         this.showContinueButton.set(false);
         this.lastReasoningEffort = reasoningEffort;
@@ -346,7 +373,7 @@ export class ChatSidebarUseCase {
         await this.executeAgentStream(this.currentModel, this.currentProvider, merge, this.lastReasoningEffort, agentName);
     }
 
-    private async executeAgentStream(modelId: string, providerId: string, merge: boolean, reasoningEffort?: 'none' | 'low' | 'medium' | 'high', agentName?: string) {
+    private async executeAgentStream(modelId: string, providerId: string, merge: boolean, reasoningEffort?: 'none' | 'low' | 'medium' | 'high', agentName?: string, selectedPrompts?: string[]) {
         this.isLoading.set(true);
         const aiMsgId = (Date.now() + 1).toString();
 
@@ -360,7 +387,7 @@ export class ChatSidebarUseCase {
             }]);
 
             const currentMessages = get(this.messages);
-            const agentContext = this.buildAgentContext(agentName);
+            const agentContext = await this.buildAgentContext(agentName, selectedPrompts);
 
             this.abortController = new AbortController();
 

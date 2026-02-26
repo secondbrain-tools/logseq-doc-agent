@@ -8,9 +8,11 @@
   let {
     evaluationData,
     blockId,
+    blockText,
   }: {
     evaluationData: BlockEvaluation;
     blockId?: string;
+    blockText?: string;
   } = $props();
 
   let showPopover = $state(false);
@@ -185,6 +187,7 @@
       <EvaluationPopover
         {evaluationData}
         {blockId}
+        {blockText}
         {showPopover}
         on:close={() => {
           showPopover = false;

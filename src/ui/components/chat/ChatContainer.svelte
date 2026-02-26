@@ -23,6 +23,7 @@
             reasoningEffort?: "none" | "low" | "medium" | "high",
             agentName?: string,
             contextItems?: any[],
+            selectedPrompts?: string[],
         ) => void;
         onClose: () => void;
         onReset: () => void;

@@ -7,9 +7,17 @@
         onClose: () => void;
         children: Snippet;
         headerActions?: Snippet;
+        overflowVisible?: boolean;
     }
 
-    let { isOpen, title, onClose, children, headerActions }: Props = $props();
+    let {
+        isOpen,
+        title,
+        onClose,
+        children,
+        headerActions,
+        overflowVisible = false,
+    }: Props = $props();
 
     function handleBackdropClick(e: MouseEvent) {
         if (e.target === e.currentTarget) {
@@ -23,7 +31,7 @@
     <div class="lda-chat-modal-backdrop" onclick={handleBackdropClick}>
         <div class="lda-chat-modal-container">
             <!-- Header -->
-            <div class="lda-chat-modal-header">
+            <div class="lda-chat-modal-header" style="z-index: 60;">
                 {#if headerActions}
                     {@render headerActions()}
                 {/if}
@@ -50,7 +58,10 @@
             </div>
 
             <!-- Content -->
-            <div class="lda-chat-modal-content">
+            <div
+                class="lda-chat-modal-content"
+                style={overflowVisible ? "overflow: visible;" : ""}
+            >
                 {@render children()}
             </div>
         </div>

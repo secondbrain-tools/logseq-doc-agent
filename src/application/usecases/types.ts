@@ -3,6 +3,3 @@
  * These types define the input/output contracts for use cases
  */
 
-
-// Re-export use case implementations
-export { InjectRatingsUseCase } from './inject-ratings.usecase';

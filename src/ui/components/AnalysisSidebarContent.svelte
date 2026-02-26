@@ -103,7 +103,7 @@
     const blockPreview = $derived(() => {
         if (!blockText) return null;
         const clean = blockText.replace(/\[\[|\]\]/g, "").trim();
-        return clean.length > 50 ? clean.slice(0, 50) + "…" : clean;
+        return clean.length > 150 ? clean.slice(0, 150) + "…" : clean;
     });
 
     // Icons
@@ -187,7 +187,6 @@
         <!-- Title row: score on right -->
         <div class="lda-sidebar-title">
             <div class="lda-sidebar-title-left">
-                <span class="lda-sidebar-title-label">Analysis Report</span>
                 {#if blockPreview()}
                     <blockquote class="lda-block-preview">
                         {blockPreview()}

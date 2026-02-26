@@ -19,6 +19,8 @@
     import type { Message, MessagePart } from "../../../domain/chat/types";
     import type { ChatlogMetadata } from "../../../domain/chatlog/types";
     import type { AgentDefinition } from "../../../domain/agent/types";
+    import type { ChatPrompt } from "../../../domain/chat/prompt";
+    import { Services } from "../../../services";
 
     interface Props {
         messages: Writable<Message[]>;
@@ -40,6 +42,7 @@
             reasoningEffort?: "none" | "low" | "medium" | "high",
             agentName?: string,
             contextItems?: ContextItem[],
+            selectedPrompts?: string[],
         ) => void;
         onClose: () => void;
         onReset: () => void;
@@ -98,6 +101,8 @@
     }
 
     let activeContexts = $state<ActiveContext[]>([]);
+    let selectedPrompts = $state<string[]>([]);
+    let availablePrompts = $state<ChatPrompt[]>([]);
 
     // --- Reactivity ---
     $effect(() => {
@@ -269,10 +274,12 @@
             currentModelSupportsReasoning ? reasoningEffort : undefined,
             agentName,
             activeContexts.filter((c) => c.isActive).map((c) => c.item), // Pass only active contexts
+            selectedPrompts, // user's selected prompts for this submit
         );
         inputText = "";
 
-        // Clear manual contexts, disable auto contexts
+        // Clear manual contexts, disable auto contexts, clear prompts
+        selectedPrompts = [];
         activeContexts = activeContexts
             .filter((c) => c.isAuto)
             .map((c) => ({ ...c, isActive: false }));
@@ -318,6 +325,11 @@
         // Let's refactor slightly to be clean.
         let cleanup: (() => void) | undefined;
         setupAutoContext().then((un) => (cleanup = un));
+
+        // Load Prompts
+        Services.instance.promptTemplateService
+            .listPrompts()
+            .then((p: ChatPrompt[]) => (availablePrompts = p));
 
         return () => {
             if (cleanup) cleanup();
@@ -690,6 +702,8 @@
     <div class="lda-input-wrapper">
         <ChatInputArea
             bind:inputText
+            bind:selectedPrompts
+            {availablePrompts}
             isLoading={$isLoading}
             {activeContexts}
             agents={$agents || []}

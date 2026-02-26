@@ -13,6 +13,7 @@ import { ChatlogService } from './application/services/chatlog.service';
 import { LogseqChatlogRepository } from './infra/logseq/chatlog-repository';
 import { LogseqSettingsAdapter } from './infra/logseq/settings-adapter';
 import { LogseqAgentRepository } from './infra/logseq/agent-repository';
+import { PromptTemplateService } from './application/services/prompt-template.service';
 
 // Globals from previous implementation
 // We use 'parent.document' because the plugin runs in an iframe
@@ -30,6 +31,7 @@ export class Services {
     public promptRepo: LogseqPromptRepository;
     public chatlogService: ChatlogService;
     public agentRepository: LogseqAgentRepository;
+    public promptTemplateService: PromptTemplateService;
 
     // Use Cases
     public injectEvaluationsUseCase: InjectEvaluationsUseCase;
@@ -68,6 +70,11 @@ export class Services {
             getStorageRoot
         );
 
+        this.promptTemplateService = new PromptTemplateService(
+            this.promptRepo,
+            this.logseqApi
+        );
+
         // Initialize Use Cases
         this.injectEvaluationsUseCase = new InjectEvaluationsUseCase(
             new FrontendComponentInjector(),
@@ -84,7 +91,8 @@ export class Services {
             this.sidebarInjector,
             aiAdapter,
             this.chatlogService,
-            this.agentRepository
+            this.agentRepository,
+            this.promptTemplateService
         );
 
         // Initialize Globals

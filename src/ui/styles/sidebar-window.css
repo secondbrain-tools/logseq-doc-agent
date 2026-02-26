@@ -69,6 +69,8 @@
     background-color: var(--ls-primary-background-color);
     color: var(--ls-primary-text-color);
     padding: 10px;
+    position: relative;
+    z-index: 20;
 }
 
 /* Utilities used in template */

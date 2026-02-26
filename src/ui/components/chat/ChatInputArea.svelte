@@ -4,8 +4,10 @@
     import ModelSelector, { type ProviderGroup } from "./ModelSelector.svelte";
     import ContextMenu from "./ContextMenu.svelte";
     import ChatModal from "./ChatModal.svelte";
+    import PromptPicker from "./PromptPicker.svelte";
     import type { AgentDefinition } from "../../../domain/agent/types";
     import type { ContextItem } from "../../../infra/logseq/context-utils";
+    import type { ChatPrompt } from "../../../domain/chat/prompt";
     import { autoresize, clickAction } from "../../util/actions";
     import { ICONS } from "../../icons";
 
@@ -17,6 +19,8 @@
 
     interface Props {
         inputText: string;
+        selectedPrompts: string[];
+        availablePrompts: ChatPrompt[];
         isLoading: boolean;
         activeContexts: ActiveContext[];
         agents: AgentDefinition[];
@@ -40,6 +44,8 @@
 
     let {
         inputText = $bindable(),
+        selectedPrompts = $bindable(),
+        availablePrompts = [],
         isLoading,
         activeContexts,
         agents,
@@ -70,8 +76,71 @@
         y: 0,
     });
 
+    // Prompt Picker State
+    let isPromptPickerOpen = $state(false);
+    let promptFilter = $state("");
+    let promptPickerRef: any = $state();
+
     let textareaElement: HTMLTextAreaElement | undefined = $state();
     let expandedTextareaElement: HTMLTextAreaElement | undefined = $state();
+
+    let promptPickerStyle = $state("");
+
+    function updatePromptPickerPosition() {
+        if (!isPromptPickerOpen) return;
+        const currentTextarea = isExpanded
+            ? expandedTextareaElement
+            : textareaElement;
+        if (!currentTextarea) return;
+
+        const rect = currentTextarea.getBoundingClientRect();
+
+        let bottomStr;
+        let leftStr;
+        let widthStr;
+
+        if (isExpanded) {
+            bottomStr = `${window.innerHeight - rect.top + 8}px`;
+            leftStr = `${rect.left + 8}px`;
+            widthStr = `calc(${rect.width}px - 16px)`;
+        } else {
+            bottomStr = `${window.innerHeight - rect.top + 4}px`;
+            leftStr = `${rect.left}px`;
+            widthStr = `${rect.width}px`;
+        }
+
+        promptPickerStyle = `
+            position: fixed;
+            bottom: ${bottomStr};
+            left: ${leftStr};
+            width: ${widthStr};
+            z-index: 99999;
+        `;
+    }
+
+    $effect(() => {
+        if (isPromptPickerOpen) {
+            updatePromptPickerPosition();
+            const targetWin = window.parent || window;
+            targetWin.addEventListener(
+                "scroll",
+                updatePromptPickerPosition,
+                true,
+            );
+            targetWin.addEventListener("resize", updatePromptPickerPosition);
+            return () => {
+                targetWin.removeEventListener(
+                    "scroll",
+                    updatePromptPickerPosition,
+                    true,
+                );
+                targetWin.removeEventListener(
+                    "resize",
+                    updatePromptPickerPosition,
+                );
+            };
+        }
+    });
 
     $effect(() => {
         // Respond to focus signal changes
@@ -93,7 +162,53 @@
     });
 
     // --- Actions ---
+    function handleInput() {
+        if (isPromptPickerOpen) {
+            // Find text after the last '/'
+            const text = inputText;
+            const lastSlash = text.lastIndexOf("/");
+            const targetElement = isExpanded
+                ? expandedTextareaElement
+                : textareaElement;
+            const cursor = targetElement?.selectionStart || text.length;
+
+            if (lastSlash !== -1 && cursor > lastSlash) {
+                // Ensure no spaces after slash to keep picker open
+                const checkString = text.substring(lastSlash + 1, cursor);
+                if (checkString.includes(" ")) {
+                    isPromptPickerOpen = false;
+                } else {
+                    promptFilter = checkString;
+                }
+            } else {
+                isPromptPickerOpen = false;
+            }
+        }
+    }
+
     function handleKeydown(e: KeyboardEvent) {
+        if (isPromptPickerOpen && promptPickerRef) {
+            const handled = promptPickerRef.handleKeyDown(e);
+            if (handled) return;
+        }
+
+        if (e.key === "/") {
+            const targetElement = isExpanded
+                ? expandedTextareaElement
+                : textareaElement;
+            const start = targetElement?.selectionStart ?? 0;
+            if (
+                start === 0 ||
+                inputText[start - 1] === " " ||
+                inputText[start - 1] === "\n"
+            ) {
+                isPromptPickerOpen = true;
+                promptFilter = "";
+                // Wait for Svelte reactivity before measuring/focusing
+                setTimeout(() => {}, 0);
+            }
+        }
+
         // Stop propagation for arrow keys to prevent Logseq from hijacking navigation
         if (
             [
@@ -189,6 +304,24 @@
                 y: rect.top - 10,
             };
         }, 0);
+    }
+
+    function selectPrompt(promptName: string) {
+        if (!selectedPrompts.includes(promptName)) {
+            selectedPrompts = [...selectedPrompts, promptName];
+        }
+        isPromptPickerOpen = false;
+
+        const lastSlash = inputText.lastIndexOf("/");
+        if (lastSlash !== -1) {
+            const end = lastSlash + 1 + promptFilter.length;
+            inputText =
+                inputText.substring(0, lastSlash) + inputText.substring(end);
+        }
+    }
+
+    function removePrompt(promptName: string) {
+        selectedPrompts = selectedPrompts.filter((p) => p !== promptName);
     }
 
     async function toggleExpand() {
@@ -333,8 +466,27 @@
 </script>
 
 <div class="lda-chat-input-area">
-    {#if activeContexts.length > 0}
+    {#if activeContexts.length > 0 || selectedPrompts.length > 0}
         <div class="lda-context-bar">
+            {#each selectedPrompts as promptName (promptName)}
+                <div
+                    class="lda-context-tag"
+                    style="border-color: var(--ls-link-text-color);"
+                >
+                    <span
+                        class="lda-context-icon"
+                        style="color: var(--ls-link-text-color);">✨</span
+                    >
+                    <span class="lda-context-name">{promptName}</span>
+                    <button
+                        class="lda-context-remove"
+                        use:clickAction={() => removePrompt(promptName)}
+                    >
+                        ×
+                    </button>
+                </div>
+            {/each}
+
             {#each activeContexts as ctx (ctx.item.id)}
                 <!-- svelte-ignore a11y_click_events_have_key_events -->
                 <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -367,7 +519,7 @@
         </div>
     {/if}
 
-    <div class="relative w-full">
+    <div style="position: relative; width: 100%;">
         <textarea
             class="lda-chat-textarea"
             rows="1"
@@ -375,6 +527,7 @@
             bind:value={inputText}
             bind:this={textareaElement}
             onkeydown={handleKeydown}
+            oninput={handleInput}
             use:autoresize={inputText}
             onmaxedout={(e) => {
                 isMaxedOut = e.detail;
@@ -556,16 +709,23 @@
     <ChatModal
         isOpen={isExpanded}
         title="Edit Message"
+        overflowVisible={true}
         onClose={() => (isExpanded = false)}
     >
         <div class="lda-expanded-input-container">
-            <textarea
-                class="lda-chat-textarea lda-expanded-textarea"
-                placeholder="Ask anything..."
-                bind:value={inputText}
-                bind:this={expandedTextareaElement}
-                onkeydown={handleKeydown}
-            ></textarea>
+            <!-- Prompt Picker for expanded text area -->
+            <div
+                style="position: relative; width: 100%; height: 100%; display: flex; flex-direction: column;"
+            >
+                <textarea
+                    class="lda-chat-textarea lda-expanded-textarea"
+                    placeholder="Ask anything..."
+                    bind:value={inputText}
+                    bind:this={expandedTextareaElement}
+                    onkeydown={handleKeydown}
+                    oninput={handleInput}
+                ></textarea>
+            </div>
 
             {#if isExpanded && isSearchOpen}
                 <div class="lda-search-container">
@@ -638,6 +798,19 @@
             </div>
         </div>
     </ChatModal>
+{/if}
+
+<!-- Global Prompt Picker Portal -->
+{#if isPromptPickerOpen}
+    <div style={promptPickerStyle}>
+        <PromptPicker
+            bind:this={promptPickerRef}
+            prompts={availablePrompts}
+            filterText={promptFilter}
+            onSelect={selectPrompt}
+            onClose={() => (isPromptPickerOpen = false)}
+        />
+    </div>
 {/if}
 
 <style>

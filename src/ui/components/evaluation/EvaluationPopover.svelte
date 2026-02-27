@@ -1,11 +1,17 @@
 <script lang="ts">
   import { createEventDispatcher } from "svelte";
-  import type { BlockEvaluation } from "../../../domain/evaluation/entity";
+  import { slide } from "svelte/transition";
+  import type {
+    BlockEvaluation,
+    CriterionResult,
+    Issue,
+  } from "../../../domain/evaluation/entity";
   import { AddToSidebarUseCase } from "../../../application/usecases/add-to-sidebar.usecase";
   import { Services } from "../../../services";
   import { FrontendEvaluationCalculator } from "../../../infra/frontend/evaluation-calculator";
   import EvaluationScore from "./EvaluationScore.svelte";
   import EvaluationCriterionBlock from "./EvaluationCriterionBlock.svelte";
+  import EvaluationIssueBlock from "./EvaluationIssueBlock.svelte";
   import { groupByCategory, genericClick } from "./evaluation-review-logic";
   import { ICONS } from "../../icons";
 
@@ -41,7 +47,6 @@
   let preCommitmentEnabled = $state<boolean>(false);
 
   $effect(() => {
-    // Only fetch settings once per mount
     if (typeof window !== "undefined" && (window as any).logseq) {
       preCommitmentEnabled = !!(window as any).logseq.settings?.[
         "cognitiveForcing_preCommitmentPrompt"
@@ -51,6 +56,27 @@
 
   let expandedCategories = $state<Record<string, boolean>>({});
 
+  // --- Focused issue state ---
+  let focusedIssue = $state<{
+    criterion: CriterionResult;
+    criterionIdx: number;
+    issue: Issue;
+    issueIdx: number;
+  } | null>(null);
+
+  function handleIssueSelect(
+    criterion: CriterionResult,
+    criterionIdx: number,
+    issue: Issue,
+    issueIdx: number,
+  ) {
+    focusedIssue = { criterion, criterionIdx, issue, issueIdx };
+  }
+
+  function closeFocusedIssue() {
+    focusedIssue = null;
+  }
+
   function toggleCategory(categoryName: string) {
     expandedCategories[categoryName] = !expandedCategories[categoryName];
     expandedCategories = { ...expandedCategories };
@@ -58,10 +84,23 @@
 
   function handleDataUpdate(updated: BlockEvaluation) {
     localEvaluationData = updated;
+    // If we're focused on an issue, update the focused reference too
+    if (focusedIssue) {
+      for (const res of updated.results) {
+        if (
+          res.criterion_id === focusedIssue.criterion.criterion_id &&
+          res.issues?.[focusedIssue.issueIdx]
+        ) {
+          focusedIssue = {
+            ...focusedIssue,
+            criterion: res,
+            issue: res.issues[focusedIssue.issueIdx],
+          };
+          break;
+        }
+      }
+    }
   }
-
-  // Derive categories from evaluation data
-  const summary = $derived(() => localEvaluationData.summary);
 
   const categories = $derived(() => {
     const groups = groupByCategory(localEvaluationData.results);
@@ -96,18 +135,35 @@
 <div class="lda-rating-popover">
   <div class="lda-popover-header">
     <div class="lda-popover-header-row">
-      <h4 id="lda-popover-title" class="lda-popover-title">
-        Detailed Evaluation
-        {#if evaluationData}
-          <div style="display: inline-block; margin-left: 8px;">
-            <EvaluationScore
-              rating={overallRating}
-              showValue={true}
-              size="sm"
-            />
-          </div>
-        {/if}
-      </h4>
+      {#if focusedIssue}
+        <!-- Focused issue header: back button + criterion name -->
+        <button
+          type="button"
+          class="lda-back-btn"
+          use:genericClick={closeFocusedIssue}
+          title="Back to list"
+        >
+          {@html ICONS.chevronRight}
+        </button>
+        <h4 class="lda-popover-title" style="flex: 1;">
+          <span class="lda-focus-breadcrumb"
+            >{focusedIssue.criterion.criterion_id}</span
+          >
+        </h4>
+      {:else}
+        <h4 id="lda-popover-title" class="lda-popover-title">
+          Detailed Evaluation
+          {#if evaluationData}
+            <div style="display: inline-block; margin-left: 8px;">
+              <EvaluationScore
+                rating={overallRating}
+                showValue={true}
+                size="sm"
+              />
+            </div>
+          {/if}
+        </h4>
+      {/if}
       <button
         use:genericClick={openInSidebar}
         class="lda-sidebar-trigger"
@@ -130,66 +186,91 @@
     </div>
   </div>
   <div class="lda-popover-content">
-    {#if categories().length === 1}
-      <div style="padding-top: 4px;" class="lda-flat-list-container">
-        {#each categories()[0].criteriaRatings as criterion, criterionIdx}
-          <EvaluationCriterionBlock
-            {criterion}
-            {criterionIdx}
-            categoryName={categories()[0].category}
-            categoryIdx={0}
-            defaultExpanded={false}
-            {blockId}
-            {preCommitmentEnabled}
-            evaluationData={localEvaluationData}
-            onDataUpdate={handleDataUpdate}
-          />
-        {/each}
+    {#if focusedIssue}
+      <!-- Single issue detail view fills the popover -->
+      <div class="lda-focused-issue-pane">
+        <EvaluationIssueBlock
+          issue={focusedIssue.issue}
+          issueIdx={focusedIssue.issueIdx}
+          criterionId={focusedIssue.criterion.criterion_id}
+          criterionIdx={focusedIssue.criterionIdx}
+          categoryIdx={0}
+          uniqueId="{focusedIssue.criterion.criterion_id}-focus"
+          {blockId}
+          {preCommitmentEnabled}
+          evaluationData={localEvaluationData}
+          onDataUpdate={handleDataUpdate}
+        />
       </div>
-    {:else}
-      {#each categories() as category, catIdx}
-        <div class="lda-accordion-item">
-          <button
-            type="button"
-            class="lda-accordion-header"
-            use:genericClick={() => toggleCategory(category.category)}
-          >
-            <div class="lda-accordion-title-row">
-              <span class="lda-accordion-icon">
-                {@html expandedCategories[category.category]
-                  ? ICONS.chevronDown
-                  : ICONS.chevronRight}
-              </span>
-              <span class="lda-category-name">{category.category}</span>
-              <EvaluationScore
-                rating={category.overallRating}
-                showValue={true}
-                size="sm"
-              />
-            </div>
-          </button>
-
-          {#if expandedCategories[category.category]}
-            <div class="lda-accordion-content-panel">
-              <div class="lda-criteria-list">
-                {#each category.criteriaRatings as criterion, criterionIdx}
-                  <EvaluationCriterionBlock
-                    {criterion}
-                    {criterionIdx}
-                    categoryName={category.category}
-                    categoryIdx={catIdx}
-                    defaultExpanded={false}
-                    {blockId}
-                    {preCommitmentEnabled}
-                    evaluationData={localEvaluationData}
-                    onDataUpdate={handleDataUpdate}
-                  />
-                {/each}
-              </div>
-            </div>
-          {/if}
-        </div>
-      {/each}
     {/if}
+
+    <!-- Always render the list so expand state is preserved; hide when focused -->
+    <div style={focusedIssue ? "display: none;" : ""}>
+      {#if categories().length === 1}
+        <div style="padding-top: 4px;" class="lda-flat-list-container">
+          {#each categories()[0].criteriaRatings as criterion, criterionIdx}
+            <EvaluationCriterionBlock
+              {criterion}
+              {criterionIdx}
+              categoryName={categories()[0].category}
+              categoryIdx={0}
+              defaultExpanded={false}
+              compactIssueList={true}
+              onIssueSelect={handleIssueSelect}
+              {blockId}
+              {preCommitmentEnabled}
+              evaluationData={localEvaluationData}
+              onDataUpdate={handleDataUpdate}
+            />
+          {/each}
+        </div>
+      {:else}
+        {#each categories() as category, catIdx}
+          <div class="lda-accordion-item">
+            <button
+              type="button"
+              class="lda-accordion-header"
+              use:genericClick={() => toggleCategory(category.category)}
+            >
+              <div class="lda-accordion-title-row">
+                <span class="lda-accordion-icon">
+                  {@html expandedCategories[category.category]
+                    ? ICONS.chevronDown
+                    : ICONS.chevronRight}
+                </span>
+                <span class="lda-category-name">{category.category}</span>
+                <EvaluationScore
+                  rating={category.overallRating}
+                  showValue={true}
+                  size="sm"
+                />
+              </div>
+            </button>
+
+            {#if expandedCategories[category.category]}
+              <div class="lda-accordion-content-panel">
+                <div class="lda-criteria-list">
+                  {#each category.criteriaRatings as criterion, criterionIdx}
+                    <EvaluationCriterionBlock
+                      {criterion}
+                      {criterionIdx}
+                      categoryName={category.category}
+                      categoryIdx={catIdx}
+                      defaultExpanded={false}
+                      compactIssueList={true}
+                      onIssueSelect={handleIssueSelect}
+                      {blockId}
+                      {preCommitmentEnabled}
+                      evaluationData={localEvaluationData}
+                      onDataUpdate={handleDataUpdate}
+                    />
+                  {/each}
+                </div>
+              </div>
+            {/if}
+          </div>
+        {/each}
+      {/if}
+    </div>
   </div>
 </div>

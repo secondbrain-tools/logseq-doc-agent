@@ -711,3 +711,92 @@
   background-color: var(--ls-secondary-background-color, #f9fafb) !important;
   opacity: 0.8;
 }
+
+/* --- Compact Issue Title List (Popover) --- */
+.lda-issue-title-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.lda-issue-title-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font-size: 12px;
+  color: var(--ls-primary-text-color, #374151);
+  border-radius: 4px;
+  transition: background-color 0.15s;
+  gap: 8px;
+}
+
+.lda-issue-title-btn:hover {
+  background-color: var(--ls-secondary-background-color, #f3f4f6);
+}
+
+.lda-issue-title-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lda-issue-title-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  color: var(--ls-secondary-text-color, #9ca3af);
+}
+
+.lda-issue-title-done {
+  opacity: 0.5;
+}
+
+.lda-issue-title-done .lda-issue-title-text {
+  text-decoration: line-through;
+}
+
+.lda-issue-done-badge {
+  color: #16a34a;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* --- Back Button (Popover focused issue) --- */
+.lda-back-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  color: var(--ls-secondary-text-color, #6b7280);
+  transition: all 0.15s;
+  transform: rotate(180deg);
+}
+
+.lda-back-btn:hover {
+  background-color: var(--ls-tertiary-background-color, #e5e5e5);
+  color: var(--ls-primary-text-color);
+}
+
+.lda-focus-breadcrumb {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ls-secondary-text-color, #6b7280);
+}
+
+/* --- Focused Issue Pane --- */
+.lda-focused-issue-pane {
+  padding: 4px 0;
+}

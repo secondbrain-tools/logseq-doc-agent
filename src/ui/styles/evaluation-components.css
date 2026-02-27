@@ -286,6 +286,85 @@
   flex-shrink: 0;
 }
 
+/* --- Confidence & Impact --- */
+.lda-confidence-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background-color: var(--ls-tertiary-background-color, #f3f4f6);
+  color: var(--ls-secondary-text-color, #6b7280);
+  margin-left: 6px;
+}
+
+.lda-confidence-low {
+  background-color: #fee2e2;
+  color: #b91c1c;
+}
+
+.lda-impact-tag {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 1px 4px;
+  border-radius: 4px;
+  margin-right: 6px;
+  border: 1px solid var(--ls-border-color, #e5e7eb);
+  color: var(--ls-secondary-text-color, #6b7280);
+}
+
+.lda-impact-high {
+  background-color: #fef08a;
+  /* Yellow for high impact */
+  color: #854d0e;
+  border-color: #fde047;
+}
+
+.lda-impact-medium {
+  background-color: #e0f2fe;
+  /* Blue for medium */
+  color: #075985;
+  border-color: #bae6fd;
+}
+
+/* --- Multi-Alternative Suggestion Cards --- */
+.lda-alternatives-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lda-suggestion-card {
+  border: 1px solid var(--ls-border-color, #e5e7eb);
+  border-radius: 6px;
+  background-color: var(--ls-primary-background-color, #ffffff);
+  overflow: hidden;
+}
+
+.lda-suggestion-card-header {
+  background-color: var(--ls-secondary-background-color, #f9fafb);
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--ls-border-color, #e5e7eb);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.lda-suggestion-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ls-secondary-text-color, #6b7280);
+}
+
+.lda-suggestion-card-body {
+  padding: 8px;
+  font-size: 12px;
+}
+
 /* --- Analysis Sidebar Styles --- */
 
 .lda-sidebar {
@@ -588,4 +667,25 @@
 
 .lda-ratings-table tr:last-child td {
   border-bottom: none;
+}
+
+/* Pre-Commitment Styles */
+.lda-precommitment-prompt {
+  background-color: var(--ls-secondary-background-color, #f9fafb);
+  border: 1px solid var(--ls-border-color, #e5e7eb);
+  padding: 12px;
+  border-radius: 6px;
+  margin-bottom: 12px;
+}
+
+.lda-gap-badge {
+  background-color: var(--ls-secondary-background-color, #f3f4f6);
+  border: 1px solid var(--ls-border-color, #e5e7eb);
+  padding: 8px 12px;
+  border-radius: 4px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
 }

@@ -475,7 +475,11 @@ export const logseq = {
             logseq._onSettingsChangedCallback(newSettings, oldSettings);
         }
     },
-    settings: {}, // Mock settings object
+    settings: {
+        cognitiveForcing_suggestionAlternatives: '2',
+        cognitiveForcing_preCommitmentPrompt: true,
+        cognitiveForcing_counterargument: true,
+    }, // Mock settings object
     baseInfo: {
         id: 'logseq-doc-agent',
         name: 'Logseq Doc Agent',

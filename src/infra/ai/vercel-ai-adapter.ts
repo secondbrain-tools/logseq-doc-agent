@@ -6,6 +6,7 @@ import type { AgentContext } from '../../domain/agent/types';
 import { mapMessages } from './message-mapper';
 import { ModelFactory } from './model-factory';
 import { AgentRunner } from './agent-runner';
+import { getCognitiveForcingPrompt } from '../../domain/evaluation/cognitive-forcing.prompt';
 
 import type { ISettingsPort } from '../../application/ports/settings-port';
 
@@ -92,12 +93,32 @@ export class VercelAIAdapter implements IAIService {
         // Build messages with agent system prompt
         let coreMessages = mapMessages(messages);
         if (agentContext?.prompt) {
+            let systemPrompt = agentContext.prompt;
+
+            // Inject cognitive forcing instructions if we are performing an evaluation
+            // We can infer this if the system prompt mentions evaluation or if specific tools are enabled
+            // For now, we'll append it to any system prompt if settings are active,
+            // but wrapped in instructions that it only applies when evaluating.
+            const suggestionAlternativesStr = this.settingsAdapter.get<string>('cognitiveForcing_suggestionAlternatives', '1');
+            const suggestionAlternatives = parseInt(suggestionAlternativesStr, 10) || 1;
+            const preCommitmentPrompt = this.settingsAdapter.get<boolean>('cognitiveForcing_preCommitmentPrompt', false);
+            const counterargument = this.settingsAdapter.get<boolean>('cognitiveForcing_counterargument', false);
+
+            if (suggestionAlternatives > 1 || preCommitmentPrompt || counterargument) {
+                const cognitiveForcingInstructions = getCognitiveForcingPrompt({
+                    suggestionAlternatives,
+                    preCommitmentPrompt,
+                    counterargument
+                });
+                systemPrompt += `\n\n### COGNITIVE FORCING RULES (Apply these WHEN performing block evaluations):\n${cognitiveForcingInstructions}`;
+            }
+
             // Prepend system message with agent prompt
             coreMessages = [
-                { role: 'system', content: agentContext.prompt },
+                { role: 'system', content: systemPrompt },
                 ...coreMessages
             ];
-            console.log('[VercelAIAdapter] Added agent system prompt', agentContext.prompt);
+            console.log('[VercelAIAdapter] Added agent system prompt', systemPrompt);
         }
 
         const runner = new AgentRunner(model, toolsMap, coreMessages, disableStreaming, {

@@ -236,6 +236,40 @@ export const configureSettings = () => {
         });
     }
 
+    // Evaluation Setting
+    settings.push({
+        key: 'heading_evaluation',
+        type: 'heading',
+        title: 'Evaluation',
+        description: '',
+        default: null
+    });
+
+    settings.push({
+        key: 'cognitiveForcing_suggestionAlternatives',
+        type: 'enum',
+        title: 'Suggestion Alternatives',
+        description: 'How many alternative fixes should be generated for medium and high impact issues?',
+        default: '1',
+        enumChoices: ['1', '2', '3'],
+    });
+
+    settings.push({
+        key: 'cognitiveForcing_preCommitmentPrompt',
+        type: 'boolean',
+        title: 'Pre-Commitment Prompt',
+        description: 'For high-impact criteria, ask for your self-assessment before revealing the AI evaluation score.',
+        default: false,
+    });
+
+    settings.push({
+        key: 'cognitiveForcing_counterargument',
+        type: 'boolean',
+        title: 'Counterarguments',
+        description: 'Force the AI to argue against its own identified issues with a ↯ Counterargument. This helps prevent blind trust in the AI\'s critique.',
+        default: false,
+    });
+
     // Reasoning Effort Settings
     settings.push({
         key: 'heading_reasoning',

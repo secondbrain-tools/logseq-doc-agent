@@ -29,8 +29,8 @@ describe('submitBlockEvaluation tool', () => {
                 category: 'Writing',
                 score: 5,
                 reason: 'Very clear',
-                evidence: [],
-                suggestions: []
+                confidence: 90,
+                issues: []
             }],
             summary: {
                 overall_score: 5,
@@ -59,8 +59,8 @@ describe('submitBlockEvaluation tool', () => {
                 category: 'Writing',
                 score: 5,
                 reason: 'Very clear',
-                evidence: [],
-                suggestions: []
+                confidence: 90,
+                issues: []
             }],
             summary: null
         };

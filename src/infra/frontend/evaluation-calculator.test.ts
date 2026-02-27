@@ -10,24 +10,44 @@ const testEvaluation: BlockEvaluation = {
             category: 'CAT1',
             score: 4,
             reason: 'good',
-            evidence: [],
-            suggestions: []
+            confidence: 85,
+            issues: []
         },
         {
             criterion_id: 'C2',
             category: 'CAT1',
             score: 2,
             reason: 'bad',
-            evidence: [],
-            suggestions: []
+            confidence: 50,
+            issues: [{
+                description: "Bad text",
+                impact: "high",
+                evidence: [],
+                suggestions: [{
+                    op: 'replace',
+                    selector: { type: 'TextQuoteSelector', exact: 'bad text', prefix: null, suffix: null },
+                    proposed_text: 'better text',
+                    rationale: 'clearer'
+                }]
+            }]
         },
         {
             criterion_id: 'C3',
             category: 'CAT2',
             score: 3,
             reason: 'ok',
-            evidence: [],
-            suggestions: []
+            confidence: 90,
+            issues: [{
+                description: "Ok text",
+                impact: "medium",
+                evidence: [],
+                suggestions: [{
+                    op: 'replace',
+                    selector: { type: 'TextQuoteSelector', exact: 'ok text', prefix: null, suffix: null },
+                    proposed_text: 'good text',
+                    rationale: 'better'
+                }]
+            }]
         }
     ],
     summary: null
@@ -40,8 +60,8 @@ const testEvaluationWithSummary: BlockEvaluation = {
             category: 'CAT1',
             score: 4,
             reason: 'good',
-            evidence: [],
-            suggestions: []
+            confidence: 95,
+            issues: []
         }
     ],
     summary: {

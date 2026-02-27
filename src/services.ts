@@ -13,6 +13,7 @@ import { ChatlogService } from './application/services/chatlog.service';
 import { LogseqChatlogRepository } from './infra/logseq/chatlog-repository';
 import { LogseqSettingsAdapter } from './infra/logseq/settings-adapter';
 import { LogseqAgentRepository } from './infra/logseq/agent-repository';
+import { EvaluationReviewService } from './application/services/evaluation-review.service';
 import { PromptTemplateService } from './application/services/prompt-template.service';
 
 // Globals from previous implementation
@@ -37,6 +38,7 @@ export class Services {
     public injectEvaluationsUseCase: InjectEvaluationsUseCase;
     public injectMergesUseCase: InjectMergesUseCase;
     public chatUseCase: ChatSidebarUseCase;
+    public evaluationReviewService: EvaluationReviewService;
 
     // Globals
     public pluginID: string;
@@ -94,6 +96,8 @@ export class Services {
             this.agentRepository,
             this.promptTemplateService
         );
+
+        this.evaluationReviewService = new EvaluationReviewService(this.logseqApi);
 
         // Initialize Globals
         // Note: package.json import handling might need adjustment based on build system

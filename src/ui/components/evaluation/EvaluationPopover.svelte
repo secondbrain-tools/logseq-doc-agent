@@ -22,16 +22,49 @@
     showPopover?: boolean;
   } = $props();
 
+  // Svelte 5 requires cloning props into local state if we want to mutate them optimistically
+  let localEvaluationData = $state(
+    structuredClone($state.snapshot(evaluationData)) as BlockEvaluation,
+  );
+
+  // Sync if external props change
+  $effect(() => {
+    localEvaluationData = structuredClone(
+      $state.snapshot(evaluationData),
+    ) as BlockEvaluation;
+  });
+
   const dispatch = createEventDispatcher();
   const calculator = new FrontendEvaluationCalculator();
 
+  // Pre-Commitment: self-suggestion before revealing AI suggestions
+  let preCommitmentEnabled = $state<boolean>(false);
+  let preCommitmentSuggestions = $state<Record<string, string>>({});
+  let preCommitmentInputText = $state<Record<string, string>>({});
+
+  $effect(() => {
+    // Only fetch settings once per mount
+    if (typeof window !== "undefined" && (window as any).logseq) {
+      preCommitmentEnabled = !!(window as any).logseq.settings?.[
+        "cognitiveForcing_preCommitmentPrompt"
+      ];
+    }
+  });
+
   let expandedCategories = $state<Record<string, boolean>>({});
   let expandedCriteria = $state<Record<string, boolean>>({});
+
+  // Track which criterion has an active feedback input and what type
+  let activeFeedbackInput = $state<
+    Record<string, "reply" | "change_proposal" | null>
+  >({});
+  let feedbackInputText = $state<Record<string, string>>({});
 
   // Icons
   const icons = {
     chevronDown: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>`,
     chevronRight: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>`,
+    reply: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>`,
   };
 
   function toggleCategory(categoryName: string) {
@@ -44,10 +77,144 @@
     expandedCriteria = { ...expandedCriteria };
   }
 
+  function openFeedbackInput(
+    criterionId: string,
+    type: "reply" | "change_proposal",
+  ) {
+    activeFeedbackInput[criterionId] = type;
+    if (!feedbackInputText[criterionId]) {
+      feedbackInputText[criterionId] = "";
+    }
+    activeFeedbackInput = { ...activeFeedbackInput };
+  }
+
+  function cancelFeedbackInput(criterionId: string) {
+    activeFeedbackInput[criterionId] = null;
+    feedbackInputText[criterionId] = "";
+    activeFeedbackInput = { ...activeFeedbackInput };
+  }
+
+  function saveFeedback(
+    criterionId: string,
+    criterionIdx: number,
+    categoryIdx: number,
+    issueIdx: number,
+    type: "reply" | "change_proposal",
+    text: string,
+  ) {
+    if (!text.trim()) return;
+
+    const newFeedback = {
+      type,
+      text: text.trim(),
+      created_at: new Date().toISOString(),
+    };
+
+    if (blockId) {
+      Services.instance.evaluationReviewService
+        .addFeedback(blockId, criterionId, newFeedback, issueIdx)
+        .catch((err) => console.error("Failed to save feedback:", err));
+    }
+
+    // Optimistically update the local state for immediate feedback
+    const cat = categories()[categoryIdx];
+    const crit = cat.criteriaRatings[criterionIdx];
+    if (crit.issues && crit.issues[issueIdx]) {
+      const issue = crit.issues[issueIdx];
+      if (!issue.user_feedback) {
+        issue.user_feedback = [];
+      }
+      issue.user_feedback.push(newFeedback);
+      localEvaluationData = { ...localEvaluationData };
+    }
+
+    cancelFeedbackInput(criterionId + "-" + issueIdx);
+  }
+
+  function deleteFeedback(
+    criterionId: string,
+    criterionIdx: number,
+    categoryIdx: number,
+    issueIdx: number,
+    feedbackIdx: number,
+  ) {
+    if (blockId) {
+      Services.instance.evaluationReviewService
+        .deleteFeedback(blockId, criterionId, feedbackIdx, issueIdx)
+        .catch((err) => console.error("Failed to delete feedback:", err));
+    }
+
+    const cat = categories()[categoryIdx];
+    const crit = cat.criteriaRatings[criterionIdx];
+    if (crit.issues && crit.issues[issueIdx]) {
+      const issue = crit.issues[issueIdx];
+      if (issue.user_feedback) {
+        issue.user_feedback.splice(feedbackIdx, 1);
+        localEvaluationData = { ...localEvaluationData };
+      }
+    }
+  }
+
+  function getPreCommitmentSuggestion(criterion: any): string | null {
+    if (criterion.user_feedback) {
+      const fb = criterion.user_feedback.find(
+        (f: any) => f.type === "self_suggestion",
+      );
+      if (fb) return fb.text;
+    }
+    return preCommitmentSuggestions[criterion.criterion_id] || null;
+  }
+
+  function needsPreCommitment(criterion: any): boolean {
+    if (!preCommitmentEnabled) return false;
+    // Only for criteria with issues that have suggestions
+    if (!criterion.issues || criterion.issues.length === 0) return false;
+    const hasSuggestions = criterion.issues.some(
+      (i: any) => i.suggestions && i.suggestions.length > 0,
+    );
+    if (!hasSuggestions) return false;
+
+    return getPreCommitmentSuggestion(criterion) === null;
+  }
+
+  function savePreCommitmentSuggestion(
+    criterionId: string,
+    criterionIdx: number,
+    categoryIdx: number,
+    text: string,
+  ) {
+    if (!text.trim()) return;
+    preCommitmentSuggestions[criterionId] = text.trim();
+    preCommitmentSuggestions = { ...preCommitmentSuggestions };
+
+    // Save as criterion-level feedback
+    const feedback = {
+      type: "self_suggestion" as const,
+      text: text.trim(),
+      created_at: new Date().toISOString(),
+    };
+    if (blockId) {
+      Services.instance.evaluationReviewService
+        .addFeedback(blockId, criterionId, feedback)
+        .catch((err) => console.error("Failed to save self-suggestion:", err));
+    }
+
+    // Optimistically update
+    const cat = categories()[categoryIdx];
+    const crit = cat.criteriaRatings[criterionIdx];
+    if (!crit.user_feedback) crit.user_feedback = [];
+    crit.user_feedback.push(feedback);
+    localEvaluationData = { ...localEvaluationData };
+
+    // Clear the input text
+    preCommitmentInputText[criterionId] = "";
+  }
+
   // Derive categories from evaluation data
+  const summary = $derived(() => localEvaluationData.summary);
   const categories = $derived(() => {
     const groups: Record<string, CriterionResult[]> = {};
-    for (const res of evaluationData.results) {
+    for (const res of localEvaluationData.results) {
       const cat = res.category || "Uncategorized";
       if (!groups[cat]) groups[cat] = [];
       groups[cat].push(res);
@@ -96,13 +263,14 @@
 {#snippet criterionList(
   categoryName: string,
   criteriaRatings: any[],
+  categoryIdx: number,
   useFlatList: boolean = false,
 )}
   {#if criteriaRatings && criteriaRatings.length > 0}
     <div
       class="lda-criteria-list {useFlatList ? 'lda-flat-list-container' : ''}"
     >
-      {#each criteriaRatings as criterion}
+      {#each criteriaRatings as criterion, criterionIdx}
         {@const uniqueId = categoryName + "-" + criterion.criterion_id}
         <div class="lda-criterion-item">
           <button
@@ -119,11 +287,30 @@
               </span>
               <span class="lda-criterion-name">{criterion.criterion_id}</span>
             </div>
-            <EvaluationScore
-              rating={criterion.score}
-              showValue={false}
-              size="sm"
-            />
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <EvaluationScore
+                rating={criterion.score}
+                showValue={false}
+                size="sm"
+              />
+              {#if criterion.confidence !== undefined}
+                <span
+                  class="lda-confidence-badge {criterion.confidence < 60
+                    ? 'lda-confidence-low'
+                    : ''}"
+                  title="AI Confidence Score"
+                >
+                  {criterion.confidence}%
+                </span>
+              {/if}
+              {#if needsPreCommitment(criterion)}
+                <span
+                  class="text-xs italic px-1 rounded"
+                  style="color: var(--ls-link-text-color); opacity: 0.7;"
+                  title="Propose your fix before seeing AI suggestions">✎</span
+                >
+              {/if}
+            </div>
           </button>
           {#if expandedCriteria[uniqueId]}
             <div
@@ -131,72 +318,347 @@
               transition:slide|local
               style="padding: 4px 12px 12px 24px; font-size: 0.9em; opacity: 0.9;"
             >
-              <p style="margin: 0;">{criterion.reason}</p>
+              {#if needsPreCommitment(criterion)}
+                <p style="margin: 0;">{criterion.reason}</p>
 
-              {#if criterion.suggestions && criterion.suggestions.length > 0}
-                <div class="lda-suggestions mt-2 pt-2 border-t">
-                  <strong>Suggestions:</strong>
-                  <ul
-                    class="lda-suggestions-list list-disc pl-4 text-sm mt-1"
-                    style="margin-top: 4px; padding-left: 16px;"
+                <div
+                  class="lda-precommitment-prompt p-3 rounded text-sm mt-3"
+                  style="background: var(--ls-secondary-background-color); border: 1px dashed var(--ls-border-color);"
+                >
+                  <div class="font-semibold mb-2">What would you change?</div>
+                  <div class="text-xs mb-2 opacity-80">
+                    Before seeing the AI's suggestions, propose your own fix for
+                    this criterion.
+                  </div>
+                  <textarea
+                    class="lda-feedback-input w-full p-2 text-xs border rounded mb-2"
+                    style="border-color: var(--ls-border-color); color: var(--ls-primary-text-color); background: var(--ls-primary-background-color);"
+                    rows="3"
+                    placeholder="Describe what you would change or improve..."
+                    bind:value={preCommitmentInputText[criterion.criterion_id]}
+                  ></textarea>
+                  <div class="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      class="lda-action-btn"
+                      use:genericClick={() => {
+                        // Skip pre-commitment — just reveal suggestions without submitting
+                        preCommitmentSuggestions[criterion.criterion_id] =
+                          "__skipped__";
+                        preCommitmentSuggestions = {
+                          ...preCommitmentSuggestions,
+                        };
+                      }}>Skip</button
+                    >
+                    <button
+                      type="button"
+                      class="lda-action-btn border-blue-500 text-blue-600"
+                      style="background: var(--ls-secondary-background-color);"
+                      use:genericClick={() =>
+                        savePreCommitmentSuggestion(
+                          criterion.criterion_id,
+                          criterionIdx,
+                          categoryIdx,
+                          preCommitmentInputText[criterion.criterion_id] || "",
+                        )}>Submit & Reveal</button
+                    >
+                  </div>
+                </div>
+              {:else}
+                {#if getPreCommitmentSuggestion(criterion) && getPreCommitmentSuggestion(criterion) !== "__skipped__"}
+                  <div
+                    class="lda-self-suggestion-badge p-2 text-xs rounded mb-2"
+                    style="background: var(--ls-secondary-background-color); border: 1px solid var(--ls-border-color);"
                   >
-                    {#each criterion.suggestions as suggestion}
-                      <li
-                        class="lda-suggestion-item pb-1"
-                        style="margin-bottom: 4px;"
-                      >
-                        {#if suggestion.selector?.exact}
-                          <span class="lda-suggestion-target italic opacity-75"
-                            >"{suggestion.selector.exact}"</span
-                          > ->
-                        {/if}
-                        {#if suggestion.proposed_text}
-                          <span
-                            class="lda-suggestion-proposal bg-blue-100 dark:bg-blue-900 px-1 rounded"
-                            style="background-color: var(--ls-secondary-background-color); padding: 0 4px; border-radius: 4px;"
-                            >{suggestion.proposed_text}</span
-                          >
-                        {/if}
+                    <span
+                      class="font-semibold"
+                      style="color: var(--ls-link-text-color);"
+                      >Your suggestion:</span
+                    >
+                    <div class="mt-1 opacity-90">
+                      {getPreCommitmentSuggestion(criterion)}
+                    </div>
+                  </div>
+                {/if}
+
+                <p style="margin: 0;">{criterion.reason}</p>
+
+                {#if criterion.issues && criterion.issues.length > 0}
+                  <div class="lda-issues-container mt-2 pt-2 border-t">
+                    <strong>Issues found:</strong>
+                    <div
+                      class="lda-issues-list mt-2"
+                      style="display: flex; flex-direction: column; gap: 12px;"
+                    >
+                      {#each criterion.issues as issue, issueIdx}
+                        {@const issueUniqueId = uniqueId + "-" + issueIdx}
                         <div
-                          class="lda-suggestion-rationale text-xs opacity-75"
-                          style="font-size: 0.8em; opacity: 0.8; margin-top: 2px;"
+                          class="lda-issue-block bg-white dark:bg-gray-800 p-2 rounded border"
+                          style="border-color: var(--ls-border-color);"
                         >
-                          {suggestion.rationale}
-                        </div>
-                      </li>
-                    {/each}
-                  </ul>
-                </div>
-              {/if}
-
-              {#if criterion.evidence && criterion.evidence.length > 0}
-                <div class="lda-evidence mt-2 pt-2 border-t text-xs">
-                  <strong>Evidence:</strong>
-                  <ul
-                    class="lda-evidence-list list-disc pl-4 mt-1"
-                    style="margin-top: 4px; padding-left: 16px;"
-                  >
-                    {#each criterion.evidence as ev}
-                      {#each ev.selectors as selector}
-                        {#if selector.exact}
-                          <li
-                            class="lda-evidence-item italic opacity-75"
-                            style="font-size: 0.8em; opacity: 0.8; margin-bottom: 2px;"
+                          <div
+                            class="lda-issue-header flex items-center gap-2 mb-1"
                           >
-                            "{selector.exact}"
-                          </li>
-                        {/if}
+                            <span class="font-semibold text-sm"
+                              >{issue.description}</span
+                            >
+                            {#if issue.impact && issue.impact !== "low"}
+                              <span
+                                class="lda-impact-tag lda-impact-{issue.impact}"
+                                >{issue.impact}</span
+                              >
+                            {/if}
+                          </div>
+
+                          {#if issue.evidence && issue.evidence.length > 0}
+                            <div
+                              class="lda-issue-evidence text-xs opacity-75 mb-2 pl-2 border-l-2 border-gray-300 dark:border-gray-600"
+                            >
+                              {#each issue.evidence as ev}
+                                {#each ev.selectors as selector}
+                                  {#if selector.exact}
+                                    <div class="italic">"{selector.exact}"</div>
+                                  {/if}
+                                {/each}
+                              {/each}
+                            </div>
+                          {/if}
+
+                          {#if issue.suggestions && issue.suggestions.length > 0}
+                            <div class="lda-issue-suggestions text-xs">
+                              {#if issue.suggestions.length >= 2}
+                                <div class="lda-alternatives-container mt-1">
+                                  {#each issue.suggestions as suggestion, i}
+                                    <div class="lda-suggestion-card">
+                                      <div class="lda-suggestion-card-header">
+                                        <span class="lda-suggestion-label"
+                                          >Option {String.fromCharCode(
+                                            65 + i,
+                                          )}</span
+                                        >
+                                      </div>
+                                      <div class="lda-suggestion-card-body">
+                                        {#if suggestion.selector?.exact}
+                                          <span
+                                            class="lda-suggestion-target italic opacity-75"
+                                            >"{suggestion.selector.exact}"</span
+                                          > ->
+                                        {/if}
+                                        {#if suggestion.proposed_text}
+                                          <span
+                                            class="lda-suggestion-proposal bg-blue-100 dark:bg-blue-900 px-1 rounded"
+                                            >{suggestion.proposed_text}</span
+                                          >
+                                        {/if}
+                                        <div
+                                          class="lda-suggestion-rationale text-xs opacity-75 mt-1"
+                                        >
+                                          {suggestion.rationale}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  {/each}
+                                </div>
+                              {:else}
+                                <ul
+                                  class="lda-suggestions-list list-disc pl-4 mt-1"
+                                >
+                                  {#each issue.suggestions as suggestion}
+                                    <li class="lda-suggestion-item pb-1">
+                                      {#if suggestion.selector?.exact}
+                                        <span
+                                          class="lda-suggestion-target italic opacity-75"
+                                          >"{suggestion.selector.exact}"</span
+                                        > ->
+                                      {/if}
+                                      {#if suggestion.proposed_text}
+                                        <span
+                                          class="lda-suggestion-proposal bg-blue-100 dark:bg-blue-900 px-1 rounded"
+                                          >{suggestion.proposed_text}</span
+                                        >
+                                      {/if}
+                                      <div
+                                        class="lda-suggestion-rationale text-xs opacity-75"
+                                      >
+                                        {suggestion.rationale}
+                                      </div>
+                                    </li>
+                                  {/each}
+                                </ul>
+                              {/if}
+                            </div>
+                          {/if}
+
+                          {#if issue.counterargument}
+                            <div
+                              class="lda-counterargument-block mt-2 p-2 bg-gray-50 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700"
+                            >
+                              <div
+                                class="lda-counterargument-header flex items-center gap-2 mb-1"
+                              >
+                                <span
+                                  class="font-semibold text-xs text-gray-700 dark:text-gray-300"
+                                  >↯ Counterargument</span
+                                >
+                              </div>
+                              <div
+                                class="lda-counterargument-text text-xs italic opacity-90"
+                              >
+                                {issue.counterargument}
+                              </div>
+                            </div>
+                          {/if}
+
+                          <!-- Issue-level user feedback -->
+                          {#if issue.user_feedback && issue.user_feedback.length > 0}
+                            <div class="lda-user-feedback mt-2 pt-2 border-t">
+                              <div
+                                class="mt-1"
+                                style="display: flex; flex-direction: column; gap: 6px;"
+                              >
+                                {#each issue.user_feedback as feedback, fbIdx}
+                                  <div
+                                    class="lda-feedback-item bg-gray-50 p-2 rounded text-xs border"
+                                    style="background-color: var(--ls-secondary-background-color); border-color: var(--ls-border-color);"
+                                  >
+                                    <div
+                                      style="display: flex; justify-content: space-between; margin-bottom: 2px;"
+                                    >
+                                      <span
+                                        class="font-semibold text-gray-600 capitalize opacity-80"
+                                        >{feedback.type.replace("_", " ")}</span
+                                      >
+                                      <div
+                                        style="display: flex; gap: 8px; align-items: center;"
+                                      >
+                                        <span class="opacity-50 text-[10px]"
+                                          >{new Date(
+                                            feedback.created_at,
+                                          ).toLocaleDateString()}</span
+                                        >
+                                        <button
+                                          type="button"
+                                          class="lda-action-btn-icon opacity-50 hover:opacity-100"
+                                          title="Delete feedback"
+                                          use:genericClick={() =>
+                                            deleteFeedback(
+                                              criterion.criterion_id,
+                                              criterionIdx,
+                                              categoryIdx,
+                                              issueIdx,
+                                              fbIdx,
+                                            )}
+                                        >
+                                          ×
+                                        </button>
+                                      </div>
+                                    </div>
+                                    <div class="text-gray-800">
+                                      {feedback.text}
+                                    </div>
+                                  </div>
+                                {/each}
+                              </div>
+                            </div>
+                          {/if}
+
+                          {#if activeFeedbackInput[issueUniqueId]}
+                            <div
+                              class="lda-feedback-input-container mt-2 pt-2 border-t"
+                              transition:slide|local
+                            >
+                              <label
+                                class="block text-xs font-semibold mb-1 opacity-80 capitalize"
+                              >
+                                {activeFeedbackInput[issueUniqueId].replace(
+                                  "_",
+                                  " ",
+                                )}
+                              </label>
+                              <textarea
+                                class="lda-feedback-input w-full p-2 text-xs border rounded mb-2 bg-white"
+                                style="border-color: var(--ls-border-color); color: var(--ls-primary-text-color);"
+                                rows="2"
+                                placeholder={activeFeedbackInput[
+                                  issueUniqueId
+                                ] === "reply"
+                                  ? "Add your reply..."
+                                  : "What would you change?"}
+                                bind:value={feedbackInputText[issueUniqueId]}
+                              ></textarea>
+                              <div class="flex justify-end gap-2">
+                                <button
+                                  type="button"
+                                  class="lda-action-btn"
+                                  use:genericClick={() =>
+                                    cancelFeedbackInput(issueUniqueId)}
+                                  >Cancel</button
+                                >
+                                <button
+                                  type="button"
+                                  class="lda-action-btn border-blue-500 text-blue-600 bg-blue-50"
+                                  use:genericClick={() =>
+                                    saveFeedback(
+                                      criterion.criterion_id,
+                                      criterionIdx,
+                                      categoryIdx,
+                                      issueIdx,
+                                      activeFeedbackInput[issueUniqueId]!,
+                                      feedbackInputText[issueUniqueId],
+                                    )}>Save</button
+                                >
+                              </div>
+                            </div>
+                          {:else}
+                            <div
+                              class="lda-feedback-actions mt-2"
+                              style="display: flex; gap: 6px;"
+                            >
+                              <button
+                                type="button"
+                                class="lda-action-btn"
+                                use:genericClick={() =>
+                                  openFeedbackInput(issueUniqueId, "reply")}
+                              >
+                                {@html icons.reply} Reply
+                              </button>
+                              <button
+                                type="button"
+                                class="lda-action-btn"
+                                use:genericClick={() =>
+                                  openFeedbackInput(
+                                    issueUniqueId,
+                                    "change_proposal",
+                                  )}
+                              >
+                                ✎ Propose Change
+                              </button>
+                            </div>
+                          {/if}
+                          <!-- end activeFeedbackInput per issue -->
+                        </div>
+                        <!-- end lda-issue-block -->
                       {/each}
-                    {/each}
-                  </ul>
-                </div>
+                      <!-- end each issue -->
+                    </div>
+                    <!-- end lda-issues-list -->
+                  </div>
+                  <!-- end lda-issues-container -->
+                {/if}
+                <!-- end criterion.issues -->
               {/if}
+              <!-- end needsPreCommitment else -->
             </div>
+            <!-- end lda-criterion-content -->
           {/if}
+          <!-- end expandedCriteria -->
         </div>
+        <!-- end lda-criterion-item -->
       {/each}
     </div>
+    <!-- end lda-criteria-list -->
   {/if}
+  <!-- end criteriaRatings -->
 {/snippet}
 
 <div class="lda-rating-popover">
@@ -241,11 +703,12 @@
         {@render criterionList(
           categories()[0].category,
           categories()[0].criteriaRatings,
+          0,
           true,
         )}
       </div>
     {:else}
-      {#each categories() as category}
+      {#each categories() as category, catIdx}
         <div class="lda-accordion-item">
           <button
             type="button"
@@ -272,6 +735,7 @@
               {@render criterionList(
                 category.category,
                 category.criteriaRatings,
+                catIdx,
                 false,
               )}
             </div>

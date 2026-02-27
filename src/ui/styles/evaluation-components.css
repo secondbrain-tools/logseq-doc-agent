@@ -689,3 +689,25 @@
   gap: 12px;
   font-size: 13px;
 }
+
+/* --- Done Toggle and State --- */
+.lda-done-toggle {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.lda-done-toggle:hover {
+  background-color: var(--ls-tertiary-background-color, #e5e5e5);
+}
+
+.lda-issue-done {
+  background-color: var(--ls-secondary-background-color, #f9fafb) !important;
+  opacity: 0.8;
+}

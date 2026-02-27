@@ -45,7 +45,7 @@ export const IssueSchema = z.object({
 export type Issue = z.infer<typeof IssueSchema>;
 
 export const UserFeedbackSchema = z.object({
-    type: z.enum(["reply", "change_proposal", "self_assessment", "self_suggestion"]),
+    type: z.enum(["reply", "change_proposal", "self_assessment", "self_suggestion", "done"]),
     text: z.string(),
     score: z.number().optional().describe("Score assigned during self-assessment"),
     created_at: z.string() // ISO timestamp

@@ -19,6 +19,9 @@
         blockId = undefined,
         preCommitmentEnabled = false,
         compactIssueList = false,
+        accordionMode = false,
+        isExpandedInAccordion = false,
+        onExpandToggle = undefined,
         onIssueSelect = undefined,
         evaluationData,
         onDataUpdate,
@@ -28,6 +31,9 @@
         categoryName: string;
         categoryIdx: number;
         defaultExpanded?: boolean;
+        accordionMode?: boolean;
+        isExpandedInAccordion?: boolean;
+        onExpandToggle?: (id: string) => void;
         blockId?: string;
         preCommitmentEnabled?: boolean;
         compactIssueList?: boolean;
@@ -41,11 +47,19 @@
         onDataUpdate: (data: BlockEvaluation) => void;
     } = $props();
 
-    let isExpanded = $state(defaultExpanded);
+    let localExpanded = $state(defaultExpanded);
     const uniqueId = `${categoryName}-${criterion.criterion_id}`;
 
+    const isExpanded = $derived(
+        accordionMode ? isExpandedInAccordion : localExpanded,
+    );
+
     function toggleExpand() {
-        isExpanded = !isExpanded;
+        if (accordionMode) {
+            onExpandToggle?.(criterion.criterion_id);
+        } else {
+            localExpanded = !localExpanded;
+        }
     }
 
     function handleIssueClick(issue: Issue, issueIdx: number) {

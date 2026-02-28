@@ -55,6 +55,8 @@
   });
 
   let expandedCategories = $state<Record<string, boolean>>({});
+  // NEW: State for the currently expanded criterion across all categories
+  let expandedCriterionId = $state<string | null>(null);
 
   // --- Focused issue state ---
   let focusedIssue = $state<{
@@ -78,8 +80,19 @@
   }
 
   function toggleCategory(categoryName: string) {
-    expandedCategories[categoryName] = !expandedCategories[categoryName];
-    expandedCategories = { ...expandedCategories };
+    // Accordion mode: collapse others
+    const wasExpanded = expandedCategories[categoryName];
+    expandedCategories = wasExpanded ? {} : { [categoryName]: true };
+    // Also reset criterion accordion when changing categories
+    expandedCriterionId = null;
+  }
+
+  function handleCriterionExpand(criterion_id: string) {
+    if (expandedCriterionId === criterion_id) {
+      expandedCriterionId = null; // toggle off
+    } else {
+      expandedCriterionId = criterion_id;
+    }
   }
 
   function handleDataUpdate(updated: BlockEvaluation) {
@@ -214,7 +227,10 @@
               {criterionIdx}
               categoryName={categories()[0].category}
               categoryIdx={0}
-              defaultExpanded={false}
+              accordionMode={true}
+              isExpandedInAccordion={expandedCriterionId ===
+                criterion.criterion_id}
+              onExpandToggle={handleCriterionExpand}
               compactIssueList={true}
               onIssueSelect={handleIssueSelect}
               {blockId}
@@ -248,7 +264,7 @@
             </button>
 
             {#if expandedCategories[category.category]}
-              <div class="lda-accordion-content-panel">
+              <div class="lda-accordion-content-panel" transition:slide|local>
                 <div class="lda-criteria-list">
                   {#each category.criteriaRatings as criterion, criterionIdx}
                     <EvaluationCriterionBlock
@@ -256,7 +272,10 @@
                       {criterionIdx}
                       categoryName={category.category}
                       categoryIdx={catIdx}
-                      defaultExpanded={false}
+                      accordionMode={true}
+                      isExpandedInAccordion={expandedCriterionId ===
+                        criterion.criterion_id}
+                      onExpandToggle={handleCriterionExpand}
                       compactIssueList={true}
                       onIssueSelect={handleIssueSelect}
                       {blockId}

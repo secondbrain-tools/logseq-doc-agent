@@ -7,6 +7,35 @@ import { BlockEvaluationSchema, createStrictEvaluationSchema } from '../../../do
 // Access the global logseq object
 const getLogseq = () => (window as any).logseq;
 
+export function normalizeCategories(evaluation: any): void {
+    if (!evaluation || !evaluation.results || evaluation.results.length <= 1) return;
+
+    // Group by category to count criteria per category
+    const groups: Record<string, number[]> = {};
+    evaluation.results.forEach((r: any, i: number) => {
+        const cat = r.category || 'Uncategorized';
+        if (!groups[cat]) groups[cat] = [];
+        groups[cat].push(i);
+    });
+
+    const entries = Object.entries(groups);
+    const allSingle = entries.every(([, indices]) => indices.length === 1);
+
+    if (allSingle) {
+        // Degenerate case: every category has exactly 1 criterion.
+        // Flatten by removing category entirely.
+        evaluation.results.forEach((r: any) => { r.category = null; });
+    } else {
+        // Mixed case: some categories have multiple, some have 1.
+        // Group the singles into an "Other" category to avoid clutter.
+        for (const [cat, indices] of entries) {
+            if (indices.length === 1 && cat !== 'Uncategorized') {
+                evaluation.results[indices[0]].category = 'Other';
+            }
+        }
+    }
+}
+
 export const createSubmitBlockEvaluationTool = () => {
     // Determine which schema to use based on settings if available
     // Since this is evaluated at tool creation, we assume global settings are accessible
@@ -53,6 +82,8 @@ export const createSubmitBlockEvaluationTool = () => {
                     return `Error: Block not found for ID ${block_id}`;
                 }
                 const uuid = block.uuid;
+
+                normalizeCategories(evaluation);
 
                 await logseq.Editor.upsertBlockProperty(uuid, LDA_EVALUATION_PROPERTY, JSON.stringify(evaluation));
 

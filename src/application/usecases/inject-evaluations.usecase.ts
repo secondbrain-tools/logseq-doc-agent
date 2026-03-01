@@ -3,13 +3,21 @@ import { InjectionPosition } from '../../domain/logseq';
 import { parseEvaluation, type BlockEvaluation } from '../../domain/evaluation/entity';
 import { LDA_EVALUATION_PROPERTY } from '../../domain/logseq/properties';
 import BlockEvaluationComponent from '../../ui/components/evaluation/BlockEvaluation.svelte';
+import PageEvaluationToolbar from '../../ui/components/evaluation/PageEvaluationToolbar.svelte';
 import cssContent from '../../ui/styles/evaluation-components.css?raw';
 import { BaseBlockInjector, type InjectionConfig } from '../services/base-injector';
+import { mount, unmount } from 'svelte';
+import { EvaluationState } from './evaluation-state.svelte';
+
+const TOOLBAR_CONTAINER_ID = 'lda-eval-toolbar-slot';
 
 /**
  * Specific use case for injecting BlockEvaluation components into elements with 'logseq-doc-agent.evaluation' property
  */
 export class InjectEvaluationsUseCase extends BaseBlockInjector<BlockEvaluation> {
+  private pageToolbarApp: any = null;
+  private pageToolbarRegistered: boolean = false;
+  private evaluationState: EvaluationState | null = null;
 
   constructor(
     componentInjector: ComponentInjector,
@@ -17,6 +25,20 @@ export class InjectEvaluationsUseCase extends BaseBlockInjector<BlockEvaluation>
     logseqApi: LogseqApi
   ) {
     super(componentInjector, logseqApi, 'InjectEvaluations');
+  }
+
+  /**
+   * Register the pagebar item once at plugin startup.
+   */
+  public registerPagebarItem() {
+    if (this.pageToolbarRegistered) return;
+
+    logseq.App.registerUIItem('toolbar', {
+      key: 'lda-eval-toolbar',
+      template: `<div id="${TOOLBAR_CONTAINER_ID}" style="display: inline-flex; align-items: center;"></div>`,
+    });
+
+    this.pageToolbarRegistered = true;
   }
 
   public override async execute() {
@@ -32,6 +54,67 @@ export class InjectEvaluationsUseCase extends BaseBlockInjector<BlockEvaluation>
 
   protected override onDispose() {
     this.styleInjector.removeStyles('block-evaluation-styles');
+    this.hidePageToolbar();
+  }
+
+  protected override handleNoPage() {
+    this.hidePageToolbar();
+  }
+
+  protected override handleQueryResults(count: number, blocks: any[]) {
+    if (count === 0) {
+      this.hidePageToolbar();
+    } else {
+      const uuids = blocks.map((b: any) => b.uuid);
+      this.showPageToolbar(count, uuids);
+    }
+  }
+
+  private getToolbarContainer(): HTMLElement | null {
+    const doc = parent.document; // Plugin runs in iframe
+    return doc.getElementById(TOOLBAR_CONTAINER_ID);
+  }
+
+  private showPageToolbar(count: number, uuids: string[]) {
+    const container = this.getToolbarContainer();
+
+    if (!container) {
+      console.warn('[InjectEvaluations] Toolbar container not found, will retry...');
+      setTimeout(() => this.showPageToolbar(count, uuids), 200);
+      return;
+    }
+
+    container.style.display = 'block';
+
+    if (!this.pageToolbarApp) {
+      this.evaluationState = new EvaluationState(count, uuids);
+
+      this.pageToolbarApp = mount(PageEvaluationToolbar, {
+        target: container,
+        props: {
+          evaluationState: this.evaluationState
+        }
+      });
+    } else {
+      if (this.evaluationState) {
+        this.evaluationState.update(count, uuids);
+      }
+    }
+  }
+
+  private hidePageToolbar() {
+    const container = this.getToolbarContainer();
+
+    if (this.pageToolbarApp) {
+      unmount(this.pageToolbarApp);
+      this.pageToolbarApp = null;
+      this.evaluationState = null;
+    }
+
+    if (container) {
+      container.style.display = 'none';
+      container.innerHTML = '';
+    }
   }
 
   protected getInjectionConfig(): InjectionConfig {

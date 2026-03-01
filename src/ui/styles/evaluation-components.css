@@ -800,3 +800,77 @@
 .lda-focused-issue-pane {
   padding: 4px 0;
 }
+
+/* ==========================================================================
+   PAGE BAR EVALUATION TOOLBAR (Global)
+   ========================================================================== */
+.lda-eval-toolbar-popover {
+  position: fixed;
+  min-width: 250px;
+  background: var(--ls-primary-background-color, #fff);
+  border: 1px solid var(--ls-border-color, #ddd);
+  border-radius: 6px;
+  box-shadow:
+    0 10px 15px -3px color-mix(in srgb, var(--ls-primary-text-color) 10%, transparent),
+    0 4px 6px -2px color-mix(in srgb, var(--ls-primary-text-color) 5%, transparent);
+  padding: 6px 10px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  cursor: default;
+  z-index: 99999;
+  font-size: 0.85rem;
+  white-space: nowrap;
+
+  /* Hidden by default */
+  opacity: 0;
+  transform: translateY(-10px);
+  pointer-events: none;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+
+.lda-eval-toolbar-popover.visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.eval-count-label {
+  color: var(--ls-secondary-text-color, #666);
+  font-weight: 500;
+}
+
+.lda-eval-badge {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--ls-link-text-color, #106ba3) !important;
+  font-weight: 600;
+  height: 24px;
+  margin: 0;
+}
+
+.lda-eval-badge:hover,
+.lda-eval-badge:active {
+  background: var(--ls-tertiary-background-color, #f5f5f5);
+  color: var(--ls-primary-text-color);
+}
+
+.clear-all {
+  background: var(--ls-error-text-color, #ef4444);
+  color: #ffffff !important;
+}
+
+.clear-all:hover {
+  background: color-mix(in srgb, var(--ls-error-text-color, #ef4444), black 10%);
+}

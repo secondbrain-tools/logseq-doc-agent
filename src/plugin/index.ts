@@ -89,6 +89,9 @@ export const setupPlugin = async () => {
     // Register Merge Toolbar Pagebar Item (placeholder for dynamic content)
     services.injectMergesUseCase.registerPagebarItem();
 
+    // Register Evaluation Toolbar Pagebar Item
+    services.injectEvaluationsUseCase.registerPagebarItem();
+
     // Register Command Palette & Hotkey for Opening Chat
     logseq.App.registerCommandPalette({
         key: 'open-chat-palette',

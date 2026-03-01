@@ -15,7 +15,8 @@ import { LogseqSettingsAdapter } from './infra/logseq/settings-adapter';
 import { LogseqAgentRepository } from './infra/logseq/agent-repository';
 import { EvaluationReviewService } from './application/services/evaluation-review.service';
 import { PromptTemplateService } from './application/services/prompt-template.service';
-
+import { EvidenceHighlightService } from './application/services/evidence-highlight.service';
+import { textHighlighter } from './infra/frontend/text-highlighter';
 // Globals from previous implementation
 // We use 'parent.document' because the plugin runs in an iframe
 export const doc = parent.document;
@@ -39,6 +40,7 @@ export class Services {
     public injectMergesUseCase: InjectMergesUseCase;
     public chatUseCase: ChatSidebarUseCase;
     public evaluationReviewService: EvaluationReviewService;
+    public evidenceHighlightService: EvidenceHighlightService;
 
     // Globals
     public pluginID: string;
@@ -98,6 +100,7 @@ export class Services {
         );
 
         this.evaluationReviewService = new EvaluationReviewService(this.logseqApi);
+        this.evidenceHighlightService = new EvidenceHighlightService(textHighlighter);
 
         // Initialize Globals
         // Note: package.json import handling might need adjustment based on build system

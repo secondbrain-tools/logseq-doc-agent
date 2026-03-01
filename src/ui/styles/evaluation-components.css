@@ -874,3 +874,16 @@
 .clear-all:hover {
   background: color-mix(in srgb, var(--ls-error-text-color, #ef4444), black 10%);
 }
+/* --- Text Highlight --- */
+.lda-highlight {
+  background-color: rgba(255, 213, 79, 0.45);  /* warm yellow */
+  border-radius: 2px;
+  transition: background-color 0.2s ease;
+  scroll-margin: 60px;  /* breathing room when scrolling into view */
+}
+
+/* Dark theme adjustment */
+[data-theme="dark"] .lda-highlight,
+.dark .lda-highlight {
+  background-color: rgba(255, 193, 7, 0.3);
+}

@@ -14,6 +14,7 @@
   import EvaluationIssueBlock from "./EvaluationIssueBlock.svelte";
   import { groupByCategory, genericClick } from "./evaluation-review-logic";
   import { ICONS } from "../../icons";
+  import { onDestroy } from "svelte";
 
   let {
     evaluationData,
@@ -25,26 +26,20 @@
     blockId?: string;
     blockText?: string;
     showPopover?: boolean;
-  } = $props();
-
-  // Svelte 5 requires cloning props into local state if we want to mutate them optimistically
+  } = $props(); // Svelte 5 requires cloning props into local state if we want to mutate them optimistically
   let localEvaluationData = $state(
     JSON.parse(
       JSON.stringify($state.snapshot(evaluationData)),
     ) as BlockEvaluation,
   );
-
-  // Sync if external props change
-  $effect(() => {
-    localEvaluationData = JSON.parse(
-      JSON.stringify($state.snapshot(evaluationData)),
-    ) as BlockEvaluation;
-  });
-
   const dispatch = createEventDispatcher();
   const calculator = new FrontendEvaluationCalculator();
 
   let preCommitmentEnabled = $state<boolean>(false);
+
+  onDestroy(() => {
+    Services.instance.evidenceHighlightService.clearFocus();
+  });
 
   $effect(() => {
     if (typeof window !== "undefined" && (window as any).logseq) {
@@ -114,6 +109,24 @@
       }
     }
   }
+
+  // Reactively track issue data and update DOM highlights via the application service
+  $effect(() => {
+    if (focusedIssue && blockId) {
+      console.log(
+        "[EvaluationPopover] focusedIssue changed, delegating to EvidenceHighlightService",
+      );
+      Services.instance.evidenceHighlightService.focusIssue(
+        blockId,
+        focusedIssue.issue,
+      );
+    } else {
+      console.log(
+        "[EvaluationPopover] Clearing focus via EvidenceHighlightService",
+      );
+      Services.instance.evidenceHighlightService.clearFocus();
+    }
+  });
 
   const categories = $derived(() => {
     const groups = groupByCategory(localEvaluationData.results);

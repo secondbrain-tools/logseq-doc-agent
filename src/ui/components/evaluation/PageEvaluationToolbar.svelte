@@ -122,17 +122,7 @@
             class="badg-icon"
             style="color: var(--ls-success-text-color, #16a34a);"
         >
-            <svg
-                class="icon icon-tabler"
-                viewBox="0 0 24 24"
-                stroke-width="1.5"
-                stroke="currentColor"
-                fill="currentColor"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-            >
-                {@html ICONS.evaluation}
-            </svg>
+            {@html ICONS.evaluation}
         </span>
         {#if evaluationState.count > 0}
             <span class="badge-count eval-count">{evaluationState.count}</span>

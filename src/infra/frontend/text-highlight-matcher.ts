@@ -1,4 +1,4 @@
-import type { TextQuoteSelector } from './entity';
+import type { TextQuoteSelector } from '../../domain/evaluation/entity';
 
 export interface MatchResult {
     startOffset: number;
@@ -138,33 +138,59 @@ export function findBestMatch(text: string, selector: TextQuoteSelector): MatchR
 
     // Expand to include surrounding non-alphanumeric characters in the exact match
     // if the exact match originally had them at boundaries.
-    // e.g., if exact is "hello!", the needle is "hello", but we want to highlight the "!".
-    // We achieve a reasonable approximation by expanding the original range 
-    // to match word boundaries or up to the length of the original exact string.
 
     let expandedStart = origStart;
     let expandedEnd = origEnd;
 
-    // Small heuristic: we try to gobble up to the original exact string length + a tiny buffer
-    // if we haven't hit another alphanumeric char and not a whitespace.
-    while (
-        expandedStart > 0 &&
-        !/^[a-z0-9]$/i.test(text[expandedStart - 1].normalize('NFD').replace(/[\u0300-\u036f]/g, '')) &&
-        !/\s/.test(text[expandedStart - 1]) &&
-        (origEnd - expandedStart) < selector.exact.length + 5 &&
-        text[expandedStart - 1] !== '\n'
-    ) {
-        expandedStart--;
+    // To prevent gobbling trailing punctuation that is NOT in the selector.exact, 
+    // we only expand backwards if the character in the text matches a non-alphanumeric
+    // character at the start of the selector.exact string.
+    let selectorStartIdx = 0;
+    while (selectorStartIdx < selector.exact.length && !/^[a-z0-9]$/i.test(selector.exact[selectorStartIdx].normalize('NFD').replace(/[\u0300-\u036f]/g, ''))) {
+        selectorStartIdx++;
+    }
+    const leadingNonAlpha = selector.exact.substring(0, selectorStartIdx);
+
+    // Only expand backwards if the text immediately preceding origStart matches leadingNonAlpha (ignoring spaces)
+    if (leadingNonAlpha) {
+        let charsToMatch = leadingNonAlpha.replace(/\s/g, '');
+        while (expandedStart > 0 && charsToMatch.length > 0) {
+            const prevChar = text[expandedStart - 1];
+            if (/\s/.test(prevChar)) {
+                expandedStart--;
+                continue;
+            }
+            if (prevChar === charsToMatch[charsToMatch.length - 1]) {
+                charsToMatch = charsToMatch.substring(0, charsToMatch.length - 1);
+                expandedStart--;
+            } else {
+                break;
+            }
+        }
     }
 
-    while (
-        expandedEnd < text.length &&
-        !/^[a-z0-9]$/i.test(text[expandedEnd].normalize('NFD').replace(/[\u0300-\u036f]/g, '')) &&
-        !/\s/.test(text[expandedEnd]) &&
-        (expandedEnd - expandedStart) < selector.exact.length + 5 &&
-        text[expandedEnd] !== '\n'
-    ) {
-        expandedEnd++;
+    // Similar logic for trailing non-alphanumeric characters
+    let selectorEndIdx = selector.exact.length - 1;
+    while (selectorEndIdx >= 0 && !/^[a-z0-9]$/i.test(selector.exact[selectorEndIdx].normalize('NFD').replace(/[\u0300-\u036f]/g, ''))) {
+        selectorEndIdx--;
+    }
+    const trailingNonAlpha = selector.exact.substring(selectorEndIdx + 1);
+
+    if (trailingNonAlpha) {
+        let charsToMatch = trailingNonAlpha.replace(/\s/g, '');
+        while (expandedEnd < text.length && charsToMatch.length > 0) {
+            const nextChar = text[expandedEnd];
+            if (/\s/.test(nextChar)) {
+                expandedEnd++;
+                continue;
+            }
+            if (nextChar === charsToMatch[0]) {
+                charsToMatch = charsToMatch.substring(1);
+                expandedEnd++;
+            } else {
+                break;
+            }
+        }
     }
 
     return {

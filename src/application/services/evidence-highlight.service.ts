@@ -1,6 +1,6 @@
 import type { Issue } from '../../domain/evaluation/entity';
 import type { HighlightPort } from '../ports/highlight-port';
-import type { TextQuoteSelector } from '../../domain/evaluation/entity';
+import type { TextQuoteSelector, Suggestion } from '../../domain/evaluation/entity';
 
 export class EvidenceHighlightService {
     constructor(private highlightPort: HighlightPort) { }
@@ -47,5 +47,19 @@ export class EvidenceHighlightService {
      */
     public clearFocus(): void {
         this.highlightPort.clearHighlights();
+    }
+
+    /**
+     * Previews a specific suggestion by applying inline DOM modifications
+     */
+    public previewSuggestion(blockId: string, suggestion: Suggestion): void {
+        this.highlightPort.previewSuggestion(blockId, suggestion);
+    }
+
+    /**
+     * Removes all active previews and restores original DOM content
+     */
+    public clearPreview(): void {
+        this.highlightPort.clearPreview();
     }
 }

@@ -874,16 +874,56 @@
 .clear-all:hover {
   background: color-mix(in srgb, var(--ls-error-text-color, #ef4444), black 10%);
 }
+
 /* --- Text Highlight --- */
 .lda-highlight {
-  background-color: rgba(255, 213, 79, 0.45);  /* warm yellow */
+  background-color: rgba(255, 213, 79, 0.45);
+  /* warm yellow */
   border-radius: 2px;
   transition: background-color 0.2s ease;
-  scroll-margin: 60px;  /* breathing room when scrolling into view */
+  scroll-margin: 60px;
+  /* breathing room when scrolling into view */
 }
 
 /* Dark theme adjustment */
 [data-theme="dark"] .lda-highlight,
 .dark .lda-highlight {
   background-color: rgba(255, 193, 7, 0.3);
+}
+
+/* --- Suggestion Preview --- */
+.lda-highlight-preview.lda-preview-insert {
+  background-color: rgba(76, 175, 80, 0.25);
+  border-radius: 2px;
+  transition: background-color 0.2s ease;
+}
+
+.lda-highlight-preview.lda-preview-delete {
+  background-color: rgba(239, 83, 80, 0.2);
+  text-decoration: line-through;
+  border-radius: 2px;
+  transition: background-color 0.2s ease;
+}
+
+[data-theme="dark"] .lda-highlight-preview.lda-preview-insert,
+.dark .lda-highlight-preview.lda-preview-insert {
+  background-color: rgba(76, 175, 80, 0.2);
+}
+
+[data-theme="dark"] .lda-highlight-preview.lda-preview-delete,
+.dark .lda-highlight-preview.lda-preview-delete {
+  background-color: rgba(239, 83, 80, 0.15);
+}
+
+/* Activated suggestion card state */
+.lda-suggestion-card--active {
+  border-color: rgba(76, 175, 80, 0.6);
+  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
+}
+
+/* Single suggestion (list item) activated */
+.lda-suggestion-item--active {
+  background-color: rgba(76, 175, 80, 0.08);
+  border-radius: 4px;
+  padding-left: 6px;
 }

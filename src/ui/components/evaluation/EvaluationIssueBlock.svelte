@@ -14,6 +14,8 @@
         genericClick,
     } from "./evaluation-review-logic";
     import { ICONS } from "../../icons";
+    import { onDestroy } from "svelte";
+    import { Services } from "../../../services";
 
     let {
         issue,
@@ -45,6 +47,9 @@
 
     let fallbackPreCommitmentSuggestions = $state<Record<string, string>>({});
 
+    // State for tracking which suggestion (if any) is currently being previewed
+    let activeSuggestionIdx = $state<number | null>(null);
+
     const issueUniqueId = `${uniqueId}-${issueIdx}`;
 
     const isDone = $derived(
@@ -54,6 +59,39 @@
     const doneFeedbackIdx = $derived(
         issue.user_feedback?.findIndex((fb) => fb.type === "done") ?? -1,
     );
+
+    // Clear previews when issue changes or component unmounts
+    $effect(() => {
+        // Track issueIdx to re-clear state if the parent popover changes the props
+        let _currentIdx = issueIdx;
+        activeSuggestionIdx = null;
+        if (blockId) {
+            Services.instance.evidenceHighlightService.clearPreview();
+        }
+    });
+
+    onDestroy(() => {
+        if (blockId) {
+            Services.instance.evidenceHighlightService.clearPreview();
+        }
+    });
+
+    function toggleSuggestionPreview(idx: number, suggestion: any) {
+        if (!blockId) return;
+
+        if (activeSuggestionIdx === idx) {
+            // Deselect and clear preview
+            activeSuggestionIdx = null;
+            Services.instance.evidenceHighlightService.clearPreview();
+        } else {
+            // Select and preview
+            activeSuggestionIdx = idx;
+            Services.instance.evidenceHighlightService.previewSuggestion(
+                blockId,
+                suggestion,
+            );
+        }
+    }
 
     function openFeedbackInput(type: "reply" | "change_proposal") {
         activeFeedbackInput = type;
@@ -243,7 +281,20 @@
                         {#if issue.suggestions.length >= 2}
                             <div class="lda-alternatives-container mt-1">
                                 {#each issue.suggestions as suggestion, i}
-                                    <div class="lda-suggestion-card">
+                                    <!-- svelte-ignore a11y_click_events_have_key_events -->
+                                    <!-- svelte-ignore a11y_no_static_element_interactions -->
+                                    <div
+                                        class="lda-suggestion-card {activeSuggestionIdx ===
+                                        i
+                                            ? 'lda-suggestion-card--active'
+                                            : ''} cursor-pointer transition-all duration-200"
+                                        use:genericClick={() => {
+                                            toggleSuggestionPreview(
+                                                i,
+                                                suggestion,
+                                            );
+                                        }}
+                                    >
                                         <div class="lda-suggestion-card-header">
                                             <span class="lda-suggestion-label"
                                                 >Option {String.fromCharCode(
@@ -278,8 +329,21 @@
                             <ul
                                 class="lda-suggestions-list list-disc pl-4 mt-1"
                             >
-                                {#each issue.suggestions as suggestion}
-                                    <li class="lda-suggestion-item pb-1">
+                                {#each issue.suggestions as suggestion, i}
+                                    <!-- svelte-ignore a11y_click_events_have_key_events -->
+                                    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+                                    <li
+                                        class="lda-suggestion-item pb-1 cursor-pointer transition-colors {activeSuggestionIdx ===
+                                        i
+                                            ? 'lda-suggestion-item--active'
+                                            : ''}"
+                                        use:genericClick={() => {
+                                            toggleSuggestionPreview(
+                                                i,
+                                                suggestion,
+                                            );
+                                        }}
+                                    >
                                         {#if suggestion.selector?.exact}
                                             <span
                                                 class="lda-suggestion-target italic opacity-75"

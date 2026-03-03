@@ -1,4 +1,4 @@
-import type { TextQuoteSelector } from '../../domain/evaluation/entity';
+import type { TextQuoteSelector, Suggestion } from '../../domain/evaluation/entity';
 
 export interface HighlightPort {
     /**
@@ -13,4 +13,16 @@ export interface HighlightPort {
      * Removes all active highlights
      */
     clearHighlights(): void;
+
+    /**
+     * Previews a specific suggestion by applying inline DOM modifications
+     * @param blockId The ID of the block where the evaluation was triggered
+     * @param suggestion The suggestion to preview
+     */
+    previewSuggestion(blockId: string, suggestion: Suggestion): void;
+
+    /**
+     * Removes all active previews and restores original DOM content
+     */
+    clearPreview(): void;
 }

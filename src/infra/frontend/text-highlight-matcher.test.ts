@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { findBestMatch, normalizeTextWithMap } from './text-highlight-matcher';
-import type { TextQuoteSelector } from './entity';
+import type { TextQuoteSelector } from '../../domain/evaluation/entity';
 
 describe('text-highlight-matcher', () => {
 
@@ -118,6 +118,25 @@ describe('text-highlight-matcher', () => {
 
             const match = findBestMatch(text, selector);
             expect(match).toBeNull();
+        });
+
+        it('should handle trailing punctuation without over-expanding', () => {
+            const text = "Instead of striving for perfection, try to be good enough.";
+            const selector: TextQuoteSelector = {
+                type: 'TextQuoteSelector',
+                exact: "striving for perfection",
+                prefix: null,
+                suffix: null
+            };
+
+            const match = findBestMatch(text, selector);
+            expect(match).not.toBeNull();
+            const matchedText = text.substring(match!.startOffset, match!.endOffset);
+
+            // The exact match shouldn't eagerly swallow the comma if it's not in the selector 
+            // unless it's strictly necessary. By default, finding "striving for perfection" exactly 
+            // should yield exactly that string if the character boundaries align.
+            expect(matchedText.trim()).toBe("striving for perfection");
         });
     });
 

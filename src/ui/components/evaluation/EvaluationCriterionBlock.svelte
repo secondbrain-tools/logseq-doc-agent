@@ -48,7 +48,12 @@
     } = $props();
 
     let localExpanded = $state(defaultExpanded);
-    const uniqueId = `${categoryName}-${criterion.criterion_id}`;
+    // Use an effect to sync localExpanded if defaultExpanded prop changes
+    $effect(() => {
+        localExpanded = defaultExpanded;
+    });
+
+    const uniqueId = $derived(`${categoryName}-${criterion.criterion_id}`);
 
     const isExpanded = $derived(
         accordionMode ? isExpandedInAccordion : localExpanded,
@@ -151,7 +156,16 @@
                                         {:else if issue.impact && issue.impact !== "low"}
                                             <span
                                                 class="lda-impact-tag lda-impact-{issue.impact}"
-                                                >{issue.impact}</span
+                                                title={issue.impact === "high"
+                                                    ? "High Impact"
+                                                    : "Medium Impact"}
+                                                aria-label={issue.impact ===
+                                                "high"
+                                                    ? "High Impact"
+                                                    : "Medium Impact"}
+                                                >{issue.impact === "high"
+                                                    ? "H"
+                                                    : "M"}</span
                                             >
                                         {/if}
                                         {@html ICONS.chevronRight}

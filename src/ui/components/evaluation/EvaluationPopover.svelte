@@ -130,11 +130,22 @@
 
   const categories = $derived(() => {
     const groups = groupByCategory(localEvaluationData.results);
-    return Object.entries(groups).map(([cat, res]) => ({
-      category: cat,
-      overallRating: calculator.calculateCategoryScore(res),
-      criteriaRatings: res,
-    }));
+    return Object.entries(groups).map(([cat, res]) => {
+      // Align criteria sorting with sidebar: lowest scores first, 0 (unrated) at the bottom
+      const sortedCriteria = [...res].sort((a, b) => {
+        const aVal =
+          typeof a.score === "number" && a.score === 0 ? 99 : a.score;
+        const bVal =
+          typeof b.score === "number" && b.score === 0 ? 99 : b.score;
+        return aVal - bVal;
+      });
+
+      return {
+        category: cat,
+        overallRating: calculator.calculateCategoryScore(sortedCriteria),
+        criteriaRatings: sortedCriteria,
+      };
+    });
   });
 
   const overallRating = $derived(

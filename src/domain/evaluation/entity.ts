@@ -21,6 +21,7 @@ export const SuggestionSchema = z.object({
     selector: TextQuoteSelectorSchema.nullable().describe("null => applies globally / not tied to a specific span"),
     proposed_text: z.string().nullable().describe("null allowed for delete"),
     rationale: z.string(),
+    status: z.enum(["pending", "accepted", "dismissed"]).default("pending").optional()
 }).describe("May be empty if no suggestions are provided.");
 
 export type Suggestion = z.infer<typeof SuggestionSchema>;
@@ -39,7 +40,8 @@ export const IssueSchema = z.object({
     counterargument: z.string().optional().describe("A counterargument arguing against this issue (e.g., why this might actually be intentional or beneficial)."),
     evidence: z.array(EvidenceSchema).optional().describe("Where the issue occurs (if applicable)."),
     suggestions: z.array(SuggestionSchema).optional().describe("Proposed fixes or alternatives."),
-    user_feedback: z.array(z.lazy(() => UserFeedbackSchema)).optional().describe("User replies and change proposals for this issue.")
+    user_feedback: z.array(z.lazy(() => UserFeedbackSchema)).optional().describe("User replies and change proposals for this issue."),
+    status: z.enum(["open", "resolved", "ignored"]).default("open").optional()
 });
 
 export type Issue = z.infer<typeof IssueSchema>;

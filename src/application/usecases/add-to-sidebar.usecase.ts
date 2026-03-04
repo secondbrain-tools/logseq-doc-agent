@@ -11,7 +11,7 @@ export class AddToSidebarUseCase {
     showAnalysisSidebar(evaluationData: any, blockId?: string, icon?: string, blockText?: string) {
         this.sidebarInjector.injectIntoSidebar(
             AnalysisSidebarContent,
-            { evaluationData, blockText },
+            { evaluationData, blockText, blockId },
             'Analysis Report',
             icon
         );

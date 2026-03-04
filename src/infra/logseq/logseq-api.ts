@@ -275,6 +275,10 @@ export class LogseqApiImpl implements LogseqApi {
 
       // Join the filtered lines back together
       return filteredLines.join('\n');
+    },
+
+    updateBlock: async (uuid: string, content: string): Promise<BlockEntity | null> => {
+      return this.api.Editor.updateBlock(uuid, content);
     }
   };
 }

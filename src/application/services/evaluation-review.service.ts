@@ -2,9 +2,7 @@ import type { LogseqApi } from '../../application/ports/logseq-ports';
 import { LDA_EVALUATION_PROPERTY, LDA_EVALUATION_PROPERTY_CAMEL } from '../../domain/logseq/properties';
 import type { BlockEvaluation } from '../../domain/evaluation/entity';
 import type { z } from 'zod';
-import type { UserFeedbackSchema } from '../../domain/evaluation/entity';
-
-type UserFeedback = z.infer<typeof UserFeedbackSchema>;
+import type { UserFeedbackSchema, UserFeedback } from '../../domain/evaluation/entity';
 
 export class EvaluationReviewService {
     constructor(private readonly logseq: LogseqApi) { }
@@ -72,7 +70,7 @@ export class EvaluationReviewService {
     /**
      * Internal helper to read, modify, and write back the evaluation property.
      */
-    private async mutateEvaluation(blockUuid: string, mutator: (evaluation: BlockEvaluation) => void): Promise<void> {
+    public async mutateEvaluation(blockUuid: string, mutator: (evaluation: BlockEvaluation) => void): Promise<void> {
         const block = await this.logseq.getBlock(blockUuid);
         if (!block) throw new Error(`Block ${blockUuid} not found`);
 

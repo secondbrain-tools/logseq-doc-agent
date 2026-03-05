@@ -14,6 +14,7 @@ import { LogseqChatlogRepository } from './infra/logseq/chatlog-repository';
 import { LogseqSettingsAdapter } from './infra/logseq/settings-adapter';
 import { LogseqAgentRepository } from './infra/logseq/agent-repository';
 import { EvaluationReviewService } from './application/services/evaluation-review.service';
+import { IssueReplyService } from './application/services/issue-reply.service';
 import { PromptTemplateService } from './application/services/prompt-template.service';
 import { EvidenceHighlightService } from './application/services/evidence-highlight.service';
 import { textHighlighter } from './infra/frontend/text-highlighter';
@@ -40,6 +41,7 @@ export class Services {
     public injectMergesUseCase: InjectMergesUseCase;
     public chatUseCase: ChatSidebarUseCase;
     public evaluationReviewService: EvaluationReviewService;
+    public issueReplyService: IssueReplyService;
     public evidenceHighlightService: EvidenceHighlightService;
 
     // Globals
@@ -100,6 +102,7 @@ export class Services {
         );
 
         this.evaluationReviewService = new EvaluationReviewService(this.logseqApi);
+        this.issueReplyService = new IssueReplyService(aiAdapter, this.logseqApi, this.evaluationReviewService, settingsAdapter);
         this.evidenceHighlightService = new EvidenceHighlightService(textHighlighter);
 
         // Initialize Globals

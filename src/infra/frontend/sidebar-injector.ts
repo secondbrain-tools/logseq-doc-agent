@@ -122,8 +122,8 @@ export class FrontendSidebarInjector implements SidebarInjector {
 
     injectIntoSidebar(component: any, props: any, title: string, icon?: string, options?: { onMaximize?: () => void }): void {
         // 1. Ensure sidebar is open
-        if (typeof (window as any).logseq?.App?.openRightSidebar === 'function') {
-            (window as any).logseq.App.openRightSidebar();
+        if (typeof (window as any).logseq?.App?.setRightSidebarVisible === 'function') {
+            (window as any).logseq.App.setRightSidebarVisible(true);
         }
 
         // 2. Prepare instance data

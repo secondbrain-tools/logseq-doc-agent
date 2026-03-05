@@ -1,5 +1,5 @@
 import { createTools, filterTools } from './tools/index';
-import { generateText } from 'ai';
+import { generateText, generateObject } from 'ai';
 import type { IAIService } from '../../application/ports/ai-service';
 import type { Message } from '../../domain/chat/types';
 import type { AgentContext } from '../../domain/agent/types';
@@ -141,6 +141,21 @@ export class VercelAIAdapter implements IAIService {
         });
 
         return result.text;
+    }
+
+    async generateObject<T>(messages: Message[], schema: any, modelId: string, providerId: string): Promise<T> {
+        console.log('[VercelAIAdapter] generateObject called', { modelId, providerId });
+
+        const model = this.modelFactory.getModel(modelId, providerId);
+        const coreMessages = mapMessages(messages);
+
+        const result = await generateObject({
+            model,
+            schema,
+            messages: coreMessages,
+        });
+
+        return result.object as T;
     }
 }
 

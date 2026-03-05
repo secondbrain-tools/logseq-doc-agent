@@ -4,6 +4,7 @@
         Issue,
         BlockEvaluation,
     } from "../../../domain/evaluation/entity";
+    import type { ContextScope } from "../../../domain/evaluation/issue-reply.types";
     import {
         saveFeedback,
         deleteFeedback,
@@ -15,6 +16,8 @@
         needsPreCommitment,
         getPreCommitmentSuggestion,
         genericClick,
+        startAiIssueReply,
+        editFeedback,
     } from "./evaluation-review-logic";
     import { ICONS } from "../../icons";
     import { onDestroy } from "svelte";
@@ -48,6 +51,14 @@
     let feedbackInputText = $state("");
     let preCommitmentInputText = $state("");
 
+    let contextScope = $state<ContextScope>({
+        includeDocument: false,
+        includeEvaluation: false,
+    });
+    let isAiGenerating = $state(false);
+    let editingFeedbackIdx = $state<number | null>(null);
+    let editingFeedbackText = $state("");
+
     let fallbackPreCommitmentSuggestions = $state<Record<string, string>>({});
 
     // State for tracking which suggestion (if any) is currently being previewed
@@ -65,6 +76,11 @@
 
     const doneFeedbackIdx = $derived(
         issue.user_feedback?.findIndex((fb) => fb.type === "done") ?? -1,
+    );
+
+    const hasChangeProposal = $derived(
+        issue.user_feedback?.some((fb) => fb.type === "change_proposal") ??
+            false,
     );
 
     // Clear previews when issue changes or component unmounts
@@ -114,6 +130,7 @@
         type: "reply" | "change_proposal",
         text: string,
     ) {
+        if (!text.trim()) return;
         const updated = await saveFeedback(
             blockId,
             criterionId,
@@ -124,6 +141,63 @@
         );
         onDataUpdate(updated);
         cancelFeedbackInput();
+
+        if (type === "reply") {
+            await triggerAiReply(updated);
+        }
+    }
+
+    async function triggerAiReply(evData: BlockEvaluation) {
+        try {
+            isAiGenerating = true;
+            const updatedWithAi = await startAiIssueReply(
+                blockId,
+                criterionId,
+                issueIdx,
+                evData,
+                contextScope,
+            );
+            onDataUpdate(updatedWithAi);
+        } catch (e) {
+            console.error("AI reply failed", e);
+        } finally {
+            isAiGenerating = false;
+        }
+    }
+
+    async function handleDiscussProposal(e?: MouseEvent) {
+        if (e) {
+            e.stopPropagation();
+            e.preventDefault();
+        }
+        await triggerAiReply(evaluationData);
+    }
+
+    function startEditFeedback(idx: number, text: string) {
+        editingFeedbackIdx = idx;
+        editingFeedbackText = text;
+    }
+
+    function cancelEditFeedback() {
+        editingFeedbackIdx = null;
+        editingFeedbackText = "";
+    }
+
+    async function handleSaveEditedFeedback(idx: number) {
+        if (!editingFeedbackText.trim()) {
+            cancelEditFeedback();
+            return;
+        }
+        const updated = await editFeedback(
+            blockId,
+            criterionId,
+            issueIdx,
+            idx,
+            editingFeedbackText,
+            evaluationData,
+        );
+        onDataUpdate(updated);
+        cancelEditFeedback();
     }
 
     async function handleDeleteFeedback(fbIdx: number) {
@@ -769,23 +843,48 @@
                                 .map((fb, i) => ({ fb, i }))
                                 .filter((item) => item.fb.type !== "done") as item}
                                 <div
-                                    class="lda-feedback-item bg-gray-50 p-2 rounded text-xs border"
-                                    style="background-color: var(--ls-secondary-background-color); border-color: var(--ls-border-color);"
+                                    class="lda-feedback-item bg-gray-50 p-2 rounded text-xs border {item
+                                        .fb.type === 'ai_reply'
+                                        ? 'lda-feedback-item--ai bg-blue-50 border-blue-200'
+                                        : ''}"
+                                    style="border-color: var(--ls-border-color);"
                                 >
                                     <div class="flex justify-between mb-[2px]">
                                         <span
                                             class="font-semibold text-gray-600 capitalize opacity-80"
-                                            >{item.fb.type.replace(
-                                                "_",
-                                                " ",
-                                            )}</span
                                         >
+                                            {item.fb.type === "ai_reply"
+                                                ? "🤖 AI Reply"
+                                                : item.fb.type.replace(
+                                                      "_",
+                                                      " ",
+                                                  )}
+                                        </span>
                                         <div class="flex gap-2 items-center">
                                             <span class="opacity-50 text-[10px]"
                                                 >{new Date(
                                                     item.fb.created_at,
                                                 ).toLocaleDateString()}</span
                                             >
+                                            {#if item.fb.type === "change_proposal"}
+                                                <button
+                                                    type="button"
+                                                    class="lda-action-btn-icon opacity-50 hover:opacity-100"
+                                                    title="Edit proposal"
+                                                    use:genericClick={() =>
+                                                        startEditFeedback(
+                                                            item.i,
+                                                            item.fb.text,
+                                                        )}>✎</button
+                                                >
+                                                <button
+                                                    type="button"
+                                                    class="lda-action-btn-icon opacity-50 hover:opacity-100 text-blue-500"
+                                                    title="Discuss with AI"
+                                                    use:genericClick={handleDiscussProposal}
+                                                    >💬</button
+                                                >
+                                            {/if}
                                             <button
                                                 type="button"
                                                 class="lda-action-btn-icon opacity-50 hover:opacity-100"
@@ -797,11 +896,50 @@
                                             >
                                         </div>
                                     </div>
-                                    <div class="text-gray-800">
-                                        {item.fb.text}
-                                    </div>
+                                    {#if editingFeedbackIdx === item.i}
+                                        <div class="mt-2 text-gray-800">
+                                            <textarea
+                                                class="lda-feedback-input w-full p-2 text-xs border rounded mb-2 bg-white"
+                                                rows="2"
+                                                bind:value={editingFeedbackText}
+                                                style="border-color: var(--ls-border-color); color: var(--ls-primary-text-color);"
+                                            ></textarea>
+                                            <div class="flex justify-end gap-2">
+                                                <button
+                                                    type="button"
+                                                    class="lda-action-btn"
+                                                    use:genericClick={cancelEditFeedback}
+                                                    >Cancel</button
+                                                >
+                                                <button
+                                                    type="button"
+                                                    class="lda-action-btn border-blue-500 text-blue-600 bg-blue-50"
+                                                    use:genericClick={() =>
+                                                        handleSaveEditedFeedback(
+                                                            item.i,
+                                                        )}>Save</button
+                                                >
+                                            </div>
+                                        </div>
+                                    {:else}
+                                        <div class="text-gray-800">
+                                            {item.fb.text}
+                                        </div>
+                                    {/if}
                                 </div>
                             {/each}
+
+                            {#if isAiGenerating}
+                                <div
+                                    class="lda-feedback-item lda-feedback-item--ai bg-gray-50 p-2 rounded text-xs border animate-pulse opacity-70"
+                                >
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-semibold"
+                                            >🤖 AI is thinking...</span
+                                        >
+                                    </div>
+                                </div>
+                            {/if}
                         </div>
                     </div>
                 {/if}
@@ -813,7 +951,7 @@
                         transition:slide|local
                     >
                         <label
-                            class="block text-xs font-semibold mb-1 opacity-80 capitalize"
+                            class="block text-xs font-semibold opacity-80 capitalize mb-1"
                             >{activeFeedbackInput.replace("_", " ")}</label
                         >
                         <textarea
@@ -821,26 +959,60 @@
                             style="border-color: var(--ls-border-color); color: var(--ls-primary-text-color);"
                             rows="2"
                             placeholder={activeFeedbackInput === "reply"
-                                ? "Add your reply..."
+                                ? "Add your reply (sends to AI)..."
                                 : "What would you change?"}
                             bind:value={feedbackInputText}
                         ></textarea>
-                        <div class="flex justify-end gap-2">
-                            <button
-                                type="button"
-                                class="lda-action-btn"
-                                use:genericClick={cancelFeedbackInput}
-                                >Cancel</button
+                        <div class="flex justify-between items-center mt-1">
+                            <div
+                                class="flex gap-3 items-center text-gray-500"
+                                style="font-size: 11px;"
                             >
-                            <button
-                                type="button"
-                                class="lda-action-btn border-blue-500 text-blue-600 bg-blue-50"
-                                use:genericClick={() =>
-                                    handleSaveFeedback(
-                                        activeFeedbackInput!,
-                                        feedbackInputText,
-                                    )}>Save</button
-                            >
+                                <label
+                                    class="flex items-center gap-[4px] cursor-pointer"
+                                    title="Include complete document instead of just the relevant block"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        bind:checked={
+                                            contextScope.includeDocument
+                                        }
+                                        style="transform: scale(0.9); margin: 0;"
+                                    /> Document
+                                </label>
+                                <label
+                                    class="flex items-center gap-[4px] cursor-pointer"
+                                    title="Include complete block eval instead of just the current issue"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        bind:checked={
+                                            contextScope.includeEvaluation
+                                        }
+                                        style="transform: scale(0.9); margin: 0;"
+                                    /> Evaluation
+                                </label>
+                            </div>
+                            <div class="flex gap-2">
+                                <button
+                                    type="button"
+                                    class="lda-action-btn lda-action-btn-sm"
+                                    use:genericClick={cancelFeedbackInput}
+                                    >Cancel</button
+                                >
+                                <button
+                                    type="button"
+                                    class="lda-action-btn lda-action-btn-sm border-blue-500 text-blue-600 bg-blue-50"
+                                    use:genericClick={() =>
+                                        handleSaveFeedback(
+                                            activeFeedbackInput!,
+                                            feedbackInputText,
+                                        )}
+                                    >{activeFeedbackInput === "reply"
+                                        ? "Send to AI"
+                                        : "Save Proposal"}</button
+                                >
+                            </div>
                         </div>
                     </div>
                 {:else}
@@ -852,14 +1024,16 @@
                         >
                             {@html ICONS.reply} Reply
                         </button>
-                        <button
-                            type="button"
-                            class="lda-action-btn"
-                            use:genericClick={() =>
-                                openFeedbackInput("change_proposal")}
-                        >
-                            ✎ Propose Change
-                        </button>
+                        {#if !hasChangeProposal}
+                            <button
+                                type="button"
+                                class="lda-action-btn"
+                                use:genericClick={() =>
+                                    openFeedbackInput("change_proposal")}
+                            >
+                                ✎ Propose Change
+                            </button>
+                        {/if}
                     </div>
                 {/if}
             {/if}

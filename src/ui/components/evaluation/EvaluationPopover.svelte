@@ -133,10 +133,8 @@
     return Object.entries(groups).map(([cat, res]) => {
       // Align criteria sorting with sidebar: lowest scores first, 0 (unrated) at the bottom
       const sortedCriteria = [...res].sort((a, b) => {
-        const aVal =
-          typeof a.score === "number" && a.score === 0 ? 99 : a.score;
-        const bVal =
-          typeof b.score === "number" && b.score === 0 ? 99 : b.score;
+        const aVal = typeof a.score !== "number" ? 99 : a.score;
+        const bVal = typeof b.score !== "number" ? 99 : b.score;
         return aVal - bVal;
       });
 

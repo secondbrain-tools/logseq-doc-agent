@@ -650,6 +650,16 @@
 }
 
 .lda-action-btn {
+
+  .lda-feedback-item--ai {
+    background-color: color-mix(in srgb, var(--ls-link-text-color, #3b82f6) 10%, transparent) !important;
+    border-color: color-mix(in srgb, var(--ls-link-text-color, #3b82f6) 30%, transparent) !important;
+  }
+
+  .lda-feedback-item--ai .font-semibold {
+    color: var(--ls-link-text-color, #3b82f6) !important;
+  }
+
   display: flex;
   align-items: center;
   gap: 4px;
@@ -667,6 +677,11 @@
   background: var(--ls-secondary-background-color, #f3f4f6);
   color: var(--ls-primary-text-color);
   border-color: var(--ls-secondary-text-color);
+}
+
+.lda-action-btn-sm {
+  padding: 2px 6px;
+  font-size: 10px;
 }
 
 .lda-category-avg {

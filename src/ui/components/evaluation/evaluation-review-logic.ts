@@ -1,4 +1,5 @@
 import type { BlockEvaluation, CriterionResult, Issue } from "../../../domain/evaluation/entity";
+import type { ContextScope } from "../../../domain/evaluation/issue-reply.types";
 import { Services } from "../../../services";
 
 export function groupByCategory(results: CriterionResult[]): Record<string, CriterionResult[]> {
@@ -61,23 +62,53 @@ export async function deleteFeedback(
     feedbackIdx: number,
     evaluationData: BlockEvaluation
 ): Promise<BlockEvaluation> {
-    if (blockId) {
-        Services.instance.evaluationReviewService
-            .deleteFeedback(blockId, criterionId, feedbackIdx, issueIdx)
-            .catch((err) => console.error("Failed to delete feedback:", err));
-    }
+    if (!blockId) return Promise.resolve(evaluationData);
 
-    const cloned = JSON.parse(JSON.stringify(evaluationData));
-    for (const res of cloned.results) {
-        if (res.criterion_id === criterionId && res.issues?.[issueIdx]) {
-            const issue = res.issues[issueIdx] as Issue;
-            if (issue.user_feedback) {
-                issue.user_feedback.splice(feedbackIdx, 1);
+    return Services.instance.evaluationReviewService.deleteFeedback(blockId, criterionId, feedbackIdx, issueIdx)
+        .then(() => {
+            const copy = JSON.parse(JSON.stringify(evaluationData));
+            const c = copy.results.find((r: any) => r.criterion_id === criterionId);
+            if (c && c.issues && c.issues[issueIdx] && c.issues[issueIdx].user_feedback) {
+                c.issues[issueIdx].user_feedback.splice(feedbackIdx, 1);
             }
-            break;
+            return copy;
+        });
+}
+
+export function editFeedback(
+    blockId: string | undefined,
+    criterionId: string,
+    issueIdx: number,
+    feedbackIdx: number,
+    newText: string,
+    evaluationData: BlockEvaluation
+): Promise<BlockEvaluation> {
+    if (!blockId) return Promise.resolve(evaluationData);
+
+    return Services.instance.evaluationReviewService.mutateEvaluation(blockId, (ev) => {
+        const c = ev.results.find(r => r.criterion_id === criterionId);
+        if (c && c.issues && c.issues[issueIdx] && c.issues[issueIdx].user_feedback) {
+            c.issues[issueIdx].user_feedback[feedbackIdx].text = newText;
         }
-    }
-    return cloned;
+    }).then(() => {
+        const copy = JSON.parse(JSON.stringify(evaluationData));
+        const c = copy.results.find((r: any) => r.criterion_id === criterionId);
+        if (c && c.issues && c.issues[issueIdx] && c.issues[issueIdx].user_feedback) {
+            c.issues[issueIdx].user_feedback[feedbackIdx].text = newText;
+        }
+        return copy;
+    });
+}
+
+export function startAiIssueReply(
+    blockId: string | undefined,
+    criterionId: string,
+    issueIdx: number,
+    evaluationData: BlockEvaluation,
+    contextScope: ContextScope
+): Promise<BlockEvaluation> {
+    if (!blockId) return Promise.resolve(evaluationData);
+    return Services.instance.issueReplyService.replyToIssue(blockId, criterionId, issueIdx, evaluationData, contextScope);
 }
 
 export async function toggleIssueDone(

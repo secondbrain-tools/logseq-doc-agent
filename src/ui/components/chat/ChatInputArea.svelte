@@ -135,17 +135,6 @@
             left: Math.max(0, Math.min(rawLeft, el.clientWidth - 260)),
         };
 
-        console.log(
-            "[PopoverPos] line:",
-            lineNum,
-            "col:",
-            colNum,
-            "lineHeight:",
-            lineHeight,
-            "pos:",
-            newPos,
-        );
-
         promptPickerPos = newPos;
         contextPickerPos = newPos;
     }

@@ -29,10 +29,6 @@
             return 0;
         });
         const result = matches.slice(0, 10);
-        console.log(
-            `[PromptPicker] Filtered prompts (filter: "${text}"):`,
-            result,
-        );
         return result;
     });
 

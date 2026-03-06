@@ -7,6 +7,12 @@ import {
     RUBRIC_BUILDER_PROMPT_INTRO,
     RUBRIC_BUILDER_PROMPT_CHILDREN
 } from '../../domain/evaluation/rubric-builder.prompt';
+import {
+    BASE_PROMPT_NAME,
+    BASE_PROMPT_VERSION,
+    BASE_PROMPT_TEXT
+} from '../../domain/chat/base.prompt';
+import { parseSubtree, type ParsedBlock } from '../../infra/ai/tools/subtree-parser';
 
 /**
  * Marker added to built-in prompt blocks so we can identify them on subsequent runs.
@@ -38,6 +44,22 @@ function builtinBlock(name: string, body: string, version: number): string {
     return `${name}\n${LDA_PROMPT_NAME_PROPERTY}:: ${name}\n${BUILTIN_MARKER_PROPERTY}:: ${version}\n${body}`;
 }
 
+/**
+ * Converts a ParsedBlock tree (from parseSubtree) into PromptBlockNode[] format
+ * used by createChildren().
+ */
+function parsedBlockToPromptNodes(blocks: ParsedBlock[]): PromptBlockNode[] {
+    return blocks.map(block => {
+        if (block.children.length === 0) {
+            return block.content;
+        }
+        return [block.content, ...parsedBlockToPromptNodes(block.children)] as PromptBlockNode;
+    });
+}
+
+// Parse the base prompt text once at module load
+const baseParsed = parseSubtree(BASE_PROMPT_TEXT);
+
 const BUILTIN_PROMPTS: BuiltinPrompt[] = [
     {
         name: 'Basic Summary',
@@ -49,6 +71,14 @@ const BUILTIN_PROMPTS: BuiltinPrompt[] = [
         version: 1,
         content: builtinBlock(RUBRIC_BUILDER_PROMPT_NAME, RUBRIC_BUILDER_PROMPT_INTRO, 1),
         children: RUBRIC_BUILDER_PROMPT_CHILDREN
+    },
+    {
+        name: BASE_PROMPT_NAME,
+        version: BASE_PROMPT_VERSION,
+        content: builtinBlock(BASE_PROMPT_NAME, baseParsed.content, BASE_PROMPT_VERSION),
+        children: baseParsed.children.length > 0
+            ? parsedBlockToPromptNodes(baseParsed.children)
+            : undefined
     }
 ];
 

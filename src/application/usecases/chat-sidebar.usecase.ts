@@ -281,7 +281,10 @@ export class ChatSidebarUseCase {
 
         // 1. Get base and selected prompts
         if (this.promptTemplateService) {
-            systemPrompt += await this.promptTemplateService.getBasePrompt();
+            const basePrompt = await this.promptTemplateService.getBasePrompt();
+            if (basePrompt) {
+                systemPrompt += basePrompt.content;
+            }
 
             if (selectedPrompts && selectedPrompts.length > 0) {
                 for (const pName of selectedPrompts) {
@@ -348,7 +351,14 @@ export class ChatSidebarUseCase {
             }
         }
 
-        // 1. Add User Message
+        // 1. Add prompt parts (display-only tags; content goes into system prompt)
+        if (selectedPrompts && selectedPrompts.length > 0) {
+            for (const pName of selectedPrompts) {
+                parts.push({ type: 'prompt', promptName: pName });
+            }
+        }
+
+        // 2. Add User Message
         if (parts.length > 0) {
             parts.unshift({
                 type: "content",
@@ -362,7 +372,7 @@ export class ChatSidebarUseCase {
             parts: parts.length > 0 ? parts : undefined
         }]);
 
-        await this.executeAgentStream(modelId, providerId, merge, reasoningEffort, agentName);
+        await this.executeAgentStream(modelId, providerId, merge, reasoningEffort, agentName, selectedPrompts);
     }
 
     public async continueGeneration() {

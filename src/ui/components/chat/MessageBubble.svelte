@@ -243,6 +243,11 @@
                                     </div>
                                 </details>
                             </div>
+                        {:else if part.type === "prompt"}
+                            <span class="lda-prompt-bubble-tag">
+                                <span class="lda-prompt-bubble-icon">✨</span>
+                                <span class="lda-prompt-bubble-name">{part.promptName}</span>
+                            </span>
                         {/if}
                     {:else if item.type === "tool_group"}
                         {@const groupKey = item.subgroups[0].parts[0].index}

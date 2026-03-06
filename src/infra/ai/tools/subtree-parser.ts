@@ -9,6 +9,7 @@ export interface ParsedBlock {
     content: string;
     properties: Record<string, string>;
     children: ParsedBlock[];
+    ordered?: boolean;
 }
 
 /**
@@ -32,10 +33,24 @@ function getIndentLevel(line: string): number {
 }
 
 /**
- * Checks if a line is a list item (starts with "- " after optional whitespace)
+ * Checks if a line is an unordered list item (starts with "- " after optional whitespace)
  */
 function isListItem(line: string): boolean {
     return /^\s*-\s+/.test(line);
+}
+
+/**
+ * Checks if a line is an ordered list item (starts with "N. " after optional whitespace)
+ */
+function isOrderedListItem(line: string): boolean {
+    return /^\s*\d+\.\s+/.test(line);
+}
+
+/**
+ * Checks if a line is any kind of list item (unordered or ordered)
+ */
+function isAnyListItem(line: string): boolean {
+    return isListItem(line) || isOrderedListItem(line);
 }
 
 /**
@@ -46,10 +61,17 @@ function isProperty(line: string): boolean {
 }
 
 /**
- * Extracts the content from a list item line (removes the "- " prefix)
+ * Extracts the content from an unordered list item line (removes the "- " prefix)
  */
 function extractListContent(line: string): string {
     return line.replace(/^\s*-\s+/, '');
+}
+
+/**
+ * Extracts the content from an ordered list item line (removes the "N. " prefix)
+ */
+function extractOrderedListContent(line: string): string {
+    return line.replace(/^\s*\d+\.\s+/, '');
 }
 
 /**
@@ -67,6 +89,8 @@ interface LineInfo {
     original: string;
     indentLevel: number;
     isListItem: boolean;
+    isOrderedItem: boolean;
+    isAnyItem: boolean;
     isProperty: boolean;
     content: string;
 }
@@ -75,8 +99,9 @@ interface LineInfo {
  * Parses the input content into a tree structure.
  * 
  * Rules:
- * - Text before the first "- " line becomes root block content
- * - Lines starting with "- " become child blocks
+ * - Text before the first list item becomes root block content
+ * - Lines starting with "- " become unordered child blocks
+ * - Lines starting with "N. " (e.g. "1. ", "2. ") become ordered child blocks
  * - Indentation (tabs or 2+ spaces) determines nesting depth
  * - Lines with "key:: value" after a block are properties for that block
  * 
@@ -91,12 +116,14 @@ export function parseSubtree(input: string): ParsedBlock {
         original: line,
         indentLevel: getIndentLevel(line),
         isListItem: isListItem(line),
+        isOrderedItem: isOrderedListItem(line),
+        isAnyItem: isAnyListItem(line),
         isProperty: isProperty(line),
         content: line.trim()
     }));
 
-    // Find where the list starts (first line with "- ")
-    const firstListIndex = lineInfos.findIndex(info => info.isListItem);
+    // Find where the list starts (first line with "- " or "N. ")
+    const firstListIndex = lineInfos.findIndex(info => info.isAnyItem);
 
     // Everything before the first list item is the root content
     let rootContent = '';
@@ -144,12 +171,16 @@ function parseListItems(lines: LineInfo[], baseIndent: number): ParsedBlock[] {
             continue;
         }
 
-        // If this is a list item at the expected level
-        if (line.isListItem && line.indentLevel === baseIndent) {
+        // If this is any list item at the expected level
+        if (line.isAnyItem && line.indentLevel === baseIndent) {
+            const isOrdered = line.isOrderedItem;
             const block: ParsedBlock = {
-                content: extractListContent(line.original),
+                content: isOrdered
+                    ? extractOrderedListContent(line.original)
+                    : extractListContent(line.original),
                 properties: {},
-                children: []
+                children: [],
+                ordered: isOrdered ? true : undefined,
             };
 
             i++;
@@ -176,15 +207,15 @@ function parseListItems(lines: LineInfo[], baseIndent: number): ParsedBlock[] {
                     continue;
                 }
 
-                // List item at higher indent = child
-                if (nextLine.isListItem && nextLine.indentLevel > baseIndent) {
+                // Any list item at higher indent = child
+                if (nextLine.isAnyItem && nextLine.indentLevel > baseIndent) {
                     childLines.push(nextLine);
                     i++;
                     continue;
                 }
 
-                // List item at same or lower indent = sibling or parent's sibling
-                if (nextLine.isListItem && nextLine.indentLevel <= baseIndent) {
+                // Any list item at same or lower indent = sibling or parent's sibling
+                if (nextLine.isAnyItem && nextLine.indentLevel <= baseIndent) {
                     break;
                 }
 

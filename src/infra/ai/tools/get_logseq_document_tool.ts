@@ -182,22 +182,28 @@ export function extractPageLabel(selection: LogseqBlock) {
 export function formatBlockTree(blocks: LogseqBlock[], depth: number = 0): string {
     if (!blocks || blocks.length === 0) return '';
 
-    return blocks.map(block => formatSingleBlock(block, depth)).join('\n');
+    return blocks.map((block, idx) => formatSingleBlock(block, depth, idx + 1)).join('\n');
 }
 
-function formatSingleBlock(block: LogseqBlock, depth: number): string {
+function formatSingleBlock(block: LogseqBlock, depth: number, siblingNumber: number): string {
     const indent = '  '.repeat(depth);
     const content = cleanBlockContent(block.content) || '(empty block)';
     const lines = content.split('\n');
 
-    // Header line: "- id:123 First line of content"
-    // Use hierarchy list style
     const idLabel = block.id !== undefined ? `id:${block.id}` : (block.uuid ? `uuid:${block.uuid}` : 'block');
 
-    let result = `${indent}- ${idLabel} ${lines[0]}`;
+    // Logseq normalises the raw key "logseq.order-list-type" by camelCasing each
+    // dot-separated segment, producing "logseq.orderListType".
+    // We keep the other variants as fallbacks for mocks and edge cases.
+    const isOrdered =
+        block.properties?.['logseq.orderListType'] === 'number' ||
+        block.properties?.logseqOrderListType === 'number' ||
+        block.properties?.['logseq.order-list-type'] === 'number';
+    const bullet = isOrdered ? `${siblingNumber}. ` : '- ';
+
+    let result = `${indent}${bullet}${idLabel} ${lines[0]}`;
 
     // Additional lines of content, indented relative to the bullet
-    // Bullet is "- " (2 chars) so text starts at indent + 2 spaces
     if (lines.length > 1) {
         const contentIndent = indent + '  ';
         const remainingLines = lines.slice(1).map(l => `${contentIndent}${l}`).join('\n');

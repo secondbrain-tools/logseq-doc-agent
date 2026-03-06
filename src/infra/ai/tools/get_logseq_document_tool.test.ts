@@ -63,6 +63,109 @@ describe('getLogseqDocument tool', () => {
             const output = formatBlockTree(blocks as any);
             expect(output).toContain('- uuid:abc-123 No ID Block');
         });
+
+        it('should render ordered block with sibling number instead of bullet', () => {
+            const blocks = [
+                { id: 1, content: 'First', properties: { logseqOrderListType: 'number' }, children: [] },
+                { id: 2, content: 'Second', properties: { logseqOrderListType: 'number' }, children: [] },
+                { id: 3, content: 'Third', properties: { logseqOrderListType: 'number' }, children: [] },
+            ];
+            const output = formatBlockTree(blocks as any);
+            expect(output).toContain('1. id:1 First');
+            expect(output).toContain('2. id:2 Second');
+            expect(output).toContain('3. id:3 Third');
+            expect(output).not.toContain('- id:1');
+        });
+
+        it('should render mixed ordered and unordered siblings', () => {
+            const blocks = [
+                { id: 1, content: 'Unordered', children: [] },
+                { id: 2, content: 'Ordered', properties: { logseqOrderListType: 'number' }, children: [] },
+                { id: 3, content: 'Also Unordered', children: [] },
+            ];
+            const output = formatBlockTree(blocks as any);
+            expect(output).toContain('- id:1 Unordered');
+            expect(output).toContain('2. id:2 Ordered');
+            expect(output).toContain('- id:3 Also Unordered');
+        });
+
+        it('should reset sibling counter for children', () => {
+            const blocks = [
+                {
+                    id: 1,
+                    content: 'Parent',
+                    properties: { logseqOrderListType: 'number' },
+                    children: [
+                        { id: 2, content: 'Child A', properties: { logseqOrderListType: 'number' }, children: [] },
+                        { id: 3, content: 'Child B', properties: { logseqOrderListType: 'number' }, children: [] },
+                    ]
+                }
+            ];
+            const output = formatBlockTree(blocks as any);
+            expect(output).toContain('1. id:1 Parent');
+            expect(output).toContain('  1. id:2 Child A');
+            expect(output).toContain('  2. id:3 Child B');
+        });
+
+        it('should detect ordered block via logseq.order-list-type property key', () => {
+            const blocks = [
+                { id: 1, content: 'Item', properties: { 'logseq.order-list-type': 'number' }, children: [] },
+            ];
+            const output = formatBlockTree(blocks as any);
+            expect(output).toContain('1. id:1 Item');
+        });
+
+        it('should detect ordered block via logseq.orderListType (real Logseq API key)', () => {
+            const blocks = [
+                { id: 1, content: 'Alpha', properties: { 'logseq.orderListType': 'number' }, children: [] },
+                { id: 2, content: 'Beta', properties: { 'logseq.orderListType': 'number' }, children: [] },
+            ];
+            const output = formatBlockTree(blocks as any);
+            expect(output).toContain('1. id:1 Alpha');
+            expect(output).toContain('2. id:2 Beta');
+        });
+
+        it('should restart sibling numbering for nested ordered children', () => {
+            const blocks = [
+                {
+                    id: 1,
+                    content: 'Parent 1',
+                    properties: { 'logseq.orderListType': 'number' },
+                    children: [
+                        { id: 10, content: 'Child A', properties: { 'logseq.orderListType': 'number' }, children: [] },
+                        { id: 11, content: 'Child B', properties: { 'logseq.orderListType': 'number' }, children: [] },
+                        { id: 12, content: 'Child C', properties: { 'logseq.orderListType': 'number' }, children: [] },
+                    ]
+                },
+                {
+                    id: 2,
+                    content: 'Parent 2',
+                    properties: { 'logseq.orderListType': 'number' },
+                    children: []
+                },
+            ];
+            const output = formatBlockTree(blocks as any);
+            // Top-level siblings
+            expect(output).toContain('1. id:1 Parent 1');
+            expect(output).toContain('2. id:2 Parent 2');
+            // Children restart at 1
+            expect(output).toContain('  1. id:10 Child A');
+            expect(output).toContain('  2. id:11 Child B');
+            expect(output).toContain('  3. id:12 Child C');
+        });
+
+        it('should strip logseq.order-list-type from displayed content', () => {
+            const blocks = [
+                {
+                    id: 1,
+                    content: 'Item\nlogseq.order-list-type:: number',
+                    properties: { logseqOrderListType: 'number' },
+                    children: []
+                },
+            ];
+            const output = formatBlockTree(blocks as any);
+            expect(output).not.toContain('logseq.order-list-type');
+        });
     });
 
     describe('cleanBlockContent', () => {

@@ -34,16 +34,19 @@ Returns the updated block and its full subtree in markdown tree format.`,
     inputSchema: z.object({
         id: z.union([z.number(), z.string()]).describe('The Logseq block ID (integer) or UUID'),
         content: z.string().describe('The new content. Can include nested blocks if parse_subtrees is true.'),
-        parse_subtrees: z.boolean().optional().describe('If true (default), parse "- " lists as nested child blocks.'),
+        parse_subtrees: z.boolean().optional().describe('If true (default), parse "- " and "N. " lists as nested child blocks.'),
+        ordered: z.boolean().optional().describe('Set to true to mark the block as an ordered (numbered) list item, false to remove ordered mode, or omit to leave unchanged.'),
     }),
     execute: async ({
         id,
         content,
         parse_subtrees = true,
+        ordered,
     }: {
         id: number | string,
         content: string,
         parse_subtrees?: boolean,
+        ordered?: boolean,
     }) => {
         try {
             const logseq = getLogseq();
@@ -105,6 +108,13 @@ Returns the updated block and its full subtree in markdown tree format.`,
             } else {
                 // Overwrite
                 await logseq.Editor.updateBlock(uuid, parentContent);
+            }
+
+            // Handle ordered list mode change
+            if (ordered === true) {
+                await logseq.Editor.upsertBlockProperty(uuid, 'logseq.order-list-type', 'number');
+            } else if (ordered === false) {
+                await logseq.Editor.removeBlockProperty(uuid, 'logseq.order-list-type');
             }
 
             // 2. Handle Children (Subtrees)

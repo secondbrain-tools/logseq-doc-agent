@@ -1,5 +1,11 @@
 export type Role = 'user' | 'assistant' | 'system' | 'tool';
 
+export interface ContextItem {
+    id: string;   // UUID of the page or block
+    type: 'page' | 'block';
+    name: string; // Display name (page title or block preview)
+}
+
 export interface MessagePart {
     type: 'content' | 'reasoning' | 'tool_call' | 'tool_result' | 'context' | 'prompt';
     text?: string;

@@ -5,8 +5,8 @@
     import {
         getCurrentPageContext,
         onCurrentPageChange,
-        type ContextItem,
     } from "../../../infra/logseq/context-utils";
+    import type { ContextItem } from "../../../domain/chat/types";
 
     import { PROVIDERS } from "../../../domain/settings/index";
     import type { ProviderGroup } from "./ModelSelector.svelte";

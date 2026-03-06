@@ -5,6 +5,9 @@ import * as Diff from 'diff';
 import { computeUnifiedParts } from '../../ui/components/merge/diff-utils';
 
 const LOG_PREFIX = '[TextHighlighter]';
+type TextNodeMapping = { node: Text, startInPlain: number, endInPlain: number };
+type HighlightRange = { node: Text, startOffset: number, endOffset: number };
+type MatchInTextNodes = { textNodes: TextNodeMapping[], startOffset: number, endOffset: number };
 
 export class TextHighlighter implements HighlightPort {
     private activeHighlights: HTMLElement[] = [];
@@ -58,6 +61,62 @@ export class TextHighlighter implements HighlightPort {
 
         console.log(`${LOG_PREFIX} getTextContainers => found ${containers.length} container(s): [${containers.map(c => c.className).join(', ')}]`);
         return containers;
+    }
+
+    /**
+     * Collects text nodes and builds a plain-text map across one or more containers.
+     */
+    private collectTextNodes(doc: Document, containers: Iterable<HTMLElement>): { textNodes: TextNodeMapping[], plainText: string } {
+        const textNodes: TextNodeMapping[] = [];
+        let plainText = '';
+
+        for (const container of containers) {
+            const walker = doc.createTreeWalker(container, NodeFilter.SHOW_TEXT, null);
+            let currentNode = walker.nextNode();
+
+            while (currentNode) {
+                const content = currentNode.textContent || '';
+                const start = plainText.length;
+                plainText += content;
+                textNodes.push({ node: currentNode as Text, startInPlain: start, endInPlain: plainText.length });
+                currentNode = walker.nextNode();
+            }
+        }
+
+        return { textNodes, plainText };
+    }
+
+    /**
+     * Maps a plain-text match back to the affected text node ranges.
+     */
+    private getHighlightRanges(
+        textNodes: TextNodeMapping[],
+        startOffset: number,
+        endOffset: number
+    ): HighlightRange[] {
+        const rangesToHighlight: HighlightRange[] = [];
+        let currentMatchOffset = startOffset;
+
+        for (const tn of textNodes) {
+            if (currentMatchOffset >= endOffset) break;
+
+            if (tn.endInPlain > currentMatchOffset) {
+                const nodeStartOffset = Math.max(0, currentMatchOffset - tn.startInPlain);
+                const matchEndInNode = Math.min(endOffset, tn.endInPlain);
+                const nodeEndOffset = matchEndInNode - tn.startInPlain;
+
+                if (nodeEndOffset > nodeStartOffset) {
+                    rangesToHighlight.push({
+                        node: tn.node,
+                        startOffset: nodeStartOffset,
+                        endOffset: nodeEndOffset
+                    });
+                }
+                currentMatchOffset = matchEndInNode;
+            }
+        }
+
+        return rangesToHighlight;
     }
 
     /**
@@ -129,22 +188,7 @@ export class TextHighlighter implements HighlightPort {
      * Searches across multiple containers by combining their text content
      */
     private highlightSelectorAcrossContainers(doc: Document, containers: HTMLElement[], selector: TextQuoteSelector): HTMLElement[] {
-        // Build a combined plain-text and text node map across all containers
-        const textNodes: { node: Text, startInPlain: number, endInPlain: number }[] = [];
-        let plainText = '';
-
-        for (const container of containers) {
-            const walker = doc.createTreeWalker(container, NodeFilter.SHOW_TEXT, null);
-            let currentNode = walker.nextNode();
-
-            while (currentNode) {
-                const content = currentNode.textContent || '';
-                const start = plainText.length;
-                plainText += content;
-                textNodes.push({ node: currentNode as Text, startInPlain: start, endInPlain: plainText.length });
-                currentNode = walker.nextNode();
-            }
-        }
+        const { textNodes, plainText } = this.collectTextNodes(doc, containers);
 
         console.log(`${LOG_PREFIX} Combined text (${plainText.length} chars): "${plainText.substring(0, 200)}${plainText.length > 200 ? '...' : ''}"`);
 
@@ -162,20 +206,7 @@ export class TextHighlighter implements HighlightPort {
      * Finds text nodes in a container and applies the highlight
      */
     private highlightSelectorInContainer(doc: Document, container: HTMLElement, selector: TextQuoteSelector): HTMLElement[] {
-        // Build a plain text representation and a map of characters to text nodes + offsets
-        const textNodes: { node: Text, startInPlain: number, endInPlain: number }[] = [];
-        let plainText = '';
-
-        const walker = doc.createTreeWalker(container, NodeFilter.SHOW_TEXT, null);
-        let currentNode = walker.nextNode();
-
-        while (currentNode) {
-            const content = currentNode.textContent || '';
-            const start = plainText.length;
-            plainText += content;
-            textNodes.push({ node: currentNode as Text, startInPlain: start, endInPlain: plainText.length });
-            currentNode = walker.nextNode();
-        }
+        const { textNodes, plainText } = this.collectTextNodes(doc, [container]);
 
         console.log(`${LOG_PREFIX} Container "${container.className}" text (${plainText.length} chars): "${plainText.substring(0, 200)}${plainText.length > 200 ? '...' : ''}"`);
 
@@ -194,35 +225,12 @@ export class TextHighlighter implements HighlightPort {
      */
     private applyHighlightRanges(
         doc: Document,
-        textNodes: { node: Text, startInPlain: number, endInPlain: number }[],
+        textNodes: TextNodeMapping[],
         startOffset: number,
         endOffset: number
     ): HTMLElement[] {
         const highlightsCreated: HTMLElement[] = [];
-        const rangesToHighlight: { node: Text, startOffset: number, endOffset: number }[] = [];
-
-        let currentMatchOffset = startOffset;
-
-        for (const tn of textNodes) {
-            // If we've passed the end of the match, we're done
-            if (currentMatchOffset >= endOffset) break;
-
-            // If this node contains part of the match
-            if (tn.endInPlain > currentMatchOffset) {
-                const nodeStartOffset = Math.max(0, currentMatchOffset - tn.startInPlain);
-                const matchEndInNode = Math.min(endOffset, tn.endInPlain);
-                const nodeEndOffset = matchEndInNode - tn.startInPlain;
-
-                if (nodeEndOffset > nodeStartOffset) {
-                    rangesToHighlight.push({
-                        node: tn.node,
-                        startOffset: nodeStartOffset,
-                        endOffset: nodeEndOffset
-                    });
-                }
-                currentMatchOffset = matchEndInNode;
-            }
-        }
+        const rangesToHighlight = this.getHighlightRanges(textNodes, startOffset, endOffset);
 
         // Apply highlights backwards so we don't invalidate earlier node references
         for (let i = rangesToHighlight.length - 1; i >= 0; i--) {
@@ -267,22 +275,10 @@ export class TextHighlighter implements HighlightPort {
      * Finds text nodes and offset range for a selector across the given containers
      * using the same fallback logic as highlighting.
      */
-    private findMatchInContainers(doc: Document, containers: HTMLElement[], selector: TextQuoteSelector): { textNodes: { node: Text, startInPlain: number, endInPlain: number }[], startOffset: number, endOffset: number } | null {
+    private findMatchInContainers(doc: Document, containers: HTMLElement[], selector: TextQuoteSelector): MatchInTextNodes | null {
         // Try each container individual first
         for (const container of containers) {
-            const textNodes: { node: Text, startInPlain: number, endInPlain: number }[] = [];
-            let plainText = '';
-
-            const walker = doc.createTreeWalker(container, NodeFilter.SHOW_TEXT, null);
-            let currentNode = walker.nextNode();
-
-            while (currentNode) {
-                const content = currentNode.textContent || '';
-                const start = plainText.length;
-                plainText += content;
-                textNodes.push({ node: currentNode as Text, startInPlain: start, endInPlain: plainText.length });
-                currentNode = walker.nextNode();
-            }
+            const { textNodes, plainText } = this.collectTextNodes(doc, [container]);
 
             const match = findBestMatch(plainText, selector);
             if (match) {
@@ -291,21 +287,7 @@ export class TextHighlighter implements HighlightPort {
         }
 
         // Fallback: cross-container matching
-        const combinedTextNodes: { node: Text, startInPlain: number, endInPlain: number }[] = [];
-        let combinedPlainText = '';
-
-        for (const container of containers) {
-            const walker = doc.createTreeWalker(container, NodeFilter.SHOW_TEXT, null);
-            let currentNode = walker.nextNode();
-
-            while (currentNode) {
-                const content = currentNode.textContent || '';
-                const start = combinedPlainText.length;
-                combinedPlainText += content;
-                combinedTextNodes.push({ node: currentNode as Text, startInPlain: start, endInPlain: combinedPlainText.length });
-                currentNode = walker.nextNode();
-            }
-        }
+        const { textNodes: combinedTextNodes, plainText: combinedPlainText } = this.collectTextNodes(doc, containers);
 
         const match = findBestMatch(combinedPlainText, selector);
         if (match) {
@@ -313,6 +295,124 @@ export class TextHighlighter implements HighlightPort {
         }
 
         return null;
+    }
+
+    private buildReplacementPreviewWrapper(doc: Document, originalText: string, proposedText: string): HTMLElement {
+        const wordDiff = Diff.diffWords(originalText, proposedText);
+        const unifiedParts = computeUnifiedParts(wordDiff, 0);
+
+        const wrapper = doc.createElement('span');
+        wrapper.setAttribute('data-lda-preview-wrapper', 'true');
+        wrapper.className = 'lda-highlight-preview';
+
+        for (const part of unifiedParts) {
+            if (part.type === 'replacement') {
+                const container = doc.createElement('span');
+                container.className = 'unified-replacement lda-highlight-preview';
+
+                const addedSpan = doc.createElement('span');
+                addedSpan.className = 'unified-added';
+                addedSpan.textContent = part.addedText || '';
+
+                const removedSpan = doc.createElement('span');
+                removedSpan.className = 'unified-removed';
+                removedSpan.textContent = part.removedText || '';
+
+                container.appendChild(addedSpan);
+                container.appendChild(removedSpan);
+                wrapper.appendChild(container);
+            } else {
+                const span = doc.createElement('span');
+                span.textContent = part.text || '';
+
+                if (part.type === 'added') {
+                    span.className = 'unified-added lda-highlight-preview';
+                } else if (part.type === 'removed') {
+                    span.className = 'unified-removed lda-highlight-preview';
+                }
+
+                wrapper.appendChild(span);
+            }
+        }
+
+        return wrapper;
+    }
+
+    private applyReplacementPreview(doc: Document, rangesToHighlight: HighlightRange[], proposedText: string): HTMLElement | null {
+        const originalText = rangesToHighlight.map(r =>
+            r.node.textContent?.substring(r.startOffset, r.endOffset) || ''
+        ).join('');
+        const wrapper = this.buildReplacementPreviewWrapper(doc, originalText, proposedText);
+
+        try {
+            const fullRange = doc.createRange();
+            const first = rangesToHighlight[0];
+            const last = rangesToHighlight[rangesToHighlight.length - 1];
+            fullRange.setStart(first.node, first.startOffset);
+            fullRange.setEnd(last.node, last.endOffset);
+
+            fullRange.deleteContents();
+            fullRange.insertNode(wrapper);
+
+            this.activePreviewElements.push(wrapper);
+            return wrapper;
+        } catch (e) {
+            console.warn(`${LOG_PREFIX} Failed to apply stacked preview`, e);
+            return null;
+        }
+    }
+
+    private applySimplePreview(
+        doc: Document,
+        rangesToHighlight: HighlightRange[],
+        op: Suggestion['op'],
+        proposedText: string | null
+    ): HTMLElement | null {
+        let nodeToScrollTo: HTMLElement | null = null;
+
+        for (let i = rangesToHighlight.length - 1; i >= 0; i--) {
+            const r = rangesToHighlight[i];
+
+            try {
+                const range = doc.createRange();
+                range.setStart(r.node, r.startOffset);
+                range.setEnd(r.node, r.endOffset);
+
+                if (op === 'delete') {
+                    const deleteMark = doc.createElement('mark');
+                    deleteMark.className = 'lda-highlight lda-highlight-preview lda-preview-delete';
+                    range.surroundContents(deleteMark);
+                    this.activePreviewElements.push(deleteMark);
+                    if (!nodeToScrollTo) nodeToScrollTo = deleteMark;
+                } else if (op === 'insert_before') {
+                    if (i === 0 && proposedText) {
+                        const insertMark = doc.createElement('mark');
+                        insertMark.className = 'lda-highlight lda-highlight-preview lda-preview-insert';
+                        insertMark.textContent = proposedText;
+                        range.insertNode(insertMark);
+                        this.activePreviewElements.push(insertMark);
+                        if (!nodeToScrollTo) nodeToScrollTo = insertMark;
+                    }
+                } else if (op === 'insert_after') {
+                    if (i === rangesToHighlight.length - 1 && proposedText) {
+                        const endRange = doc.createRange();
+                        endRange.setStart(r.node, r.endOffset);
+                        endRange.setEnd(r.node, r.endOffset);
+
+                        const insertMark = doc.createElement('mark');
+                        insertMark.className = 'lda-highlight lda-highlight-preview lda-preview-insert';
+                        insertMark.textContent = proposedText;
+                        endRange.insertNode(insertMark);
+                        this.activePreviewElements.push(insertMark);
+                        if (!nodeToScrollTo) nodeToScrollTo = insertMark;
+                    }
+                }
+            } catch (e) {
+                console.warn(`${LOG_PREFIX} Failed to apply suggestion preview`, e);
+            }
+        }
+
+        return nodeToScrollTo;
     }
 
     /**
@@ -343,26 +443,10 @@ export class TextHighlighter implements HighlightPort {
 
         const { textNodes, startOffset: matchStartOffset, endOffset: matchEndOffset } = matchData;
 
-        // Build the list of text node ranges that cover the match
-        const rangesToHighlight: { node: Text, startOffset: number, endOffset: number }[] = [];
-        let currentMatchOffset = matchStartOffset;
-
-        for (const tn of textNodes) {
-            if (currentMatchOffset >= matchEndOffset) break;
-            if (tn.endInPlain > currentMatchOffset) {
-                const nodeStartOffset = Math.max(0, currentMatchOffset - tn.startInPlain);
-                const matchEndInNode = Math.min(matchEndOffset, tn.endInPlain);
-                const nodeEndOffset = matchEndInNode - tn.startInPlain;
-
-                if (nodeEndOffset > nodeStartOffset) {
-                    rangesToHighlight.push({
-                        node: tn.node,
-                        startOffset: nodeStartOffset,
-                        endOffset: nodeEndOffset
-                    });
-                }
-                currentMatchOffset = matchEndInNode;
-            }
+        const rangesToHighlight = this.getHighlightRanges(textNodes, matchStartOffset, matchEndOffset);
+        if (rangesToHighlight.length === 0) {
+            console.warn(`${LOG_PREFIX} Could not map suggestion match back to DOM ranges.`);
+            return;
         }
 
         const { op, proposed_text } = suggestion;
@@ -370,116 +454,9 @@ export class TextHighlighter implements HighlightPort {
 
         // For replace/rewrite_span: use stacked word-level diff
         if ((op === 'replace' || op === 'rewrite_span') && proposed_text) {
-            // Extract the matched original text from the DOM
-            const originalText = rangesToHighlight.map(r =>
-                r.node.textContent?.substring(r.startOffset, r.endOffset) || ''
-            ).join('');
-
-            // Compute word-level diff
-            const wordDiff = Diff.diffWords(originalText, proposed_text);
-            const unifiedParts = computeUnifiedParts(wordDiff, 0);
-
-            // Create a wrapper span that will replace the entire matched range
-            const wrapper = doc.createElement('span');
-            wrapper.setAttribute('data-lda-preview-wrapper', 'true');
-            wrapper.className = 'lda-highlight-preview';
-
-            // Build the stacked diff DOM from unified parts
-            for (const part of unifiedParts) {
-                if (part.type === 'replacement') {
-                    // Stacked: old text above new text
-                    const container = doc.createElement('span');
-                    container.className = 'unified-replacement lda-highlight-preview';
-
-                    const addedSpan = doc.createElement('span');
-                    addedSpan.className = 'unified-added';
-                    addedSpan.textContent = part.addedText || '';
-
-                    const removedSpan = doc.createElement('span');
-                    removedSpan.className = 'unified-removed';
-                    removedSpan.textContent = part.removedText || '';
-
-                    container.appendChild(addedSpan);
-                    container.appendChild(removedSpan);
-                    wrapper.appendChild(container);
-                } else if (part.type === 'added') {
-                    const span = doc.createElement('span');
-                    span.className = 'unified-added lda-highlight-preview';
-                    span.textContent = part.text || '';
-                    wrapper.appendChild(span);
-                } else if (part.type === 'removed') {
-                    const span = doc.createElement('span');
-                    span.className = 'unified-removed lda-highlight-preview';
-                    span.textContent = part.text || '';
-                    wrapper.appendChild(span);
-                } else {
-                    // Common text — render as-is
-                    const span = doc.createElement('span');
-                    span.textContent = part.text || '';
-                    wrapper.appendChild(span);
-                }
-            }
-
-            // Replace the matched text nodes with the wrapper.
-            // First, create a range spanning the entire match.
-            try {
-                const fullRange = doc.createRange();
-                const first = rangesToHighlight[0];
-                const last = rangesToHighlight[rangesToHighlight.length - 1];
-                fullRange.setStart(first.node, first.startOffset);
-                fullRange.setEnd(last.node, last.endOffset);
-
-                fullRange.deleteContents();
-                fullRange.insertNode(wrapper);
-
-                this.activePreviewElements.push(wrapper);
-                nodeToScrollTo = wrapper;
-            } catch (e) {
-                console.warn(`${LOG_PREFIX} Failed to apply stacked preview`, e);
-            }
+            nodeToScrollTo = this.applyReplacementPreview(doc, rangesToHighlight, proposed_text);
         } else {
-            // For insert/delete ops, use the simpler inline approach (back-to-front)
-            for (let i = rangesToHighlight.length - 1; i >= 0; i--) {
-                const r = rangesToHighlight[i];
-
-                try {
-                    const range = doc.createRange();
-                    range.setStart(r.node, r.startOffset);
-                    range.setEnd(r.node, r.endOffset);
-
-                    if (op === 'delete') {
-                        const deleteMark = doc.createElement('mark');
-                        deleteMark.className = 'lda-highlight lda-highlight-preview lda-preview-delete';
-                        range.surroundContents(deleteMark);
-                        this.activePreviewElements.push(deleteMark);
-                        if (!nodeToScrollTo) nodeToScrollTo = deleteMark;
-                    } else if (op === 'insert_before') {
-                        if (i === 0 && proposed_text) {
-                            const insertMark = doc.createElement('mark');
-                            insertMark.className = 'lda-highlight lda-highlight-preview lda-preview-insert';
-                            insertMark.textContent = proposed_text;
-                            range.insertNode(insertMark);
-                            this.activePreviewElements.push(insertMark);
-                            if (!nodeToScrollTo) nodeToScrollTo = insertMark;
-                        }
-                    } else if (op === 'insert_after') {
-                        if (i === rangesToHighlight.length - 1 && proposed_text) {
-                            const endRange = doc.createRange();
-                            endRange.setStart(r.node, r.endOffset);
-                            endRange.setEnd(r.node, r.endOffset);
-
-                            const insertMark = doc.createElement('mark');
-                            insertMark.className = 'lda-highlight lda-highlight-preview lda-preview-insert';
-                            insertMark.textContent = proposed_text;
-                            endRange.insertNode(insertMark);
-                            this.activePreviewElements.push(insertMark);
-                            if (!nodeToScrollTo) nodeToScrollTo = insertMark;
-                        }
-                    }
-                } catch (e) {
-                    console.warn(`${LOG_PREFIX} Failed to apply suggestion preview`, e);
-                }
-            }
+            nodeToScrollTo = this.applySimplePreview(doc, rangesToHighlight, op, proposed_text);
         }
 
         if (nodeToScrollTo && nodeToScrollTo.scrollIntoView) {

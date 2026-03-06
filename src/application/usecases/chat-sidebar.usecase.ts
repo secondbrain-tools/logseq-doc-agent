@@ -12,7 +12,8 @@ import type { PromptTemplateService } from '../services/prompt-template.service'
 // Rewrite file with STORE approach for reactivity
 import { writable, type Writable, get } from 'svelte/store';
 import { PROVIDERS } from '../../domain/settings/index';
-import { getContextContent, type ContextItem } from '../../infra/logseq/context-utils';
+import { getContextContent } from '../../infra/logseq/context-utils';
+import type { ContextItem } from '../../domain/chat/types';
 import { ICONS } from '../../ui/icons';
 
 export class ChatSidebarUseCase {

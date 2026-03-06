@@ -65,6 +65,9 @@
     let activeSuggestionIdx = $state<number | null>(null);
 
     const issueUniqueId = $derived(`${uniqueId}-${issueIdx}`);
+    const feedbackInputId = $derived(
+        `lda-feedback-input-${issueUniqueId}-${activeFeedbackInput ?? "inactive"}`,
+    );
 
     const isDone = $derived(
         issue.status === "resolved" ||
@@ -951,10 +954,12 @@
                         transition:slide|local
                     >
                         <label
+                            for={feedbackInputId}
                             class="block text-xs font-semibold opacity-80 capitalize mb-1"
                             >{activeFeedbackInput.replace("_", " ")}</label
                         >
                         <textarea
+                            id={feedbackInputId}
                             class="lda-feedback-input w-full p-2 text-xs border rounded mb-2 bg-white"
                             style="border-color: var(--ls-border-color); color: var(--ls-primary-text-color);"
                             rows="2"

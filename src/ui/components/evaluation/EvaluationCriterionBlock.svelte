@@ -47,7 +47,7 @@
         onDataUpdate: (data: BlockEvaluation) => void;
     } = $props();
 
-    let localExpanded = $state(defaultExpanded);
+    let localExpanded = $state(false);
     // Use an effect to sync localExpanded if defaultExpanded prop changes
     $effect(() => {
         localExpanded = defaultExpanded;

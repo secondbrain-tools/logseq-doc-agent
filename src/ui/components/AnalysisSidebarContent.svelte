@@ -20,18 +20,18 @@
         blockId?: string;
     } = $props();
 
+    function cloneEvaluationData(source: BlockEvaluation): BlockEvaluation {
+        return JSON.parse(
+            JSON.stringify($state.snapshot(source)),
+        ) as BlockEvaluation;
+    }
+
     // Svelte 5 requires cloning props into local state if we want to mutate them optimistically
-    let localEvaluationData = $state(
-        JSON.parse(
-            JSON.stringify($state.snapshot(evaluationData)),
-        ) as BlockEvaluation,
-    );
+    let localEvaluationData = $state<BlockEvaluation>({} as BlockEvaluation);
 
     // Sync if external props change
     $effect(() => {
-        localEvaluationData = JSON.parse(
-            JSON.stringify($state.snapshot(evaluationData)),
-        ) as BlockEvaluation;
+        localEvaluationData = cloneEvaluationData(evaluationData);
     });
 
     let preCommitmentEnabled = $state<boolean>(false);
@@ -124,13 +124,13 @@
                     </blockquote>
                 {/if}
             </div>
-            {#if evaluationData && evaluationData.summary}
+            {#if localEvaluationData?.summary}
                 <div
                     class="lda-overall-score lda-text-{getSeverity(
-                        evaluationData.summary.overall_score || 0,
+                        localEvaluationData.summary.overall_score || 0,
                     )}"
                 >
-                    {evaluationData.summary.overall_score}/5
+                    {localEvaluationData.summary.overall_score}/5
                 </div>
             {/if}
         </div>

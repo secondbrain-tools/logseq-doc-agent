@@ -24,11 +24,24 @@
             onClose();
         }
     }
+
+    function handleBackdropKeydown(e: KeyboardEvent) {
+        if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onClose();
+        }
+    }
 </script>
 
 {#if isOpen}
-    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-    <div class="lda-chat-modal-backdrop" onclick={handleBackdropClick}>
+    <div
+        class="lda-chat-modal-backdrop"
+        onclick={handleBackdropClick}
+        onkeydown={handleBackdropKeydown}
+        role="button"
+        tabindex="0"
+        aria-label="Close chat modal"
+    >
         <div class="lda-chat-modal-container">
             <!-- Header -->
             <div class="lda-chat-modal-header" style="z-index: 60;">

@@ -21,7 +21,7 @@
 
     const dispatch = createEventDispatcher();
     let modalContainer: HTMLElement | undefined = $state();
-    let isMaximized = $state(initialMaximized ?? false);
+    let isMaximized = $state(false);
 
     function close() {
         dispatch("close");
@@ -30,6 +30,10 @@
     function toggleMaximize() {
         isMaximized = !isMaximized;
     }
+
+    $effect(() => {
+        isMaximized = initialMaximized ?? false;
+    });
 
     function handleKeydown(event: KeyboardEvent) {
         // Only handle Escape, and only if not typing in an input/textarea

@@ -25,19 +25,27 @@
         ) => void;
     } = $props();
 
-    let editContent = $state(
-        currentContent ?? item.mergeData?.currentContent ?? item.content,
-    );
+    let editContent = $state("");
     let headerRef: HTMLElement | undefined = $state();
+    let initializedItemUuid = $state<string | null>(null);
 
     // Track the last known external prop value to detect EXTERNAL changes only
-    let lastKnownCurrentContent = $state(currentContent);
+    let lastKnownCurrentContent = $state<string | undefined>(undefined);
 
     // Stable content for diff view to prevent cycles.
     // We want the Diff to be static (Base vs Incoming) while we toggle parts to generate Output.
-    let stableUnifiedContent = $state(item.content);
+    let stableUnifiedContent = $state("");
 
     $effect(() => {
+        if (initializedItemUuid !== item.uuid) {
+            initializedItemUuid = item.uuid;
+            lastKnownCurrentContent = currentContent;
+            stableUnifiedContent = item.content;
+            editContent =
+                currentContent ?? item.mergeData?.currentContent ?? item.content;
+            return;
+        }
+
         // Only sync when currentContent changes from OUTSIDE (parent update)
         // NOT when it matches what we just sent via onContentChange
         if (

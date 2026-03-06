@@ -26,12 +26,16 @@
     blockId?: string;
     blockText?: string;
     showPopover?: boolean;
-  } = $props(); // Svelte 5 requires cloning props into local state if we want to mutate them optimistically
-  let localEvaluationData = $state(
-    JSON.parse(
-      JSON.stringify($state.snapshot(evaluationData)),
-    ) as BlockEvaluation,
-  );
+  } = $props();
+
+  function cloneEvaluationData(source: BlockEvaluation): BlockEvaluation {
+    return JSON.parse(
+      JSON.stringify($state.snapshot(source)),
+    ) as BlockEvaluation;
+  }
+
+  // Svelte 5 requires cloning props into local state if we want to mutate them optimistically
+  let localEvaluationData = $state<BlockEvaluation>({} as BlockEvaluation);
   const dispatch = createEventDispatcher();
   const calculator = new FrontendEvaluationCalculator();
 
@@ -47,6 +51,10 @@
         "cognitiveForcing_preCommitmentPrompt"
       ];
     }
+  });
+
+  $effect(() => {
+    localEvaluationData = cloneEvaluationData(evaluationData);
   });
 
   let expandedCategories = $state<Record<string, boolean>>({});
@@ -129,7 +137,7 @@
   });
 
   const categories = $derived(() => {
-    const groups = groupByCategory(localEvaluationData.results);
+    const groups = groupByCategory(localEvaluationData?.results ?? []);
     return Object.entries(groups).map(([cat, res]) => {
       // Align criteria sorting with sidebar: lowest scores first, 0 (unrated) at the bottom
       const sortedCriteria = [...res].sort((a, b) => {
@@ -147,17 +155,17 @@
   });
 
   const overallRating = $derived(
-    calculator.calculateOverallScore(evaluationData),
+    calculator.calculateOverallScore(localEvaluationData ?? evaluationData),
   );
 
   function openInSidebar(e?: MouseEvent) {
     if (e) e.stopPropagation();
-    if (evaluationData) {
+    if (localEvaluationData) {
       const useCase = new AddToSidebarUseCase(
         Services.instance.sidebarInjector,
       );
       useCase.showAnalysisSidebar(
-        evaluationData,
+        localEvaluationData,
         blockId,
         undefined,
         blockText,
@@ -188,7 +196,7 @@
       {:else}
         <h4 id="lda-popover-title" class="lda-popover-title">
           Detailed Evaluation
-          {#if evaluationData}
+          {#if localEvaluationData}
             <div style="display: inline-block; margin-left: 8px;">
               <EvaluationScore
                 rating={overallRating}

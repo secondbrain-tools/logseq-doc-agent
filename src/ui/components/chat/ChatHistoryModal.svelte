@@ -62,6 +62,13 @@
         onClose();
     }
 
+    function handleItemKeydown(event: KeyboardEvent, id: string) {
+        if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            handleSelect(id);
+        }
+    }
+
     async function handleDelete(id: string, e: MouseEvent) {
         e.stopPropagation();
         if (deleteConfirmId === id) {
@@ -224,10 +231,14 @@
                     </div>
                     <div class="lda-history-group-items">
                         {#each group.items as chatlog (chatlog.id)}
-                            <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
                             <div
                                 class="lda-history-item"
                                 onclick={() => handleSelect(chatlog.id)}
+                                onkeydown={(event) =>
+                                    handleItemKeydown(event, chatlog.id)}
+                                role="button"
+                                tabindex="0"
+                                aria-label={`Open chat history item ${chatlog.title || chatlog.id}`}
                             >
                                 <div class="lda-history-item-content">
                                     <div class="lda-history-item-title">

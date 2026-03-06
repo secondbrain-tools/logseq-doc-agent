@@ -21,7 +21,7 @@ import type { BuiltInPromptConfig } from '../prompt/built-in-prompts';
 
 export const RUBRIC_BUILDER_PROMPT_CONFIG: BuiltInPromptConfig = {
   version: 1,
-  name: 'Evaluation Rubric Builder',
+  name: 'Evaluation Rubric Builder (not working yet)',
   text: `\
 Help the User to create a **Evaluation Rubric for Logseq Texts** in the style of a professional text evaulation consulation. 
 Your job is to interview the user step-by-step and help them build a detailed, structured evaluation rubric, which is intendet to be used with the evaluation tool (available in your context)

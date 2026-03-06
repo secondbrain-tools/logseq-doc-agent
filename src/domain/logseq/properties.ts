@@ -3,8 +3,8 @@
  * Returns [cleanContent, headerString]
  */
 export const LDA_NAMESPACE = 'logseq-doc-agent';
-export const LDA_PROMPT_NAME_PROPERTY = 'logseq-doc-agent.prompt.name';
-export const LDA_PROMPT_NAME_PROPERTY_CAMEL = 'logseqDocAgent.prompt.name';
+export const LDA_PROMPT_NAME_PROPERTY = 'logseq-doc-agent.prompt';
+export const LDA_PROMPT_NAME_PROPERTY_CAMEL = 'logseqDocAgent.prompt';
 
 export const LDA_MERGE_PROPERTY = 'logseq-doc-agent.merge';
 export const LDA_MERGE_PROPERTY_CAMEL = 'logseqDocAgent.merge';

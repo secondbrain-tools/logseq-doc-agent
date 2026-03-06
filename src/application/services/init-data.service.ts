@@ -16,7 +16,7 @@ const BUILTIN_MARKER_PROPERTY = 'logseq-doc-agent.builtin';
 /**
  * Notice block content placed at the top of the prompts page.
  */
-const PROMPTS_NOTICE = `⚠️ **Built-in prompts** (marked with \`logseq-doc-agent.builtin:: <version>\`) are managed by the plugin and will be overwritten on every update. **Do not edit them here.**\nTo customise a built-in prompt, create a block with the same \`logseq-doc-agent.prompt.name\` value on any other page — it will take priority automatically.`;
+const PROMPTS_NOTICE = `⚠️ **Built-in prompts** (marked with \`logseq-doc-agent.builtin:: <version>\`) are managed by the plugin and will be overwritten on every update. **Do not edit them here.**\nTo customise a built-in prompt, create a block with the same \`logseq-doc-agent.prompt\` value on any other page — it will take priority automatically.`;
 
 const NOTICE_MARKER_PROPERTY = 'logseq-doc-agent.notice';
 
@@ -68,29 +68,32 @@ export class InitDataService {
         const storageRoot = this.settings.get('storageRoot', 'logseq-doc-agent');
 
         // 2. Ensure Root Page
-        const { page, isNew } = await this.ensurePage(storageRoot, {
-            description: 'Root page for Logseq Doc Agent plugin data'
-        });
+        const { page, isNew } = await this.ensurePage(storageRoot);
 
         if (isNew) {
+            await this.logseqApi.appendBlockInPage(storageRoot, 'Root page for Logseq Doc Agent plugin data.');
             await this.logseqApi.UI.showMsg(`Storage root page '${storageRoot}' created.`, 'info');
         }
         // 3. Ensure Subpages
-        await this.ensurePage(`${storageRoot}/chatlogs`, {
-            description: 'Storage for chat logs'
-        });
+        const chatlogsResult = await this.ensurePage(`${storageRoot}/chatlogs`);
+        if (chatlogsResult.isNew) {
+            await this.logseqApi.appendBlockInPage(`${storageRoot}/chatlogs`, 'Storage for chat logs.');
+        }
 
-        const promptsResult = await this.ensurePage(`${storageRoot}/prompts`, {
-            description: 'Storage for user defined prompts'
-        });
+        const promptsResult = await this.ensurePage(`${storageRoot}/prompts`);
+        if (promptsResult.isNew) {
+            await this.logseqApi.appendBlockInPage(`${storageRoot}/prompts`, 'Storage for user-defined and built-in prompts.');
+        }
 
-        const agentsResult = await this.ensurePage(`${storageRoot}/agents`, {
-            description: 'Storage for agent definitions'
-        });
+        const agentsResult = await this.ensurePage(`${storageRoot}/agents`);
+        if (agentsResult.isNew) {
+            await this.logseqApi.appendBlockInPage(`${storageRoot}/agents`, 'Storage for built-in and user-defined agent definitions.');
+        }
 
-        const skillsResult = await this.ensurePage(`${storageRoot}/skills`, {
-            description: 'Storage for skill definitions'
-        });
+        const skillsResult = await this.ensurePage(`${storageRoot}/skills`);
+        if (skillsResult.isNew) {
+            await this.logseqApi.appendBlockInPage(`${storageRoot}/skills`, 'Storage for skill definitions.');
+        }
 
         // 4. Always sync built-in prompts (upsert on every init)
         if (promptsResult.page) {
@@ -108,11 +111,11 @@ export class InitDataService {
         // }
     }
 
-    private async ensurePage(name: string, properties: any = {}): Promise<{ page: any, isNew: boolean }> {
+    private async ensurePage(name: string): Promise<{ page: any, isNew: boolean }> {
         let page = await this.logseqApi.getPage(name);
         if (!page) {
             console.log(`[InitDataService] Page '${name}' not found. Creating...`);
-            page = await this.logseqApi.createPage(name, properties, { createFirstBlock: false });
+            page = await this.logseqApi.createPage(name, {}, { createFirstBlock: false, redirect: false });
             return { page, isNew: true };
         } else {
             console.log(`[InitDataService] Page '${name}' found.`);
@@ -264,8 +267,8 @@ export class InitDataService {
             // Update existing notice
             await this.logseqApi.updateBlock(existingNotice.uuid, noticeContent);
         } else if (existingBlocks.length > 0 && existingBlocks[0].uuid) {
-            // Insert before the first block
-            await this.logseqApi.insertBlock(existingBlocks[0].uuid, noticeContent, { before: true, sibling: true });
+            // Insert after the first block (which should be the page description)
+            await this.logseqApi.insertBlock(existingBlocks[0].uuid, noticeContent, { before: false, sibling: true });
         } else {
             // Page is empty, just append
             await this.logseqApi.appendBlockInPage(pageName, noticeContent);

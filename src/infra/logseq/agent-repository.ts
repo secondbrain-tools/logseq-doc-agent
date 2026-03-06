@@ -5,6 +5,12 @@ import { builtInAgents } from '../../domain/agent/built-in-agents';
 import type { LogseqApi } from '../../application/ports/logseq-ports';
 
 /**
+ * Notice block content placed at the top of the agents page.
+ */
+const AGENTS_NOTICE = `⚠️ **Built-in agents** (marked with \`logseq-doc-agent.agent.version\`) are managed by the plugin and will be overwritten when a newer version is available. **Do not edit them here.**\nTo customise a built-in agent, create a block with the same \`logseq-doc-agent.agent\` value on any other page — it will take priority automatically.`;
+const NOTICE_MARKER_PROPERTY = 'logseq-doc-agent.notice';
+
+/**
  * Logseq-based implementation of agent repository
  * Queries blocks with logseq-doc-agent.agent property
  */
@@ -144,11 +150,14 @@ export class LogseqAgentRepository implements IAgentRepository {
         let agentsPage = await this.logseqApi.getPage(agentsPageName);
         if (!agentsPage) {
             console.log(`[LogseqAgentRepository] Creating agents page: ${agentsPageName}`);
-            agentsPage = await this.logseqApi.createPage(agentsPageName, {}, { createFirstBlock: false });
+            agentsPage = await this.logseqApi.createPage(agentsPageName, {}, { createFirstBlock: false, redirect: false });
         }
 
         // Get all blocks on the agents page to check for existing definitions
         const pageBlocks = await this.logseqApi.getPageBlocksTree(agentsPageName);
+
+        // Ensure notice block at the top
+        await this.ensureNoticeBlock(agentsPageName, pageBlocks);
 
         for (const agentConfig of builtInAgents) {
             try {
@@ -228,6 +237,29 @@ ${agentConfig.isDefault ? `${LogseqAgentRepository.DEFAULT_PROPERTY}:: true` : '
         }
 
         return anyCreatedOrUpdated;
+    }
+
+    /**
+     * Ensures the notice block exists at the top of the agents page.
+     */
+    private async ensureNoticeBlock(pageName: string, existingBlocks: any[]) {
+        const noticeContent = `${AGENTS_NOTICE}\n${NOTICE_MARKER_PROPERTY}:: true`;
+
+        const existingNotice = existingBlocks.find((b: any) => {
+            const content = b.content || '';
+            return content.includes(NOTICE_MARKER_PROPERTY);
+        });
+
+        if (existingNotice && existingNotice.uuid) {
+            // Update existing notice
+            await this.logseqApi.updateBlock(existingNotice.uuid, noticeContent);
+        } else if (existingBlocks.length > 0 && existingBlocks[0].uuid) {
+            // Insert after the first block (which should be the page description)
+            await this.logseqApi.insertBlock(existingBlocks[0].uuid, noticeContent, { before: false, sibling: true });
+        } else {
+            // Page is empty, just append
+            await this.logseqApi.appendBlockInPage(pageName, noticeContent);
+        }
     }
 
     private async updateAgentPrompt(blockUuid: string, prompt: string): Promise<void> {

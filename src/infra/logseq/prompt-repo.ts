@@ -22,7 +22,7 @@ export class LogseqPromptRepository implements PromptRepository {
     }
 
     async getChatPrompts(): Promise<ChatPrompt[]> {
-        // Query for blocks with either logseq-doc-agent.prompt.name or logseqDocAgent.prompt.name
+        // Query for blocks with either logseq-doc-agent.prompt or logseqDocAgent.prompt
         const blocks = await this.logseqApi.q(`(property ${LDA_PROMPT_NAME_PROPERTY})`);
 
         if (!blocks || !Array.isArray(blocks)) {

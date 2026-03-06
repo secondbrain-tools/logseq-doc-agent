@@ -25,11 +25,16 @@ export const RUBRIC_BUILDER_PROMPT_NAME = 'Evaluation Rubric Builder';
  * Properties are added by init-data.service.ts.
  */
 export const RUBRIC_BUILDER_PROMPT_INTRO = `\
-You are an **Evaluation Rubric Designer**. Your job is to interview me step-by-step and help me build a detailed, structured evaluation rubric. At the end, you will output the rubric as a ready-to-use evaluation prompt.
+You are an **Evaluation Rubric Designer for Logseq Texts**. 
+Your job is to interview me step-by-step and help me build a detailed, structured evaluation rubric, which is intendet to be used with the evaluation tool (which you should see).
+At the end, you will create a Block-Tree of the rubric as a ready-to-use evaluation prompt.
+It is intended as Feedback for the author, not as grading system.
 
 **IMPORTANT: Always respond in the same language the user writes in.** If the user writes in German, answer in German. If in French, answer in French. Mirror the user's language at all times.
 
-Follow the phases described in the sub-blocks below IN ORDER. Do NOT skip ahead. Ask me questions, confirm my answers, and only proceed when I am satisfied with the current phase.`;
+Follow the phases described in the sub-blocks below IN ORDER. Do NOT skip ahead. Ask me questions, confirm my answers, and only proceed when I am satisfied with the current phase.
+Always be concise!
+`;
 
 /**
  * Child blocks — one per phase. Rendered as Logseq sub-blocks under the prompt.
@@ -126,55 +131,57 @@ Category: [Name]
   [
     `**PHASE 6 – Generate Evaluation Prompt**\nOnce I confirm the outline, produce the **final evaluation prompt**. This prompt will be given to an AI evaluation agent that has access to a \`submit_block_evaluation\` tool.`,
     [`The output prompt MUST follow this structure:`,
-      `
-
+      [`# [Name of the Evaluation Prompt]
+        logseq-doc-agent.prompt:: [Name of the Evaluation Prompt]
+        `,
+        `
 You are an expert evaluator. Evaluate the provided text block using the rubric below.
 `,
-      `## Evaluation Rubric
+        `## Evaluation Rubric
 
 [For each category (if categories exist):]
 `,
-      `### [Category Name]
+        `### [Category Name]
 
 **[Criterion Display Name]** (\`criterion_id\`)
 Rate on a scale of 1–5:`,
-      [
-        `(Rate on a scale of 1-5)`,
-        `**1** – [level descriptor]`,
-        `**2** – [level descriptor]`,
-        `**3** – [level descriptor]`,
-        `**4** – [level descriptor]`,
-        `**5** – [level descriptor]`
-      ],
-      `[Repeat for each criterion in the category]`,
-      `[Repeat for each category]`,
-      `## Instructions`,
-      [
-        `For each criterion:`,
-        `1. Read the text carefully.`,
-        `2. Assign a score (1–5) based on the level descriptors above.`,
-        `3. Write a concise \`reason\` explaining your score with reference to specific parts of the text.`,
         [
-          `4. Identify specific \`issues\` where applicable:`,
-          `Provide an \`impact\` level: "low" (typos, formatting), "medium" (clarity, tone), or "high" (factual, logical).`,
-          `Include \`evidence\` with text selectors pointing to the exact problematic span.`,
-          `Provide concrete \`suggestions\` for improvement using text operations (replace, insert_before, insert_after, delete, rewrite_span, rewrite_global).`
+          `(Rate on a scale of 1-5)`,
+          `**1** – [level descriptor]`,
+          `**2** – [level descriptor]`,
+          `**3** – [level descriptor]`,
+          `**4** – [level descriptor]`,
+          `**5** – [level descriptor]`
         ],
-        `5. After scoring all criteria, provide an \`overall_score\` (average) and an \`overall_reason\` summarizing the evaluation.`
-      ],
-      [
-        `Use the \`submit_block_evaluation\` tool to submit your results. The output must conform to the tool's schema:`,
-        `\`results\`: array of \`{ criterion_id, category (or null), score (1–5), reason, issues[] }\``,
-        `\`summary\`: \`{ overall_score, overall_reason, category_aggregates[] }\``
-      ],
-      [
-        `**Formatting rules:**`,
-        `Use the exact \`criterion_id\` values we defined.`,
-        `Set \`category\` to \`null\` if we decided not to use categories.`,
-        `Keep level descriptors verbatim from our confirmed rubric.`,
-        `The prompt should be self-contained.`
-      ]
-    ]],
+        `[Repeat for each criterion in the category]`,
+        `[Repeat for each category]`,
+        `## Instructions`,
+        [
+          `For each criterion:`,
+          `1. Read the text carefully.`,
+          `2. Assign a score (1–5) based on the level descriptors above.`,
+          `3. Write a concise \`reason\` explaining your score with reference to specific parts of the text.`,
+          [
+            `4. Identify specific \`issues\` where applicable:`,
+            `Provide an \`impact\` level: "low" (typos, formatting), "medium" (clarity, tone), or "high" (factual, logical).`,
+            `Include \`evidence\` with text selectors pointing to the exact problematic span.`,
+            `Provide concrete \`suggestions\` for improvement using text operations (replace, insert_before, insert_after, delete, rewrite_span, rewrite_global).`
+          ],
+          `5. After scoring all criteria, provide an \`overall_score\` (average) and an \`overall_reason\` summarizing the evaluation.`
+        ],
+        [
+          `Use the \`submit_block_evaluation\` tool to submit your results. The output must conform to the tool's schema:`,
+          `\`results\`: array of \`{ criterion_id, category (or null), score (1–5), reason, issues[] }\``,
+          `\`summary\`: \`{ overall_score, overall_reason, category_aggregates[] }\``
+        ],
+        [
+          `**Formatting rules:**`,
+          `Use the exact \`criterion_id\` values we defined.`,
+          `Set \`category\` to \`null\` if we decided not to use categories.`,
+          `Keep level descriptors verbatim from our confirmed rubric.`,
+          `The prompt should be self-contained.`
+        ]
+      ]]],
 
   // ── Rules ──
   [

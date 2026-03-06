@@ -179,7 +179,10 @@
     function handleKeydown(e: KeyboardEvent) {
         if (isPromptPickerOpen && promptPickerRef) {
             const handled = promptPickerRef.handleKeyDown(e);
-            if (handled) return;
+            if (handled) {
+                e.stopPropagation();
+                return;
+            }
         }
 
         if (e.key === "/") {

@@ -132,7 +132,7 @@ Category: [Name]
     `**PHASE 6 – Generate Evaluation Prompt**\nOnce I confirm the outline, produce the **final evaluation prompt**. This prompt will be given to an AI evaluation agent that has access to a \`submit_block_evaluation\` tool.`,
     [`The output prompt MUST follow this structure:`,
       [`# [Name of the Evaluation Prompt]
-        logseq-doc-agent.prompt:: [Name of the Evaluation Prompt]
+            set the property:  \`logseq-doc-agent.prompt:: [Name of the Evaluation Prompt]\`
         `,
         `
 You are an expert evaluator. Evaluate the provided text block using the rubric below.

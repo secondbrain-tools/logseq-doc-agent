@@ -361,6 +361,15 @@
         // isContextMenuOpen managed by ChatInputArea
     }
 
+    function addManualContext(item: ContextItem) {
+        // Remove existing item with same ID if present
+        const filtered = activeContexts.filter((c) => c.item.id !== item.id);
+
+        // Ensure manual contexts are prepended but after auto contexts?
+        // Or just append. Append is fine.
+        activeContexts = [...filtered, { item, isActive: true, isAuto: false }];
+    }
+
     function removeContext(id: string) {
         activeContexts = activeContexts.filter((c) => c.item.id !== id);
     }
@@ -723,6 +732,7 @@
             expandSignal={expandSignal ? $expandSignal : undefined}
             onSendMessage={handleSubmit}
             onAddContext={addCurrentPageContext}
+            onAddManualContext={addManualContext}
             onRemoveContext={removeContext}
             onToggleContext={toggleContext}
             onModelChange={handleModelChange}

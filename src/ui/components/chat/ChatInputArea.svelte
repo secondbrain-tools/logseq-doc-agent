@@ -5,11 +5,15 @@
     import ContextMenu from "./ContextMenu.svelte";
     import ChatModal from "./ChatModal.svelte";
     import PromptPicker from "./PromptPicker.svelte";
+    import ContextPicker from "./ContextPicker.svelte";
     import type { AgentDefinition } from "../../../domain/agent/types";
+    import {
+        searchPages,
+        searchBlocks,
+    } from "../../../infra/logseq/context-utils";
     import type { ContextItem } from "../../../infra/logseq/context-utils";
     import type { ChatPrompt } from "../../../domain/chat/prompt";
     import { autoresize, clickAction } from "../../util/actions";
-    import getCaretCoordinates from "textarea-caret";
     import { ICONS } from "../../icons";
 
     interface ActiveContext {
@@ -36,6 +40,7 @@
 
         onSendMessage: () => void;
         onAddContext: () => void;
+        onAddManualContext: (item: ContextItem) => void;
         onRemoveContext: (id: string) => void;
         onToggleContext: (id: string) => void;
         onModelChange: (modelId: string, providerId: string) => void;
@@ -60,6 +65,7 @@
         expandSignal,
         onSendMessage,
         onAddContext,
+        onAddManualContext,
         onRemoveContext,
         onToggleContext,
         onModelChange,
@@ -83,6 +89,15 @@
     let promptPickerRef: any = $state();
     let promptPickerPos = $state({ top: 0, left: 0 });
 
+    // Context Picker State
+    let isContextPickerOpen = $state(false);
+    let contextPickerMode = $state<"page" | "block">("page");
+    let contextPickerFilter = $state("");
+    let contextPickerRef: any = $state();
+    let contextPickerPos = $state({ top: 0, left: 0 });
+    let contextPickerItems: ContextItem[] = $state([]);
+    let searchDebounceTimer: any;
+
     let textareaElement: HTMLTextAreaElement | undefined = $state();
     let expandedTextareaElement: HTMLTextAreaElement | undefined = $state();
 
@@ -96,21 +111,43 @@
     function updatePopoverPosition() {
         if (!isExpanded || !expandedTextareaElement) return;
 
-        const caret = getCaretCoordinates(
-            expandedTextareaElement,
-            expandedTextareaElement.selectionEnd,
+        const el = expandedTextareaElement;
+        const textBefore = el.value.substring(0, el.selectionEnd);
+        const lines = textBefore.split("\n");
+        const lineNum = lines.length - 1; // 0-indexed line of the cursor
+        const colNum = lines[lines.length - 1].length;
+
+        const style = window.getComputedStyle(el);
+        const lineHeight = parseFloat(style.lineHeight) || 24;
+        const paddingTop = parseFloat(style.paddingTop) || 8;
+        const paddingLeft = parseFloat(style.paddingLeft) || 8;
+        // Rough char width for proportional fonts: 55% of font size
+        const charWidth = (parseFloat(style.fontSize) || 16) * 0.55;
+
+        // Position below the current line, accounting for textarea scroll offset
+        const rawTop =
+            paddingTop + lineNum * lineHeight - el.scrollTop + lineHeight + 16;
+        const rawLeft = paddingLeft + colNum * charWidth - el.scrollLeft;
+
+        // Clamp so the picker never overflows the textarea bounds
+        const newPos = {
+            top: Math.max(0, Math.min(rawTop, el.clientHeight - 250)),
+            left: Math.max(0, Math.min(rawLeft, el.clientWidth - 260)),
+        };
+
+        console.log(
+            "[PopoverPos] line:",
+            lineNum,
+            "col:",
+            colNum,
+            "lineHeight:",
+            lineHeight,
+            "pos:",
+            newPos,
         );
 
-        // We want to place the picker just below the cursor.
-        // The caret object gives top/left relative to the textarea's inside edge.
-        // Since the prompt picker is absolutely positioned relative to the textarea wrapper,
-        // we can just add the font height mapping.
-        const lineHeightOffset = 24; // Approximation for font logic
-
-        promptPickerPos = {
-            top: caret.top + lineHeightOffset,
-            left: caret.left,
-        };
+        promptPickerPos = newPos;
+        contextPickerPos = newPos;
     }
 
     $effect(() => {
@@ -136,49 +173,89 @@
                 : textareaElement;
             const cursor = targetElement?.selectionStart || text.length;
 
-            console.log(
-                "[PromptPicker] handleInput called. text:",
-                text,
-                "lastSlash:",
-                lastSlash,
-                "cursor:",
-                cursor,
-            );
-
             if (lastSlash !== -1 && cursor > lastSlash) {
                 // Ensure no spaces after slash to keep picker open
                 const checkString = text.substring(lastSlash + 1, cursor);
                 if (checkString.includes(" ")) {
-                    console.log(
-                        "[PromptPicker] handleInput: space found in checkString, closing picker",
-                    );
                     isPromptPickerOpen = false;
                 } else {
                     promptFilter = checkString;
-                    console.log(
-                        "[PromptPicker] handleInput: updated promptFilter:",
-                        promptFilter,
-                    );
                     if (isExpanded) {
                         updatePopoverPosition();
                     }
                 }
             } else {
-                console.log(
-                    "[PromptPicker] handleInput: closing picker due to cursor:",
-                    cursor,
-                    "<= lastSlash:",
-                    lastSlash,
-                    "or lastSlash == -1",
-                );
                 isPromptPickerOpen = false;
             }
         }
+
+        if (isContextPickerOpen) {
+            const text = inputText;
+            const trigger = contextPickerMode === "page" ? "[[" : "((";
+            const lastTrigger = text.lastIndexOf(trigger);
+            const targetElement = isExpanded
+                ? expandedTextareaElement
+                : textareaElement;
+            const cursor = targetElement?.selectionStart || text.length;
+
+            if (lastTrigger !== -1 && cursor > lastTrigger + 1) {
+                // We allow spaces in page/block names, so we just take everything
+                // after the trigger up to the cursor
+                const filter = text.substring(lastTrigger + 2, cursor);
+
+                // If they typed the closing tag, close the picker
+                const closingTrigger =
+                    contextPickerMode === "page" ? "]]" : "))";
+                if (filter.includes(closingTrigger)) {
+                    isContextPickerOpen = false;
+                } else {
+                    contextPickerFilter = filter;
+                    if (isExpanded) {
+                        updatePopoverPosition();
+                    }
+                    debounceContextSearch(filter, contextPickerMode);
+                }
+            } else {
+                isContextPickerOpen = false;
+            }
+        }
+    }
+
+    function debounceContextSearch(query: string, mode: "page" | "block") {
+        clearTimeout(searchDebounceTimer);
+        searchDebounceTimer = setTimeout(async () => {
+            if (!isContextPickerOpen) return;
+            if (mode === "page") {
+                const results = await searchPages(query);
+                contextPickerItems = results.map((r) => ({
+                    id: r.uuid,
+                    type: "page",
+                    name: r.name || "Untitled Page",
+                }));
+            } else {
+                const results = await searchBlocks(query);
+                contextPickerItems = results.map((r) => ({
+                    id: r.uuid,
+                    type: "block",
+                    name: r.content
+                        ? r.content.substring(0, 100).replace(/\n/g, " ")
+                        : "Empty Block",
+                }));
+            }
+        }, 150);
     }
 
     function handleKeydown(e: KeyboardEvent) {
         if (isPromptPickerOpen && promptPickerRef) {
             const handled = promptPickerRef.handleKeyDown(e);
+            if (handled) {
+                e.stopPropagation();
+                return;
+            }
+        }
+
+        if (isContextPickerOpen && contextPickerRef) {
+            const handled = contextPickerRef.handleKeyDown(e);
             if (handled) {
                 e.stopPropagation();
                 return;
@@ -191,36 +268,47 @@
                 : textareaElement;
             const start = targetElement?.selectionStart ?? 0;
 
-            console.log(
-                "[PromptPicker] '/' pressed. Available prompts:",
-                availablePrompts,
-            );
-            console.log(
-                "[PromptPicker] Cursor Start:",
-                start,
-                "Char before cursor:",
-                start > 0 ? inputText[start - 1] : "N/A",
-            );
-
             if (
                 start === 0 ||
                 inputText[start - 1] === " " ||
                 inputText[start - 1] === "\n"
             ) {
-                console.log("[PromptPicker] Opening prompt picker menu");
                 isPromptPickerOpen = true;
                 promptFilter = "";
 
                 if (isExpanded) {
                     updatePopoverPosition();
                 }
+            }
+        }
 
-                // Wait for Svelte reactivity before measuring/focusing
-                setTimeout(() => {}, 0);
-            } else {
-                console.log(
-                    "[PromptPicker] Did NOT open menu. Condition failed.",
-                );
+        // Handle context picker triggers: `[` for page, `(` for block
+        if (e.key === "[" || e.key === "(") {
+            const targetElement = isExpanded
+                ? expandedTextareaElement
+                : textareaElement;
+            const start = targetElement?.selectionStart ?? 0;
+
+            // Check if previous char matches the current key (e.g. `[[` or `((`)
+            if (start > 0 && inputText[start - 1] === e.key) {
+                // Ensure we only trigger if preceded by space, newline, or at start (minus the previous bracket)
+                if (
+                    start === 1 ||
+                    inputText[start - 2] === " " ||
+                    inputText[start - 2] === "\n"
+                ) {
+                    isContextPickerOpen = true;
+                    contextPickerMode = e.key === "[" ? "page" : "block";
+                    contextPickerFilter = "";
+                    contextPickerItems = [];
+
+                    if (isExpanded) {
+                        updatePopoverPosition();
+                    }
+
+                    // Trigger initial search for all
+                    debounceContextSearch("", contextPickerMode);
+                }
             }
         }
 
@@ -337,6 +425,48 @@
 
     function removePrompt(promptName: string) {
         selectedPrompts = selectedPrompts.filter((p) => p !== promptName);
+    }
+
+    function selectContextItem(item: ContextItem) {
+        onAddManualContext(item);
+        isContextPickerOpen = false;
+
+        const trigger = contextPickerMode === "page" ? "[[" : "((";
+        const closingTag = contextPickerMode === "page" ? "]]" : "))";
+        const identifier = contextPickerMode === "page" ? item.name : item.id;
+
+        const lastTrigger = inputText.lastIndexOf(trigger);
+        if (lastTrigger !== -1) {
+            const before = inputText.substring(0, lastTrigger + 2);
+            const after = inputText.substring(
+                lastTrigger + 2 + contextPickerFilter.length,
+            );
+
+            // If the user already typed part of the closing tag, handle it
+            let finalAfter = after;
+            if (after.startsWith(closingTag)) {
+                // Keep it as is
+            } else if (after.startsWith(closingTag.substring(0, 1))) {
+                finalAfter = closingTag.substring(1) + after.substring(1);
+            } else {
+                finalAfter = closingTag + after;
+            }
+
+            inputText = before + identifier + finalAfter;
+
+            // Move cursor to after the closing tag
+            setTimeout(() => {
+                const target = isExpanded
+                    ? expandedTextareaElement
+                    : textareaElement;
+                if (target) {
+                    const newPos =
+                        lastTrigger + 2 + identifier.length + closingTag.length;
+                    target.setSelectionRange(newPos, newPos);
+                    target.focus();
+                }
+            }, 0);
+        }
     }
 
     async function toggleExpand() {
@@ -548,6 +678,20 @@
                 />
             </div>
         {/if}
+        {#if isContextPickerOpen && !isExpanded}
+            <div
+                style="position: absolute; bottom: 100%; left: 0; width: 100%; z-index: 100; margin-bottom: 4px;"
+            >
+                <ContextPicker
+                    bind:this={contextPickerRef}
+                    mode={contextPickerMode}
+                    items={contextPickerItems}
+                    filterText={contextPickerFilter}
+                    onSelect={selectContextItem}
+                    onClose={() => (isContextPickerOpen = false)}
+                />
+            </div>
+        {/if}
         <textarea
             class="lda-chat-textarea"
             rows="1"
@@ -755,6 +899,20 @@
                             filterText={promptFilter}
                             onSelect={selectPrompt}
                             onClose={() => (isPromptPickerOpen = false)}
+                        />
+                    </div>
+                {/if}
+                {#if isContextPickerOpen && isExpanded}
+                    <div
+                        style="position: absolute; top: {contextPickerPos.top}px; left: {contextPickerPos.left}px; max-width: calc(100% - {contextPickerPos.left}px); z-index: 100;"
+                    >
+                        <ContextPicker
+                            bind:this={contextPickerRef}
+                            mode={contextPickerMode}
+                            items={contextPickerItems}
+                            filterText={contextPickerFilter}
+                            onSelect={selectContextItem}
+                            onClose={() => (isContextPickerOpen = false)}
                         />
                     </div>
                 {/if}

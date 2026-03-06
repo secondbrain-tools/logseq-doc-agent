@@ -586,6 +586,17 @@ logseq.Editor.getPage = async (name) => {
     return null;
 };
 
+logseq.Editor.getAllPages = async () => {
+    return logseq._pages.map(page => ({
+        name: page.name,
+        originalName: page.originalName,
+        createdAt: page.createdAt,
+        updatedAt: page.updatedAt,
+        properties: page.properties,
+        uuid: 'mock-page-uuid-' + (page.properties['lda.chatlog.id'] || Math.random().toString(36).substr(2, 5))
+    }));
+};
+
 logseq.Editor.getPageBlocksTree = async (name) => {
     // If the requested page matches the current simulation page title, return the live blocks
     // Note: getBlocks returns the root blocks from logseq-sim-lib
@@ -830,6 +841,50 @@ logseq-doc-agent.agent.description:: Writing assistance`,
     }
 
     return originalQ(query);
+};
+
+// Add datascriptQuery mock for simple full-text search fallback
+logseq.DB.datascriptQuery = async (query) => {
+    console.log(`[MockLogseq] DB.datascriptQuery query: ${query}`);
+
+    // We only care about the simple fulltext fallback used in searchBlocks
+    // [(clojure.string/includes? ?c "query")]
+    const includesMatch = query.match(/\(clojure\.string\/includes\?\s*\?c\s*"([^"]*)"\)/);
+
+    if (includesMatch) {
+        const searchText = includesMatch[1].toLowerCase();
+        const blocks = getBlocks(); // From logseq-sim-lib.js
+        const results = [];
+
+        const traverse = (nodes) => {
+            for (const node of nodes) {
+                if (node.content && node.content.toLowerCase().includes(searchText)) {
+                    results.push([{
+                        uuid: { $uuid$: node.uuid },
+                        content: node.content
+                    }]);
+                }
+                if (node.children) traverse(node.children);
+            }
+            // Also check mock pages for matches
+            for (const page of logseq._pages) {
+                if (page.blocks) {
+                    for (const db of page.blocks) {
+                        if (db.content && db.content.toLowerCase().includes(searchText)) {
+                            results.push([{
+                                uuid: { $uuid$: db.uuid },
+                                content: db.content
+                            }]);
+                        }
+                    }
+                }
+            }
+        };
+        traverse(blocks);
+        return results;
+    }
+
+    return [];
 };
 
 // Make it available globally as expected by plugins

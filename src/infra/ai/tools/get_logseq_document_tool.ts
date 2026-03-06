@@ -3,6 +3,7 @@ import { z } from 'zod';
 import {
     type LogseqSelection,
     type LogseqBlock,
+    type LogseqPage,
     isLogseqBlockEntity
 } from './types';
 
@@ -10,27 +11,62 @@ import {
 // Access the global logseq object
 const getLogseq = () => (window as any).logseq;
 
+function isIntegerId(value: string): boolean {
+    return /^\d+$/.test(value.trim());
+}
+
+/** Resolve page by optional document identifier (name, uuid, or integer id). Returns null if not found. */
+async function resolvePage(logseq: any, document?: string | number | null): Promise<LogseqPage | null> {
+    const raw = document === undefined || document === null ? '' : String(document).trim();
+    if (raw === '') {
+        return logseq.Editor.getCurrentPage();
+    }
+
+    // Try direct getPage first (works for name and uuid in Logseq)
+    let page = await logseq.Editor.getPage(raw);
+    if (page) return page;
+
+    // If input looks like an integer id, try to find page by id via getAllPages
+    if (isIntegerId(raw)) {
+        const id = Number(raw);
+        const allPages = await logseq.Editor.getAllPages?.();
+        if (Array.isArray(allPages)) {
+            const byId = allPages.find((p: any) => p.id === id);
+            if (byId) return byId;
+        }
+    }
+
+    return null;
+}
+
 export const createGetLogseqDocumentTool = (context: {
     mergeDefault: boolean,
     mergeBoth: boolean
 }) => tool({
-    description: 'Returns the active page or block from Logseq as a markdown tree with IDs.',
-    inputSchema: z.object({}),
-    execute: async (_args: any) => {
+    description: 'Returns a Logseq page as a markdown tree with IDs. Leave document empty for the current document, or pass a document name, UUID, or integer id.',
+    inputSchema: z.object({
+        document: z
+            .string()
+            .optional()
+            .describe('Optional: document name, UUID, or integer id. Omit or leave empty for the current document.'),
+    }),
+    execute: async (args: { document?: string }) => {
         const logseq = getLogseq();
         if (!logseq) {
             return 'Error: Logseq API not available.';
         }
 
-        const currentPage = await logseq.Editor.getCurrentPage();
+        const currentPage = await resolvePage(logseq, args?.document);
         if (!currentPage) {
-            return 'No document currently active.';
+            return args?.document
+                ? `Document not found: "${args.document}".`
+                : 'No document currently active.';
         }
 
         let blocks: LogseqBlock[] = [];
-        if (currentPage.uuid) {
-            // Get blocks tree
-            blocks = await logseq.Editor.getPageBlocksTree(currentPage.uuid) || [];
+        const pageRef = currentPage.uuid ?? (currentPage.name ?? currentPage.originalName ?? String(currentPage.id ?? ''));
+        if (pageRef) {
+            blocks = await logseq.Editor.getPageBlocksTree(pageRef) || [];
         }
 
         // Apply Merge Logic locally if enabled (recursive walk needed if blocks are a tree)

@@ -6,6 +6,7 @@ import { LDA_MERGE_PROPERTY } from '../../../domain/logseq/properties';
 const mockLogseq = {
     Editor: {
         getCurrentPage: vi.fn(),
+        getPage: vi.fn(),
         getPageBlocksTree: vi.fn(),
         getBlock: vi.fn(), // Helper for some tests
     },
@@ -142,6 +143,46 @@ describe('getLogseqDocument tool', () => {
             expect(result).toContain('Original');
             expect(result).toContain('[PROPOSED]');
             expect(result).toContain('New Content');
+        });
+
+        it('should use current document when document param is empty', async () => {
+            mockLogseq.Editor.getCurrentPage.mockResolvedValue({
+                name: 'Current',
+                uuid: 'current-uuid',
+                id: 1
+            });
+            mockLogseq.Editor.getPageBlocksTree.mockResolvedValue([{ id: 1, content: 'Root', children: [] }]);
+
+            const tool = createGetLogseqDocumentTool({ mergeDefault: false, mergeBoth: false });
+            const result = await (tool as any).execute({});
+            expect(result).toContain('Page: Current');
+            expect(mockLogseq.Editor.getCurrentPage).toHaveBeenCalled();
+            expect(mockLogseq.Editor.getPage).not.toHaveBeenCalled();
+        });
+
+        it('should resolve document by name when document param is provided', async () => {
+            mockLogseq.Editor.getCurrentPage.mockResolvedValue(null);
+            mockLogseq.Editor.getPage.mockResolvedValue({
+                name: 'Other Page',
+                uuid: 'other-uuid',
+                id: 42
+            });
+            mockLogseq.Editor.getPageBlocksTree.mockResolvedValue([{ id: 1, content: 'Content', children: [] }]);
+
+            const tool = createGetLogseqDocumentTool({ mergeDefault: false, mergeBoth: false });
+            const result = await (tool as any).execute({ document: 'Other Page' });
+            expect(result).toContain('Page: Other Page');
+            expect(result).toContain('- id:1 Content');
+            expect(mockLogseq.Editor.getPage).toHaveBeenCalledWith('Other Page');
+        });
+
+        it('should return error when document param is given but not found', async () => {
+            mockLogseq.Editor.getCurrentPage.mockResolvedValue(null);
+            mockLogseq.Editor.getPage.mockResolvedValue(null);
+
+            const tool = createGetLogseqDocumentTool({ mergeDefault: false, mergeBoth: false });
+            const result = await (tool as any).execute({ document: 'Nonexistent' });
+            expect(result).toBe('Document not found: "Nonexistent".');
         });
     });
 });

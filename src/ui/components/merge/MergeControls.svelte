@@ -26,10 +26,12 @@
     } = $props();
 
     // Services only needed for block mode
-    const mergeTreeService =
-        mode === "block" ? new MergeTreeService() : (null as any);
-    const mergeActionService =
-        mode === "block" ? new MergeActionService() : (null as any);
+    const mergeTreeService = $derived(
+        mode === "block" ? new MergeTreeService() : (null as any),
+    );
+    const mergeActionService = $derived(
+        mode === "block" ? new MergeActionService() : (null as any),
+    );
 
     let targetElement: HTMLElement | null = null;
     let controlsDiv: HTMLElement;

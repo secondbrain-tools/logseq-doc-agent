@@ -366,13 +366,5 @@ export class InitDataService {
         }
     }
 
-    // private async populateDefaultAgents(pageName: string) {
-    //     if (!pageName) return;
-
-    //     console.log('[InitDataService] Populating default agents...');
-    //     await this.logseqApi.appendBlockInPage(pageName,
-    //         `Default Agent\nlogseq-doc-agent.agent:: default\nlogseq-doc-agent.tools:: *\nlogseq-doc-agent.agent.description:: Default agent with access to all tools.`
-    //     );
-    // }
 }
 

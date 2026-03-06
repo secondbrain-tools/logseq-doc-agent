@@ -28,7 +28,12 @@
             if (!aStarts && bStarts) return 1;
             return 0;
         });
-        return matches.slice(0, 10);
+        const result = matches.slice(0, 10);
+        console.log(
+            `[PromptPicker] Filtered prompts (filter: "${text}"):`,
+            result,
+        );
+        return result;
     });
 
     // Keep selectedIndex in bounds when list changes

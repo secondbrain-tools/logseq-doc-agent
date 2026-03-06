@@ -9,6 +9,7 @@
     import type { ContextItem } from "../../../infra/logseq/context-utils";
     import type { ChatPrompt } from "../../../domain/chat/prompt";
     import { autoresize, clickAction } from "../../util/actions";
+    import getCaretCoordinates from "textarea-caret";
     import { ICONS } from "../../icons";
 
     interface ActiveContext {
@@ -80,67 +81,10 @@
     let isPromptPickerOpen = $state(false);
     let promptFilter = $state("");
     let promptPickerRef: any = $state();
+    let promptPickerPos = $state({ top: 0, left: 0 });
 
     let textareaElement: HTMLTextAreaElement | undefined = $state();
     let expandedTextareaElement: HTMLTextAreaElement | undefined = $state();
-
-    let promptPickerStyle = $state("");
-
-    function updatePromptPickerPosition() {
-        if (!isPromptPickerOpen) return;
-        const currentTextarea = isExpanded
-            ? expandedTextareaElement
-            : textareaElement;
-        if (!currentTextarea) return;
-
-        const rect = currentTextarea.getBoundingClientRect();
-
-        let bottomStr;
-        let leftStr;
-        let widthStr;
-
-        if (isExpanded) {
-            bottomStr = `${window.innerHeight - rect.top + 8}px`;
-            leftStr = `${rect.left + 8}px`;
-            widthStr = `calc(${rect.width}px - 16px)`;
-        } else {
-            bottomStr = `${window.innerHeight - rect.top + 4}px`;
-            leftStr = `${rect.left}px`;
-            widthStr = `${rect.width}px`;
-        }
-
-        promptPickerStyle = `
-            position: fixed;
-            bottom: ${bottomStr};
-            left: ${leftStr};
-            width: ${widthStr};
-            z-index: 99999;
-        `;
-    }
-
-    $effect(() => {
-        if (isPromptPickerOpen) {
-            updatePromptPickerPosition();
-            const targetWin = window.parent || window;
-            targetWin.addEventListener(
-                "scroll",
-                updatePromptPickerPosition,
-                true,
-            );
-            targetWin.addEventListener("resize", updatePromptPickerPosition);
-            return () => {
-                targetWin.removeEventListener(
-                    "scroll",
-                    updatePromptPickerPosition,
-                    true,
-                );
-                targetWin.removeEventListener(
-                    "resize",
-                    updatePromptPickerPosition,
-                );
-            };
-        }
-    });
 
     $effect(() => {
         // Respond to focus signal changes
@@ -148,6 +92,26 @@
             textareaElement.focus();
         }
     });
+
+    function updatePopoverPosition() {
+        if (!isExpanded || !expandedTextareaElement) return;
+
+        const caret = getCaretCoordinates(
+            expandedTextareaElement,
+            expandedTextareaElement.selectionEnd,
+        );
+
+        // We want to place the picker just below the cursor.
+        // The caret object gives top/left relative to the textarea's inside edge.
+        // Since the prompt picker is absolutely positioned relative to the textarea wrapper,
+        // we can just add the font height mapping.
+        const lineHeightOffset = 24; // Approximation for font logic
+
+        promptPickerPos = {
+            top: caret.top + lineHeightOffset,
+            left: caret.left,
+        };
+    }
 
     $effect(() => {
         // Respond to expand signal changes
@@ -172,15 +136,41 @@
                 : textareaElement;
             const cursor = targetElement?.selectionStart || text.length;
 
+            console.log(
+                "[PromptPicker] handleInput called. text:",
+                text,
+                "lastSlash:",
+                lastSlash,
+                "cursor:",
+                cursor,
+            );
+
             if (lastSlash !== -1 && cursor > lastSlash) {
                 // Ensure no spaces after slash to keep picker open
                 const checkString = text.substring(lastSlash + 1, cursor);
                 if (checkString.includes(" ")) {
+                    console.log(
+                        "[PromptPicker] handleInput: space found in checkString, closing picker",
+                    );
                     isPromptPickerOpen = false;
                 } else {
                     promptFilter = checkString;
+                    console.log(
+                        "[PromptPicker] handleInput: updated promptFilter:",
+                        promptFilter,
+                    );
+                    if (isExpanded) {
+                        updatePopoverPosition();
+                    }
                 }
             } else {
+                console.log(
+                    "[PromptPicker] handleInput: closing picker due to cursor:",
+                    cursor,
+                    "<= lastSlash:",
+                    lastSlash,
+                    "or lastSlash == -1",
+                );
                 isPromptPickerOpen = false;
             }
         }
@@ -197,15 +187,37 @@
                 ? expandedTextareaElement
                 : textareaElement;
             const start = targetElement?.selectionStart ?? 0;
+
+            console.log(
+                "[PromptPicker] '/' pressed. Available prompts:",
+                availablePrompts,
+            );
+            console.log(
+                "[PromptPicker] Cursor Start:",
+                start,
+                "Char before cursor:",
+                start > 0 ? inputText[start - 1] : "N/A",
+            );
+
             if (
                 start === 0 ||
                 inputText[start - 1] === " " ||
                 inputText[start - 1] === "\n"
             ) {
+                console.log("[PromptPicker] Opening prompt picker menu");
                 isPromptPickerOpen = true;
                 promptFilter = "";
+
+                if (isExpanded) {
+                    updatePopoverPosition();
+                }
+
                 // Wait for Svelte reactivity before measuring/focusing
                 setTimeout(() => {}, 0);
+            } else {
+                console.log(
+                    "[PromptPicker] Did NOT open menu. Condition failed.",
+                );
             }
         }
 
@@ -520,6 +532,19 @@
     {/if}
 
     <div style="position: relative; width: 100%;">
+        {#if isPromptPickerOpen && !isExpanded}
+            <div
+                style="position: absolute; bottom: 100%; left: 0; width: 100%; z-index: 100; margin-bottom: 4px;"
+            >
+                <PromptPicker
+                    bind:this={promptPickerRef}
+                    prompts={availablePrompts}
+                    filterText={promptFilter}
+                    onSelect={selectPrompt}
+                    onClose={() => (isPromptPickerOpen = false)}
+                />
+            </div>
+        {/if}
         <textarea
             class="lda-chat-textarea"
             rows="1"
@@ -717,6 +742,19 @@
             <div
                 style="position: relative; width: 100%; height: 100%; display: flex; flex-direction: column;"
             >
+                {#if isPromptPickerOpen && isExpanded}
+                    <div
+                        style="position: absolute; top: {promptPickerPos.top}px; left: {promptPickerPos.left}px; max-width: calc(100% - {promptPickerPos.left}px); z-index: 100;"
+                    >
+                        <PromptPicker
+                            bind:this={promptPickerRef}
+                            prompts={availablePrompts}
+                            filterText={promptFilter}
+                            onSelect={selectPrompt}
+                            onClose={() => (isPromptPickerOpen = false)}
+                        />
+                    </div>
+                {/if}
                 <textarea
                     class="lda-chat-textarea lda-expanded-textarea"
                     placeholder="Ask anything..."
@@ -798,19 +836,6 @@
             </div>
         </div>
     </ChatModal>
-{/if}
-
-<!-- Global Prompt Picker Portal -->
-{#if isPromptPickerOpen}
-    <div style={promptPickerStyle}>
-        <PromptPicker
-            bind:this={promptPickerRef}
-            prompts={availablePrompts}
-            filterText={promptFilter}
-            onSelect={selectPrompt}
-            onClose={() => (isPromptPickerOpen = false)}
-        />
-    </div>
 {/if}
 
 <style>

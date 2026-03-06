@@ -1,5 +1,56 @@
 import type { LogseqApi } from '../ports/logseq-ports';
 import type { ISettingsPort } from '../ports/settings-port';
+import { LDA_PROMPT_NAME_PROPERTY } from '../../domain/logseq/properties';
+import type { PromptBlockNode } from '../../domain/logseq/prompt';
+import {
+    RUBRIC_BUILDER_PROMPT_NAME,
+    RUBRIC_BUILDER_PROMPT_INTRO,
+    RUBRIC_BUILDER_PROMPT_CHILDREN
+} from '../../domain/evaluation/rubric-builder.prompt';
+
+/**
+ * Marker added to built-in prompt blocks so we can identify them on subsequent runs.
+ */
+const BUILTIN_MARKER_PROPERTY = 'logseq-doc-agent.builtin';
+
+/**
+ * Notice block content placed at the top of the prompts page.
+ */
+const PROMPTS_NOTICE = `⚠️ **Built-in prompts** (marked with \`logseq-doc-agent.builtin:: <version>\`) are managed by the plugin and will be overwritten on every update. **Do not edit them here.**\nTo customise a built-in prompt, create a block with the same \`logseq-doc-agent.prompt.name\` value on any other page — it will take priority automatically.`;
+
+const NOTICE_MARKER_PROPERTY = 'logseq-doc-agent.notice';
+
+/**
+ * Registry of built-in prompts. Each entry will be upserted on every plugin init.
+ * Children are rendered as Logseq sub-blocks and collected by the PromptRepository.
+ */
+interface BuiltinPrompt {
+    name: string;
+    content: string;
+    version: number;
+    children?: PromptBlockNode[];
+}
+
+/**
+ * Helper to build the parent block content string for a built-in prompt.
+ */
+function builtinBlock(name: string, body: string, version: number): string {
+    return `${name}\n${LDA_PROMPT_NAME_PROPERTY}:: ${name}\n${BUILTIN_MARKER_PROPERTY}:: ${version}\n${body}`;
+}
+
+const BUILTIN_PROMPTS: BuiltinPrompt[] = [
+    {
+        name: 'Basic Summary',
+        version: 1,
+        content: builtinBlock('Basic Summary', 'Summarize the following text:\n{{text}}', 1)
+    },
+    {
+        name: RUBRIC_BUILDER_PROMPT_NAME,
+        version: 1,
+        content: builtinBlock(RUBRIC_BUILDER_PROMPT_NAME, RUBRIC_BUILDER_PROMPT_INTRO, 1),
+        children: RUBRIC_BUILDER_PROMPT_CHILDREN
+    }
+];
 
 export class InitDataService {
     constructor(
@@ -41,11 +92,12 @@ export class InitDataService {
             description: 'Storage for skill definitions'
         });
 
-        // 4. Populate Defaults (Only if page is new)
-        if (promptsResult.isNew && promptsResult.page) {
-            await this.populateDefaultPrompts(promptsResult.page.name);
+        // 4. Always sync built-in prompts (upsert on every init)
+        if (promptsResult.page) {
+            await this.syncBuiltinPrompts(promptsResult.page.name);
         }
 
+        // 5. Populate other defaults only if page is new
         if (skillsResult.isNew && skillsResult.page) {
             await this.populateDefaultSkills(skillsResult.page.name);
         }
@@ -68,13 +120,178 @@ export class InitDataService {
         }
     }
 
-    private async populateDefaultPrompts(pageName: string) {
+    /**
+     * Upserts all built-in prompts on the prompts page.
+     * - Existing blocks (identified by matching prompt name) are updated in place.
+     * - Missing prompts are appended.
+     * - Children are deleted and re-created to ensure they match the current version.
+     * - A notice block is placed/updated at the top.
+     */
+    private async syncBuiltinPrompts(pageName: string) {
         if (!pageName) return;
 
-        console.log('[InitDataService] Populating default prompts...');
-        await this.logseqApi.appendBlockInPage(pageName,
-            `Basic Summary\nlogseq-doc-agent.prompt.name:: Basic Summary\nlogseq-doc-agent.prompt.content:: Summarize the following text:\n{{text}}`
-        );
+        console.log('[InitDataService] Syncing built-in prompts...');
+
+        const existingBlocks = await this.logseqApi.getPageBlocksTree(pageName);
+
+        // 1. Ensure notice block
+        await this.ensureNoticeBlock(pageName, existingBlocks);
+
+        // 2. Upsert each built-in prompt
+        for (const prompt of BUILTIN_PROMPTS) {
+            const existingBlock = this.findBlockByPromptName(existingBlocks, prompt.name);
+
+            if (existingBlock && existingBlock.uuid) {
+                // Determine existing version
+                let existingVersion = 0;
+
+                // Logseq maps simple property keys to lower-kebab-case in the parsed properties object
+                const parsedProps = existingBlock.properties || {};
+                const propVal = parsedProps[BUILTIN_MARKER_PROPERTY] || parsedProps[BUILTIN_MARKER_PROPERTY.toLowerCase()];
+
+                if (propVal !== undefined) {
+                    if (propVal === true || propVal === 'true') {
+                        existingVersion = 0; // Legacy boolean marker
+                    } else {
+                        const parsed = parseInt(String(propVal), 10);
+                        if (!isNaN(parsed)) existingVersion = parsed;
+                    }
+                } else if (existingBlock.content) {
+                    const match = existingBlock.content.match(new RegExp(`${BUILTIN_MARKER_PROPERTY}::\\s*(\\d+)`));
+                    if (match && match[1]) {
+                        existingVersion = parseInt(match[1], 10);
+                    } else if (existingBlock.content.includes(`${BUILTIN_MARKER_PROPERTY}:: true`)) {
+                        existingVersion = 0;
+                    }
+                }
+
+                if (prompt.version > existingVersion) {
+                    // Update parent in place
+                    console.log(`[InitDataService] Updating built-in prompt '${prompt.name}' to version ${prompt.version} (was ${existingVersion})`);
+                    await this.logseqApi.updateBlock(existingBlock.uuid, prompt.content);
+
+                    // Sync children
+                    await this.syncChildren(existingBlock.uuid, prompt.children || []);
+                } else {
+                    console.log(`[InitDataService] Built-in prompt '${prompt.name}' is up to date (version ${existingVersion})`);
+                }
+            } else {
+                // Create parent block
+                console.log(`[InitDataService] Creating built-in prompt '${prompt.name}'`);
+                const newBlock = await this.logseqApi.appendBlockInPage(pageName, prompt.content);
+
+                // Create children
+                if (newBlock?.uuid && prompt.children) {
+                    await this.createChildren(newBlock.uuid, prompt.children);
+                }
+            }
+        }
+    }
+
+    /**
+     * Syncs children of an existing block: deletes old children and re-creates them.
+     * This ensures the children always match the current built-in prompt version.
+     */
+    private async syncChildren(parentUuid: string, children: PromptBlockNode[]) {
+        // Get the full block with children to find existing child UUIDs
+        const parentBlock = await this.logseqApi.getBlock(parentUuid, { includeChildren: true });
+        const existingChildren: any[] = (parentBlock as any)?.children || [];
+
+        // Delete all existing children (built-in prompts shouldn't have user edits)
+        for (const child of existingChildren) {
+            const childUuid = child.uuid || child[1];
+            if (childUuid) {
+                try {
+                    await this.logseqApi.deleteBlock(childUuid);
+                } catch (e) {
+                    console.warn(`[InitDataService] Failed to delete child block ${childUuid}:`, e);
+                }
+            }
+        }
+
+        // Re-create children in order
+        await this.createChildren(parentUuid, children);
+    }
+
+    /**
+     * Creates child blocks under a parent block, in order. Supports nested children.
+     */
+    private async createChildren(parentUuid: string, children: PromptBlockNode[]) {
+        let lastBlockUuid = parentUuid;
+        let isFirst = true;
+
+        for (const child of children) {
+            try {
+                const isArray = Array.isArray(child);
+                // First element is the parent block text, the rest are children
+                const childContent = isArray ? child[0] as string : child as string;
+
+                const childBlock = await this.logseqApi.insertBlock(
+                    lastBlockUuid,
+                    childContent,
+                    isFirst
+                        ? { sibling: false }                // First child: insert as child of parent
+                        : { sibling: true, before: false }  // Subsequent: insert as sibling after previous
+                );
+
+                if (childBlock?.uuid) {
+                    lastBlockUuid = childBlock.uuid;
+                    isFirst = false;
+
+                    // If this child has its own children (array length > 1), recursively create them
+                    if (isArray && child.length > 1) {
+                        await this.createChildren(childBlock.uuid, child.slice(1) as PromptBlockNode[]);
+                    }
+                }
+            } catch (e) {
+                console.error(`[InitDataService] Failed to insert child block:`, e);
+            }
+        }
+    }
+
+    /**
+     * Ensures the notice block exists at the top of the prompts page.
+     */
+    private async ensureNoticeBlock(pageName: string, existingBlocks: any[]) {
+        const noticeContent = `${PROMPTS_NOTICE}\n${NOTICE_MARKER_PROPERTY}:: true`;
+
+        const existingNotice = existingBlocks.find((b: any) => {
+            const content = b.content || '';
+            return content.includes(NOTICE_MARKER_PROPERTY);
+        });
+
+        if (existingNotice && existingNotice.uuid) {
+            // Update existing notice
+            await this.logseqApi.updateBlock(existingNotice.uuid, noticeContent);
+        } else if (existingBlocks.length > 0 && existingBlocks[0].uuid) {
+            // Insert before the first block
+            await this.logseqApi.insertBlock(existingBlocks[0].uuid, noticeContent, { before: true, sibling: true });
+        } else {
+            // Page is empty, just append
+            await this.logseqApi.appendBlockInPage(pageName, noticeContent);
+        }
+    }
+
+    /**
+     * Finds a block on the page that matches a given prompt name property.
+     */
+    private findBlockByPromptName(blocks: any[], promptName: string): any | null {
+        for (const block of blocks) {
+            const content = block.content || '';
+            // Check if block has the prompt name property with the matching value
+            if (content.includes(`${LDA_PROMPT_NAME_PROPERTY}:: ${promptName}`)) {
+                return block;
+            }
+            // Also check in properties object (Logseq may parse it)
+            if (block.properties) {
+                const nameProp = block.properties[LDA_PROMPT_NAME_PROPERTY]
+                    || block.properties['logseqDocAgent.prompt.name'];
+                if (nameProp === promptName) {
+                    return block;
+                }
+            }
+        }
+        return null;
     }
 
     private async populateDefaultSkills(pageName: string) {
@@ -110,3 +327,4 @@ export class InitDataService {
     //     );
     // }
 }
+

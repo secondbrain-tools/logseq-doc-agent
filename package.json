@@ -18,6 +18,7 @@
     "@testing-library/svelte": "^5.3.1",
     "@tsconfig/svelte": "^5.0.6",
     "@types/node": "^24.10.1",
+    "@types/textarea-caret": "^3.0.4",
     "concurrently": "^9.2.1",
     "http-server": "^14.1.1",
     "jsdom": "^27.4.0",
@@ -49,6 +50,7 @@
     "ai": "^6.0.39",
     "diff": "^8.0.3",
     "marked": "^17.0.1",
-    "ollama-ai-provider": "^1.2.0"
+    "ollama-ai-provider": "^1.2.0",
+    "textarea-caret": "^3.1.0"
   }
 }

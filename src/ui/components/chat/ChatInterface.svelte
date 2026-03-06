@@ -329,7 +329,13 @@
         // Load Prompts
         Services.instance.promptTemplateService
             .listPrompts()
-            .then((p: ChatPrompt[]) => (availablePrompts = p));
+            .then((p: ChatPrompt[]) => {
+                availablePrompts = p;
+                console.log(
+                    "[ChatInterface] Fetched available prompts on mount:",
+                    p,
+                );
+            });
 
         return () => {
             if (cleanup) cleanup();

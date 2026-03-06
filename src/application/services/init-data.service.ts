@@ -1,18 +1,9 @@
 import type { LogseqApi } from '../ports/logseq-ports';
 import type { ISettingsPort } from '../ports/settings-port';
 import { LDA_PROMPT_NAME_PROPERTY } from '../../domain/logseq/properties';
-import type { PromptBlockNode } from '../../domain/logseq/prompt';
-import {
-    RUBRIC_BUILDER_PROMPT_NAME,
-    RUBRIC_BUILDER_PROMPT_INTRO,
-    RUBRIC_BUILDER_PROMPT_CHILDREN
-} from '../../domain/evaluation/rubric-builder.prompt';
-import {
-    BASE_PROMPT_NAME,
-    BASE_PROMPT_VERSION,
-    BASE_PROMPT_TEXT
-} from '../../domain/chat/base.prompt';
+import { builtInPrompts } from '../../domain/prompt/built-in-prompts';
 import { parseSubtree, type ParsedBlock } from '../../infra/ai/tools/subtree-parser';
+import { ROOT_PAGE_CONFIG } from '../../domain/logseq/root-page.content';
 
 /**
  * Marker added to built-in prompt blocks so we can identify them on subsequent runs.
@@ -34,53 +25,26 @@ interface BuiltinPrompt {
     name: string;
     content: string;
     version: number;
-    children?: PromptBlockNode[];
+    children?: ParsedBlock[];
 }
 
 /**
  * Helper to build the parent block content string for a built-in prompt.
  */
 function builtinBlock(name: string, body: string, version: number): string {
-    return `${name}\n${LDA_PROMPT_NAME_PROPERTY}:: ${name}\n${BUILTIN_MARKER_PROPERTY}:: ${version}\n${body}`;
+    return `## ${name}\n${LDA_PROMPT_NAME_PROPERTY}:: ${name}\n${BUILTIN_MARKER_PROPERTY}:: ${version}\n${body}`;
 }
 
-/**
- * Converts a ParsedBlock tree (from parseSubtree) into PromptBlockNode[] format
- * used by createChildren().
- */
-function parsedBlockToPromptNodes(blocks: ParsedBlock[]): PromptBlockNode[] {
-    return blocks.map(block => {
-        if (block.children.length === 0) {
-            return block.content;
-        }
-        return [block.content, ...parsedBlockToPromptNodes(block.children)] as PromptBlockNode;
-    });
-}
-
-// Parse the base prompt text once at module load
-const baseParsed = parseSubtree(BASE_PROMPT_TEXT);
-
-const BUILTIN_PROMPTS: BuiltinPrompt[] = [
-    {
-        name: 'Basic Summary',
-        version: 1,
-        content: builtinBlock('Basic Summary', 'Summarize the following text:\n{{text}}', 1)
-    },
-    {
-        name: RUBRIC_BUILDER_PROMPT_NAME,
-        version: 1,
-        content: builtinBlock(RUBRIC_BUILDER_PROMPT_NAME, RUBRIC_BUILDER_PROMPT_INTRO, 1),
-        children: RUBRIC_BUILDER_PROMPT_CHILDREN
-    },
-    {
-        name: BASE_PROMPT_NAME,
-        version: BASE_PROMPT_VERSION,
-        content: builtinBlock(BASE_PROMPT_NAME, baseParsed.content, BASE_PROMPT_VERSION),
-        children: baseParsed.children.length > 0
-            ? parsedBlockToPromptNodes(baseParsed.children)
-            : undefined
-    }
-];
+// Parse the texts dynamically
+const BUILTIN_PROMPTS: BuiltinPrompt[] = builtInPrompts.map(config => {
+    const parsed = parseSubtree(config.text);
+    return {
+        name: config.name,
+        version: config.version,
+        content: builtinBlock(config.name, parsed.content, config.version),
+        children: parsed.children.length > 0 ? parsed.children : undefined
+    };
+});
 
 export class InitDataService {
     constructor(
@@ -97,13 +61,15 @@ export class InitDataService {
         // 1. Get Storage Root from settings
         const storageRoot = this.settings.get('storageRoot', 'logseq-doc-agent');
 
-        // 2. Ensure Root Page
+        // 2. Ensure Root Page (Content managed by syncRootPage)
         const { page, isNew } = await this.ensurePage(storageRoot);
 
         if (isNew) {
-            await this.logseqApi.appendBlockInPage(storageRoot, 'Root page for Logseq Doc Agent plugin data.');
             await this.logseqApi.UI.showMsg(`Storage root page '${storageRoot}' created.`, 'info');
         }
+
+        await this.syncRootPage(storageRoot);
+
         // 3. Ensure Subpages
         const chatlogsResult = await this.ensurePage(`${storageRoot}/chatlogs`);
         if (chatlogsResult.isNew) {
@@ -150,6 +116,60 @@ export class InitDataService {
         } else {
             console.log(`[InitDataService] Page '${name}' found.`);
             return { page, isNew: false };
+        }
+    }
+
+    private async syncRootPage(pageName: string) {
+        if (!pageName) return;
+
+        console.log('[InitDataService] Syncing root page content...');
+
+        const existingBlocks = await this.logseqApi.getPageBlocksTree(pageName);
+        let currentVersion = 0;
+
+        // Try to find existing version from the first block
+        if (existingBlocks.length > 0) {
+            const firstBlock = existingBlocks[0];
+            const parsedProps = firstBlock.properties || {};
+            const versionProp = parsedProps['logseq-doc-agent.root-version'] || parsedProps['logseqDocAgent.rootVersion'];
+
+            if (versionProp !== undefined) {
+                const parsed = parseInt(String(versionProp), 10);
+                if (!isNaN(parsed)) currentVersion = parsed;
+            } else if (firstBlock.content) {
+                const match = firstBlock.content.match(/logseq-doc-agent\.root-version::\s*(\d+)/);
+                if (match && match[1]) {
+                    currentVersion = parseInt(match[1], 10);
+                }
+            }
+        }
+
+        if (ROOT_PAGE_CONFIG.version > currentVersion) {
+            console.log(`[InitDataService] Updating root page content to version ${ROOT_PAGE_CONFIG.version} (was ${currentVersion})`);
+
+            // Delete existing blocks to cleanly insert the new subtree
+            for (const block of existingBlocks) {
+                if (block.uuid) {
+                    try {
+                        await this.logseqApi.deleteBlock(block.uuid);
+                    } catch (e) {
+                        console.warn(`[InitDataService] Failed to delete root page block ${block.uuid}:`, e);
+                    }
+                }
+            }
+
+            const parsed = parseSubtree(ROOT_PAGE_CONFIG.text);
+
+            // Insert parent block with version tag
+            const parentContent = `${parsed.content}\nlogseq-doc-agent.root-version:: ${ROOT_PAGE_CONFIG.version}`;
+            const newBlock = await this.logseqApi.appendBlockInPage(pageName, parentContent);
+
+            // Insert children blocks
+            if (newBlock?.uuid && parsed.children && parsed.children.length > 0) {
+                await this.createChildren(newBlock.uuid, parsed.children);
+            }
+        } else {
+            console.log(`[InitDataService] Root page content is up to date (version ${currentVersion})`);
         }
     }
 
@@ -225,7 +245,7 @@ export class InitDataService {
      * Syncs children of an existing block: deletes old children and re-creates them.
      * This ensures the children always match the current built-in prompt version.
      */
-    private async syncChildren(parentUuid: string, children: PromptBlockNode[]) {
+    private async syncChildren(parentUuid: string, children: ParsedBlock[]) {
         // Get the full block with children to find existing child UUIDs
         const parentBlock = await this.logseqApi.getBlock(parentUuid, { includeChildren: true });
         const existingChildren: any[] = (parentBlock as any)?.children || [];
@@ -249,31 +269,26 @@ export class InitDataService {
     /**
      * Creates child blocks under a parent block, in order. Supports nested children.
      */
-    private async createChildren(parentUuid: string, children: PromptBlockNode[]) {
+    private async createChildren(parentUuid: string, children: ParsedBlock[]) {
         let lastBlockUuid = parentUuid;
         let isFirst = true;
 
         for (const child of children) {
             try {
-                const isArray = Array.isArray(child);
-                // First element is the parent block text, the rest are children
-                const childContent = isArray ? child[0] as string : child as string;
-
                 const childBlock = await this.logseqApi.insertBlock(
                     lastBlockUuid,
-                    childContent,
+                    child.content,
                     isFirst
-                        ? { sibling: false }                // First child: insert as child of parent
-                        : { sibling: true, before: false }  // Subsequent: insert as sibling after previous
+                        ? { sibling: false }
+                        : { sibling: true, before: false }
                 );
 
                 if (childBlock?.uuid) {
                     lastBlockUuid = childBlock.uuid;
                     isFirst = false;
 
-                    // If this child has its own children (array length > 1), recursively create them
-                    if (isArray && child.length > 1) {
-                        await this.createChildren(childBlock.uuid, child.slice(1) as PromptBlockNode[]);
+                    if (child.children && child.children.length > 0) {
+                        await this.createChildren(childBlock.uuid, child.children);
                     }
                 }
             } catch (e) {

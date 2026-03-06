@@ -136,7 +136,8 @@ export class ChatSidebarUseCase {
                 headerActions: ChatHeaderActions,
                 headerActionsProps: {
                     onReset: () => this.resetChat(),
-                    onHistoryClick: () => this.historyModalOpen.set(true)
+                    onHistoryClick: () => this.historyModalOpen.set(true),
+                    isLoading: this.isLoading
                 },
                 menuOptions: [
                     {

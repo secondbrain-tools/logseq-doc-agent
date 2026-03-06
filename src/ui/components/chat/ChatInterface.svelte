@@ -568,6 +568,18 @@
         }
     });
 
+    // Re-enable auto context (current document) when a new chat session starts
+    $effect(() => {
+        const msgs = $messages;
+        if (msgs.length === 0) {
+            untrack(() => {
+                activeContexts = activeContexts.map((c) =>
+                    c.isAuto ? { ...c, isActive: true } : c,
+                );
+            });
+        }
+    });
+
     // --- Merging Consecutive Tool Messages ---
     let groupedMessages = $derived.by(() => {
         const msgs = $messages;

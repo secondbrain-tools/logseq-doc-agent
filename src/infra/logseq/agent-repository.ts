@@ -196,14 +196,14 @@ export class LogseqAgentRepository implements IAgentRepository {
 
                     console.log(`[LogseqAgentRepository] Updating agent block ${agentConfig.name} from v${existingVersion} to v${agentConfig.version}`);
 
-                    // Update Properties
-                    await this.logseqApi.upsertBlockProperty(existingBlock.uuid, LogseqAgentRepository.AGENT_PROPERTY, agentConfig.name);
-                    await this.logseqApi.upsertBlockProperty(existingBlock.uuid, LogseqAgentRepository.TOOLS_PROPERTY, agentConfig.tools);
-                    await this.logseqApi.upsertBlockProperty(existingBlock.uuid, LogseqAgentRepository.DESCRIPTION_PROPERTY, agentConfig.description);
-                    await this.logseqApi.upsertBlockProperty(existingBlock.uuid, LogseqAgentRepository.VERSION_PROPERTY, String(agentConfig.version));
-                    if (agentConfig.isDefault) {
-                        await this.logseqApi.upsertBlockProperty(existingBlock.uuid, LogseqAgentRepository.DEFAULT_PROPERTY, 'true');
-                    }
+                    const content = `## ${agentConfig.name}
+${LogseqAgentRepository.AGENT_PROPERTY}:: ${agentConfig.name}
+${LogseqAgentRepository.TOOLS_PROPERTY}:: ${agentConfig.tools}
+${LogseqAgentRepository.DESCRIPTION_PROPERTY}:: ${agentConfig.description}
+${LogseqAgentRepository.VERSION_PROPERTY}:: ${agentConfig.version}
+${agentConfig.isDefault ? `${LogseqAgentRepository.DEFAULT_PROPERTY}:: true` : ''}`;
+
+                    await this.logseqApi.updateBlock(existingBlock.uuid, content);
 
                     // Update Prompt (Child Block)
                     await this.updateAgentPrompt(existingBlock.uuid, agentConfig.prompt);
@@ -216,7 +216,7 @@ export class LogseqAgentRepository implements IAgentRepository {
                 console.log(`[LogseqAgentRepository] Creating new agent block: ${agentConfig.name}`);
 
                 // Content line + properties
-                const content = `${agentConfig.name}
+                const content = `## ${agentConfig.name}
 ${LogseqAgentRepository.AGENT_PROPERTY}:: ${agentConfig.name}
 ${LogseqAgentRepository.TOOLS_PROPERTY}:: ${agentConfig.tools}
 ${LogseqAgentRepository.DESCRIPTION_PROPERTY}:: ${agentConfig.description}

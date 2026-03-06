@@ -1,14 +1,4 @@
-/**
- * Built-in Base Prompt
- *
- * Defined as a plain-text markdown-list string, parsed by `parseSubtree()`
- * at registration time. This is easier to author and read than the nested
- * `PromptBlockNode[]` format used by the evaluation rubric builder.
- */
-
-export const BASE_PROMPT_NAME = 'base';
-
-export const BASE_PROMPT_VERSION = 1;
+import type { BuiltInPromptConfig } from '../prompt/built-in-prompts';
 
 /**
  * The base prompt text.
@@ -19,7 +9,10 @@ export const BASE_PROMPT_VERSION = 1;
  *  - 2-space or tab indentation controls nesting depth.
  *  - `key:: value` lines after a block become Logseq properties.
  */
-export const BASE_PROMPT_TEXT = `\
+export const BASE_PROMPT_CONFIG: BuiltInPromptConfig = {
+  name: "base",
+  version: 1,
+  text: `\
 You are an Agent working within Logseq.
 Logseq is a block-based outliner.
 
@@ -56,4 +49,6 @@ Logseq is a block-based outliner.
   - Edit only the current document.
   - Structural edits are allowed.
   - Use other pages or blocks only as reference.
-`;
+`
+
+};

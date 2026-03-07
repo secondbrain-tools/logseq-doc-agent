@@ -23,6 +23,7 @@
             reasoningEffort?: "none" | "low" | "medium" | "high",
             agentName?: string,
             contextItems?: any[],
+            selectedPrompts?: string[],
         ) => void;
         onClose: () => void;
         onReset: () => void;
@@ -31,6 +32,7 @@
         onListChatlogs?: () => Promise<ChatlogMetadata[]>;
         onDeleteChatlog?: (id: string) => void;
         onStop?: () => void;
+        onAgentListOpen?: () => void;
     }
 
     let props: Props = $props();

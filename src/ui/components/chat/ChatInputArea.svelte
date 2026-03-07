@@ -4,10 +4,21 @@
     import ModelSelector, { type ProviderGroup } from "./ModelSelector.svelte";
     import ContextMenu from "./ContextMenu.svelte";
     import ChatModal from "./ChatModal.svelte";
+    import PickerOverlay from "./PickerOverlay.svelte";
+    import ExpandedSearch from "./ExpandedSearch.svelte";
     import type { AgentDefinition } from "../../../domain/agent/types";
+    import {
+        searchPages,
+        searchBlocks,
+    } from "../../../infra/logseq/context-utils";
     import type { ContextItem } from "../../../infra/logseq/context-utils";
+    import type { ChatPrompt } from "../../../domain/chat/prompt";
     import { autoresize, clickAction } from "../../util/actions";
     import { ICONS } from "../../icons";
+    import {
+        applyPromptSelection,
+        applyContextSelection,
+    } from "../../util/textarea-text-utils";
 
     interface ActiveContext {
         item: ContextItem;
@@ -17,6 +28,8 @@
 
     interface Props {
         inputText: string;
+        selectedPrompts: string[];
+        availablePrompts: ChatPrompt[];
         isLoading: boolean;
         activeContexts: ActiveContext[];
         agents: AgentDefinition[];
@@ -31,15 +44,20 @@
 
         onSendMessage: () => void;
         onAddContext: () => void;
+        onAddManualContext: (item: ContextItem) => void;
         onRemoveContext: (id: string) => void;
         onToggleContext: (id: string) => void;
         onModelChange: (modelId: string, providerId: string) => void;
         onAgentChange: (agentName: string) => void;
         onStop?: () => void;
+        onAgentListOpen?: () => void;
+        onPromptPickerOpen?: () => void;
     }
 
     let {
         inputText = $bindable(),
+        selectedPrompts = $bindable(),
+        availablePrompts = [],
         isLoading,
         activeContexts,
         agents,
@@ -53,38 +71,52 @@
         expandSignal,
         onSendMessage,
         onAddContext,
+        onAddManualContext,
         onRemoveContext,
         onToggleContext,
         onModelChange,
         onAgentChange,
         onStop,
+        onAgentListOpen,
+        onPromptPickerOpen,
     }: Props = $props();
 
     // --- Local State ---
-    let isContextMenuOpen = $state(false); // For "Add Context" menu
-    let isMaxedOut = $state(false); // Track if input is at max height
-    let isExpanded = $state(false); // Track if input is maximized in modal
-    let reasoningMenu = $state({
-        visible: false,
-        x: 0,
-        y: 0,
-    });
+    let isContextMenuOpen = $state(false);
+    let isMaxedOut = $state(false);
+    let isExpanded = $state(false);
+    let reasoningMenu = $state({ visible: false, x: 0, y: 0 });
 
+    // Prompt Picker State
+    let isPromptPickerOpen = $state(false);
+    let promptFilter = $state("");
+
+    // Context Picker State
+    let isContextPickerOpen = $state(false);
+    let contextPickerMode = $state<"page" | "block">("page");
+    let contextPickerFilter = $state("");
+    let contextPickerItems: ContextItem[] = $state([]);
+    let searchDebounceTimer: any;
+
+    // Picker position (shared; prompt and context pickers are never open simultaneously)
+    let pickerPos = $state({ top: 0, left: 0 });
+
+    // Element & component refs
     let textareaElement: HTMLTextAreaElement | undefined = $state();
     let expandedTextareaElement: HTMLTextAreaElement | undefined = $state();
+    let inlinePickerRef: any = $state();
+    let expandedPickerRef: any = $state();
+    let searchRef: any = $state();
 
     $effect(() => {
-        // Respond to focus signal changes
         if (focusSignal && textareaElement) {
             textareaElement.focus();
         }
     });
 
     $effect(() => {
-        // Respond to expand signal changes
         if (expandSignal) {
             console.log("[UI] expandSignal received:", expandSignal);
-            // Delay expansion to ensure DOM is stable and prevent flush errors
             setTimeout(() => {
                 console.log("[UI] Triggering delayed toggleExpand");
                 void toggleExpand();
@@ -92,35 +124,197 @@
         }
     });
 
-    // --- Actions ---
-    function handleKeydown(e: KeyboardEvent) {
-        // Stop propagation for arrow keys to prevent Logseq from hijacking navigation
-        if (
-            [
-                "ArrowUp",
-                "ArrowDown",
-                "ArrowLeft",
-                "ArrowRight",
-                "Backspace",
-                "Delete",
-                "PageUp",
-                "PageDown",
-            ].includes(e.key)
-        ) {
-            e.stopPropagation();
+    // Capture-phase guard: when the expanded textarea is focused and the user
+    // presses PageUp/PageDown, stop the event before Logseq's capture-phase
+    // listeners can scroll the sidebar. Synthetic key events don't trigger
+    // default actions in textareas, so we scroll and move the cursor manually.
+    // Use the window that owns the textarea (parent when sidebar is in parent doc).
+    $effect(() => {
+        if (!isExpanded || !expandedTextareaElement) return;
+
+        const el = expandedTextareaElement;
+        const targetWin = el.ownerDocument.defaultView ?? window;
+
+        function charOffsetAtLineStart(text: string, lineIndex: number): number {
+            const lines = text.split("\n");
+            if (lineIndex <= 0) return 0;
+            return lines
+                .slice(0, lineIndex)
+                .join("\n")
+                .length;
         }
 
-        // Search: Ctrl+F / Cmd+F
-        if ((e.ctrlKey || e.metaKey) && e.key === "f") {
-            if (isExpanded) {
-                e.preventDefault();
-                e.stopPropagation();
-                toggleSearch();
-                return;
+        const handler = (e: KeyboardEvent) => {
+            if (e.key !== "PageUp" && e.key !== "PageDown") return;
+            if (el.ownerDocument.activeElement !== el) return;
+
+            e.preventDefault();
+            e.stopPropagation();
+
+            const text = el.value;
+            const lines = text.split("\n");
+            const lineCount = lines.length;
+            const style = targetWin.getComputedStyle(el);
+            const lineHeight = parseFloat(style.lineHeight) || 24;
+            const linesPerPage = Math.max(1, Math.floor(el.clientHeight / lineHeight));
+
+            const cursor = el.selectionStart;
+            const lineIndex = text.substring(0, cursor).split("\n").length - 1;
+
+            if (e.key === "PageDown") {
+                el.scrollTop = Math.min(
+                    el.scrollTop + el.clientHeight,
+                    el.scrollHeight - el.clientHeight,
+                );
+                const newLine = Math.min(lineIndex + linesPerPage, lineCount - 1);
+                const newOffset = charOffsetAtLineStart(text, newLine);
+                el.setSelectionRange(newOffset, newOffset);
+            } else {
+                el.scrollTop = Math.max(el.scrollTop - el.clientHeight, 0);
+                const newLine = Math.max(lineIndex - linesPerPage, 0);
+                const newOffset = charOffsetAtLineStart(text, newLine);
+                el.setSelectionRange(newOffset, newOffset);
+            }
+        };
+
+        targetWin.addEventListener("keydown", handler, true);
+        return () => targetWin.removeEventListener("keydown", handler, true);
+    });
+
+    // --- Helpers ---
+    function getActiveTextarea() {
+        return isExpanded ? expandedTextareaElement : textareaElement;
+    }
+
+    function updatePopoverPosition() {
+        if (!isExpanded || !expandedTextareaElement) return;
+
+        const el = expandedTextareaElement;
+        const textBefore = el.value.substring(0, el.selectionEnd);
+        const lines = textBefore.split("\n");
+        const lineNum = lines.length - 1;
+        const colNum = lines[lines.length - 1].length;
+
+        const style = window.getComputedStyle(el);
+        const lineHeight = parseFloat(style.lineHeight) || 24;
+        const paddingTop = parseFloat(style.paddingTop) || 8;
+        const paddingLeft = parseFloat(style.paddingLeft) || 8;
+        // Rough char width for proportional fonts: 55% of font size
+        const charWidth = (parseFloat(style.fontSize) || 16) * 0.55;
+
+        const rawTop =
+            paddingTop + lineNum * lineHeight - el.scrollTop + lineHeight + 16;
+        const rawLeft = paddingLeft + colNum * charWidth - el.scrollLeft;
+
+        pickerPos = {
+            top: Math.max(0, Math.min(rawTop, el.clientHeight - 250)),
+            left: Math.max(0, Math.min(rawLeft, el.clientWidth - 260)),
+        };
+    }
+
+    // --- Input Handling ---
+    function handleInput() {
+        if (isPromptPickerOpen) {
+            const lastSlash = inputText.lastIndexOf("/");
+            const cursor = getActiveTextarea()?.selectionStart || inputText.length;
+
+            if (lastSlash !== -1 && cursor > lastSlash) {
+                const checkString = inputText.substring(lastSlash + 1, cursor);
+                if (checkString.includes(" ")) {
+                    isPromptPickerOpen = false;
+                } else {
+                    promptFilter = checkString;
+                    if (isExpanded) updatePopoverPosition();
+                }
+            } else {
+                isPromptPickerOpen = false;
             }
         }
 
-        // Toggle Expansion: Alt + ArrowUp/ArrowDown
+        if (isContextPickerOpen) {
+            const trigger = contextPickerMode === "page" ? "[[" : "((";
+            const lastTrigger = inputText.lastIndexOf(trigger);
+            const cursor = getActiveTextarea()?.selectionStart || inputText.length;
+
+            if (lastTrigger !== -1 && cursor > lastTrigger + 1) {
+                const filter = inputText.substring(lastTrigger + 2, cursor);
+                const closingTrigger = contextPickerMode === "page" ? "]]" : "))";
+
+                if (filter.includes(closingTrigger)) {
+                    isContextPickerOpen = false;
+                } else {
+                    contextPickerFilter = filter;
+                    if (isExpanded) updatePopoverPosition();
+                    debounceContextSearch(filter, contextPickerMode);
+                }
+            } else {
+                isContextPickerOpen = false;
+            }
+        }
+    }
+
+    function debounceContextSearch(query: string, mode: "page" | "block") {
+        clearTimeout(searchDebounceTimer);
+        searchDebounceTimer = setTimeout(async () => {
+            if (!isContextPickerOpen) return;
+            if (mode === "page") {
+                const results = await searchPages(query);
+                contextPickerItems = results.map((r) => ({
+                    id: r.uuid,
+                    type: "page",
+                    name: r.name || "Untitled Page",
+                }));
+            } else {
+                const results = await searchBlocks(query);
+                contextPickerItems = results.map((r) => ({
+                    id: r.uuid,
+                    type: "block",
+                    name: r.content
+                        ? r.content.substring(0, 100).replace(/\n/g, " ")
+                        : "Empty Block",
+                }));
+            }
+        }, 150);
+    }
+
+    // --- Keyboard Handling ---
+    const NAV_KEYS = [
+        "ArrowUp",
+        "ArrowDown",
+        "ArrowLeft",
+        "ArrowRight",
+        "Backspace",
+        "Delete",
+        "PageUp",
+        "PageDown",
+    ];
+
+    function handleKeydown(e: KeyboardEvent) {
+        // Delegate to the active picker overlay first
+        const activePickerRef = isExpanded ? expandedPickerRef : inlinePickerRef;
+        if (activePickerRef?.handleKeyDown(e)) {
+            e.stopPropagation();
+            return;
+        }
+
+        if (e.key === "/") handleSlashKey(e);
+        else if (e.key === "[" || e.key === "(") handleBracketKey(e);
+
+        // Stop Logseq from hijacking navigation keys
+        if (NAV_KEYS.includes(e.key)) e.stopPropagation();
+
+        // Prevent Space from bubbling to ChatModal backdrop (which would close it)
+        if (e.key === " ") e.stopPropagation();
+
+        // Ctrl/Cmd+F: search (expanded only)
+        if ((e.ctrlKey || e.metaKey) && e.key === "f" && isExpanded) {
+            e.preventDefault();
+            e.stopPropagation();
+            searchRef?.toggle();
+            return;
+        }
+
+        // Alt+Arrow: toggle expand
         if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
             e.preventDefault();
             e.stopPropagation();
@@ -128,84 +322,138 @@
             return;
         }
 
-        if (e.key === "Escape") {
-            if (isExpanded) {
-                void toggleExpand(); // Use toggleExpand to handle focus restore
-                e.stopPropagation(); // Prevent bubbling if needed
-            } else {
-                (e.target as HTMLTextAreaElement).blur();
-                // Release focus to allow Logseq navigation
-            }
-            return;
+        if (e.key === "Escape") handleEscapeKey(e);
+        if (e.key === "Enter") handleEnterKey(e);
+    }
+
+    function handleSlashKey(e: KeyboardEvent) {
+        const start = getActiveTextarea()?.selectionStart ?? 0;
+        if (
+            start === 0 ||
+            inputText[start - 1] === " " ||
+            inputText[start - 1] === "\n"
+        ) {
+            isPromptPickerOpen = true;
+            promptFilter = "";
+            if (isExpanded) updatePopoverPosition();
+            onPromptPickerOpen?.();
         }
+    }
 
-        if (e.key === "Enter") {
-            if (e.shiftKey) {
-                // Explicitly handle Shift+Enter to avoid environment interference
-                e.preventDefault();
-                e.stopPropagation();
-
-                const textarea = e.target as HTMLTextAreaElement;
-                const start = textarea.selectionStart;
-                const end = textarea.selectionEnd;
-
-                // Insert newline
-                inputText =
-                    inputText.substring(0, start) +
-                    "\n" +
-                    inputText.substring(end);
-
-                // Move cursor to after newline
-                setTimeout(() => {
-                    const newPos = start + 1;
-                    textarea.selectionStart = newPos;
-                    textarea.selectionEnd = newPos;
-                }, 0);
-            } else {
-                // Enter without Shift = Send
-                e.preventDefault();
-                if (isExpanded) {
-                    // Close modal first if expanded, then send
-                    void toggleExpand(); // Close and restore focus (though send might clear it)
-                    // Small delay to allow transition if needed,
-                    // but immediate send is usually preferred.
-                }
-                onSendMessage();
+    function handleBracketKey(e: KeyboardEvent) {
+        const start = getActiveTextarea()?.selectionStart ?? 0;
+        if (start > 0 && inputText[start - 1] === e.key) {
+            if (
+                start === 1 ||
+                inputText[start - 2] === " " ||
+                inputText[start - 2] === "\n"
+            ) {
+                isContextPickerOpen = true;
+                contextPickerMode = e.key === "[" ? "page" : "block";
+                contextPickerFilter = "";
+                contextPickerItems = [];
+                if (isExpanded) updatePopoverPosition();
+                debounceContextSearch("", contextPickerMode);
             }
         }
     }
 
+    function handleEscapeKey(e: KeyboardEvent) {
+        if (isExpanded) {
+            void toggleExpand();
+            e.stopPropagation();
+        } else {
+            (e.target as HTMLTextAreaElement).blur();
+        }
+    }
+
+    function handleEnterKey(e: KeyboardEvent) {
+        e.stopPropagation();
+        if (e.shiftKey) {
+            e.preventDefault();
+            const textarea = e.target as HTMLTextAreaElement;
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            inputText =
+                inputText.substring(0, start) + "\n" + inputText.substring(end);
+            setTimeout(() => {
+                const newPos = start + 1;
+                textarea.selectionStart = newPos;
+                textarea.selectionEnd = newPos;
+            }, 0);
+        } else {
+            e.preventDefault();
+            if (isExpanded) void toggleExpand();
+            onSendMessage();
+        }
+    }
+
+    // --- Prompt Actions ---
+    function selectPrompt(promptName: string) {
+        if (!selectedPrompts.includes(promptName)) {
+            selectedPrompts = [...selectedPrompts, promptName];
+        }
+        isPromptPickerOpen = false;
+
+        const lastSlash = inputText.lastIndexOf("/");
+        inputText = applyPromptSelection(inputText, lastSlash, promptFilter);
+    }
+
+    function removePrompt(promptName: string) {
+        selectedPrompts = selectedPrompts.filter((p) => p !== promptName);
+    }
+
+    // --- Context Actions ---
+    function selectContextItem(item: ContextItem) {
+        onAddManualContext(item);
+        isContextPickerOpen = false;
+
+        const trigger = contextPickerMode === "page" ? "[[" : "((";
+        const closingTag = contextPickerMode === "page" ? "]]" : "))";
+        const identifier = contextPickerMode === "page" ? item.name : item.id;
+
+        const { text, cursorPos } = applyContextSelection(
+            inputText,
+            trigger,
+            closingTag,
+            identifier,
+            contextPickerFilter.length,
+        );
+        inputText = text;
+
+        setTimeout(() => {
+            const target = getActiveTextarea();
+            if (target) {
+                target.setSelectionRange(cursorPos, cursorPos);
+                target.focus();
+            }
+        }, 0);
+    }
+
+    // --- Reasoning ---
     function openReasoningMenu(e: MouseEvent) {
         e.preventDefault();
         e.stopPropagation();
 
         const btn = e.currentTarget as HTMLElement;
         const rect = btn.getBoundingClientRect();
-
         setTimeout(() => {
-            reasoningMenu = {
-                visible: true,
-                x: rect.left,
-                y: rect.top - 10,
-            };
+            reasoningMenu = { visible: true, x: rect.left, y: rect.top - 10 };
         }, 0);
     }
 
+    // --- Expand ---
     async function toggleExpand() {
         console.log("[UI] toggleExpand START. isExpanded:", isExpanded);
         try {
-            const source = isExpanded
-                ? expandedTextareaElement
-                : textareaElement;
+            const source = getActiveTextarea();
             const start = source?.selectionStart;
             const end = source?.selectionEnd;
 
             isExpanded = !isExpanded;
             await tick();
 
-            const target = isExpanded
-                ? expandedTextareaElement
-                : textareaElement;
+            const target = getActiveTextarea();
             if (target) {
                 target.focus();
                 if (typeof start === "number" && typeof end === "number") {
@@ -224,105 +472,6 @@
         }
     }
 
-    // --- Search Logic ---
-    let isSearchOpen = $state(false);
-    let searchQuery = $state("");
-    let searchMatches: number[] = $state([]);
-    let searchMatchIndex = $state(-1);
-    let searchInputRef: HTMLInputElement | undefined = $state();
-
-    function performSearch() {
-        if (!searchQuery) {
-            searchMatches = [];
-            searchMatchIndex = -1;
-            return;
-        }
-
-        const matches: number[] = [];
-        const lowerQuery = searchQuery.toLowerCase();
-        const lowerText = inputText.toLowerCase();
-        let pos = lowerText.indexOf(lowerQuery);
-
-        while (pos !== -1) {
-            matches.push(pos);
-            pos = lowerText.indexOf(lowerQuery, pos + 1);
-        }
-
-        searchMatches = matches;
-
-        // If we have matches, try to find the one closest to current cursor or just pick first
-        if (matches.length > 0) {
-            // Find match after current selection start, or default to 0
-            const currentPos = expandedTextareaElement?.selectionStart || 0;
-            const nextMatchIdx = matches.findIndex((m) => m >= currentPos);
-            searchMatchIndex = nextMatchIdx !== -1 ? nextMatchIdx : 0;
-            searchMatchIndex = nextMatchIdx !== -1 ? nextMatchIdx : 0;
-            goToMatch(searchMatchIndex, true);
-        } else {
-            searchMatchIndex = -1;
-        }
-    }
-
-    function goToMatch(index: number, keepFocus = false) {
-        if (index < 0 || index >= searchMatches.length) return;
-
-        const start = searchMatches[index];
-        const end = start + searchQuery.length;
-
-        if (expandedTextareaElement) {
-            if (!keepFocus) {
-                expandedTextareaElement.focus();
-            }
-            expandedTextareaElement.setSelectionRange(start, end);
-            // setSelectionRange usually scrolls into view if focused
-            // If we are keeping focus on search input, we might need manual scrolling if off-screen,
-            // but for now let's see if this is sufficient.
-            if (keepFocus) {
-                // Try to scroll into view without focusing using blur/focus trick or just scrollTop
-                // For now, doing nothing extra. Browsers might not scroll if not focused.
-                // We can improve this if needed.
-                const lineHeight = 24; // approx
-                const lines = inputText.substring(0, start).split("\n").length;
-                const scrollPos = (lines - 1) * lineHeight;
-                // expandedTextareaElement.scrollTop = scrollPos; // Rough approximation
-            }
-        }
-    }
-
-    function findNext() {
-        if (searchMatches.length === 0) return;
-        searchMatchIndex = (searchMatchIndex + 1) % searchMatches.length;
-        goToMatch(searchMatchIndex);
-    }
-
-    function findPrev() {
-        if (searchMatches.length === 0) return;
-        searchMatchIndex =
-            (searchMatchIndex - 1 + searchMatches.length) %
-            searchMatches.length;
-        goToMatch(searchMatchIndex);
-    }
-
-    function toggleSearch() {
-        isSearchOpen = !isSearchOpen;
-        if (isSearchOpen) {
-            // Reset search when opening
-            searchQuery = "";
-            searchMatches = [];
-            searchMatchIndex = -1;
-            setTimeout(() => searchInputRef?.focus(), 50);
-        } else {
-            // Restore focus to textarea when closing
-            expandedTextareaElement?.focus();
-        }
-    }
-
-    function closeSearch() {
-        isSearchOpen = false;
-        expandedTextareaElement?.focus();
-    }
-
-    // --- Icons ---
     // --- Icons ---
     const menuIcons = {
         dash: `<div style="opacity: 0.5;">${ICONS.dash}</div>`,
@@ -333,8 +482,27 @@
 </script>
 
 <div class="lda-chat-input-area">
-    {#if activeContexts.length > 0}
+    {#if activeContexts.length > 0 || selectedPrompts.length > 0}
         <div class="lda-context-bar">
+            {#each selectedPrompts as promptName (promptName)}
+                <div
+                    class="lda-context-tag"
+                    style="border-color: var(--ls-link-text-color);"
+                >
+                    <span
+                        class="lda-context-icon"
+                        style="color: var(--ls-link-text-color);">✨</span
+                    >
+                    <span class="lda-context-name">{promptName}</span>
+                    <button
+                        class="lda-context-remove"
+                        use:clickAction={() => removePrompt(promptName)}
+                    >
+                        ×
+                    </button>
+                </div>
+            {/each}
+
             {#each activeContexts as ctx (ctx.item.id)}
                 <!-- svelte-ignore a11y_click_events_have_key_events -->
                 <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -355,9 +523,7 @@
                     {#if !ctx.isAuto}
                         <button
                             class="lda-context-remove"
-                            use:clickAction={(e) => {
-                                onRemoveContext(ctx.item.id);
-                            }}
+                            use:clickAction={() => onRemoveContext(ctx.item.id)}
                         >
                             ×
                         </button>
@@ -367,7 +533,22 @@
         </div>
     {/if}
 
-    <div class="relative w-full">
+    <div style="position: relative; width: 100%;">
+        <PickerOverlay
+            bind:this={inlinePickerRef}
+            isPromptPickerOpen={isPromptPickerOpen && !isExpanded}
+            isContextPickerOpen={isContextPickerOpen && !isExpanded}
+            {availablePrompts}
+            {promptFilter}
+            {contextPickerMode}
+            {contextPickerItems}
+            {contextPickerFilter}
+            positioning="inline"
+            onSelectPrompt={selectPrompt}
+            onSelectContext={selectContextItem}
+            onClosePromptPicker={() => (isPromptPickerOpen = false)}
+            onCloseContextPicker={() => (isContextPickerOpen = false)}
+        />
         <textarea
             class="lda-chat-textarea"
             rows="1"
@@ -375,6 +556,7 @@
             bind:value={inputText}
             bind:this={textareaElement}
             onkeydown={handleKeydown}
+            oninput={handleInput}
             use:autoresize={inputText}
             onmaxedout={(e) => {
                 isMaxedOut = e.detail;
@@ -431,6 +613,7 @@
                 onChange={(agent) => {
                     if (agent) onAgentChange(agent.name);
                 }}
+                onOpen={onAgentListOpen}
             />
         {/if}
 
@@ -459,7 +642,6 @@
                 {#if reasoningEffort === "none"}
                     {@html ICONS.dash}
                 {:else}
-                    <!-- Brain Icon - Scaled based on effort -->
                     <div
                         style="transform: scale({reasoningEffort === 'low'
                             ? 0.8
@@ -556,69 +738,44 @@
     <ChatModal
         isOpen={isExpanded}
         title="Edit Message"
+        overflowVisible={true}
         onClose={() => (isExpanded = false)}
     >
         <div class="lda-expanded-input-container">
-            <textarea
-                class="lda-chat-textarea lda-expanded-textarea"
-                placeholder="Ask anything..."
-                bind:value={inputText}
-                bind:this={expandedTextareaElement}
-                onkeydown={handleKeydown}
-            ></textarea>
+            <div
+                style="position: relative; width: 100%; height: 100%; display: flex; flex-direction: column;"
+            >
+                <PickerOverlay
+                    bind:this={expandedPickerRef}
+                    isPromptPickerOpen={isPromptPickerOpen && isExpanded}
+                    isContextPickerOpen={isContextPickerOpen && isExpanded}
+                    {availablePrompts}
+                    {promptFilter}
+                    {contextPickerMode}
+                    {contextPickerItems}
+                    {contextPickerFilter}
+                    positioning="cursor"
+                    cursorPosition={pickerPos}
+                    onSelectPrompt={selectPrompt}
+                    onSelectContext={selectContextItem}
+                    onClosePromptPicker={() => (isPromptPickerOpen = false)}
+                    onCloseContextPicker={() => (isContextPickerOpen = false)}
+                />
+                <textarea
+                    class="lda-chat-textarea lda-expanded-textarea"
+                    placeholder="Ask anything..."
+                    bind:value={inputText}
+                    bind:this={expandedTextareaElement}
+                    onkeydown={handleKeydown}
+                    oninput={handleInput}
+                ></textarea>
+            </div>
 
-            {#if isExpanded && isSearchOpen}
-                <div class="lda-search-container">
-                    <input
-                        class="lda-search-input"
-                        type="text"
-                        placeholder="Find..."
-                        bind:value={searchQuery}
-                        bind:this={searchInputRef}
-                        oninput={() => performSearch()}
-                        onkeydown={(e) => {
-                            if (e.key === "Enter") {
-                                e.preventDefault();
-                                if (e.shiftKey) findPrev();
-                                else findNext();
-                            } else if (e.key === "Escape") {
-                                e.preventDefault();
-                                closeSearch();
-                            }
-                        }}
-                    />
-                    <span class="lda-search-info">
-                        {#if searchMatches.length > 0}
-                            {searchMatchIndex + 1} / {searchMatches.length}
-                        {:else if searchQuery}
-                            0 / 0
-                        {/if}
-                    </span>
-                    <button
-                        class="lda-search-btn"
-                        use:clickAction={findPrev}
-                        title="Previous (Shift+Enter)"
-                        disabled={searchMatches.length === 0}
-                    >
-                        {@html ICONS.searchPrev}
-                    </button>
-                    <button
-                        class="lda-search-btn"
-                        use:clickAction={findNext}
-                        title="Next (Enter)"
-                        disabled={searchMatches.length === 0}
-                    >
-                        {@html ICONS.searchNext}
-                    </button>
-                    <button
-                        class="lda-search-btn"
-                        use:clickAction={closeSearch}
-                        title="Close (Esc)"
-                    >
-                        {@html ICONS.searchClose}
-                    </button>
-                </div>
-            {/if}
+            <ExpandedSearch
+                bind:this={searchRef}
+                {inputText}
+                {expandedTextareaElement}
+            />
 
             <div class="lda-expanded-footer">
                 <button

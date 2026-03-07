@@ -9,6 +9,7 @@
         value: string; // Selected agent name
         disabled?: boolean;
         onChange?: (agent: AgentDefinition | null) => void;
+        onOpen?: () => void;
     }
 
     let {
@@ -16,6 +17,7 @@
         value = $bindable(),
         disabled = false,
         onChange,
+        onOpen,
     }: Props = $props();
 
     // State
@@ -46,6 +48,7 @@
         if (!disabled) {
             e.stopPropagation();
             isOpen = !isOpen;
+            if (isOpen) onOpen?.();
         }
     }
 
@@ -60,6 +63,7 @@
         e.stopPropagation();
         isOpen = false;
         isModalOpen = true;
+        onOpen?.();
     }
 
     // --- Positioning Logic ---

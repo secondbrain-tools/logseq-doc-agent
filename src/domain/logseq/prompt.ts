@@ -8,3 +8,5 @@ export interface FeedbackPrompt extends Prompt {
     type: 'feedback';
     // Potential future expansion: criteria extracted from content or children
 }
+
+

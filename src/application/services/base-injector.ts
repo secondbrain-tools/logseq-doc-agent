@@ -21,8 +21,11 @@ export abstract class BaseBlockInjector<TData> {
     protected abstract getInjectionConfig(): InjectionConfig;
     protected abstract getComponent(): any;
     protected abstract parseProperty(content: string, blockId: string): TData | null;
-    protected abstract getComponentProps(blockId: string, data: TData): any;
+    protected abstract getComponentProps(blockId: string, data: TData, blockContent?: string): any;
     protected abstract getQuery(currentPage: any): string;
+
+    /** Override to true in subclasses that need the block's plain-text content passed to props. */
+    protected fetchBlockContent(): boolean { return false; }
 
     /**
      * Executes the injection process
@@ -158,7 +161,16 @@ export abstract class BaseBlockInjector<TData> {
                     }
 
                     if (data) {
-                        const props = this.getComponentProps(blockId, data);
+                        let blockContent: string | undefined;
+                        if (this.fetchBlockContent()) {
+                            try {
+                                blockContent = await this.logseqApi.Editor.getBlockText(blockId) ?? undefined;
+                            } catch {
+                                // non-fatal — preview just won't show
+                            }
+                        }
+
+                        const props = this.getComponentProps(blockId, data, blockContent);
 
                         const container = this.componentInjector.injectComponentWithPosition(
                             targetElement,

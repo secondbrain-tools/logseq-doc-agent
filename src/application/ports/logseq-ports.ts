@@ -45,6 +45,7 @@ export interface LogseqApi {
     getBlock(uuid: string): Promise<BlockEntity>;
     getBlockPropertyContent(uuid: string, propertyName: string): Promise<string | null>;
     getBlockText(uuid: string): Promise<string>;
+    updateBlock(uuid: string, content: string): Promise<BlockEntity | null>;
   };
   /**
    * Get plugin file storage for saving/loading attachment files

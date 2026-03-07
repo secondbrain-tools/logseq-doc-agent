@@ -53,8 +53,13 @@ export class FrontendSidebarInjector implements SidebarInjector {
             instance.app = undefined;
         }
 
-        instance.container?.remove();
-        instance.indicator?.remove();
+        if (instance.container && instance.container.parentNode) {
+            instance.container.parentNode.removeChild(instance.container);
+        }
+        if (instance.indicator && instance.indicator.parentNode) {
+            instance.indicator.parentNode.removeChild(instance.indicator);
+        }
+
         instance.container = undefined;
         instance.indicator = undefined;
         instance.status = 'detached';
@@ -117,11 +122,12 @@ export class FrontendSidebarInjector implements SidebarInjector {
 
     injectIntoSidebar(component: any, props: any, title: string, icon?: string, options?: { onMaximize?: () => void }): void {
         // 1. Ensure sidebar is open
-        if (typeof (window as any).logseq?.App?.openRightSidebar === 'function') {
-            (window as any).logseq.App.openRightSidebar();
+        if (typeof (window as any).logseq?.App?.setRightSidebarVisible === 'function') {
+            (window as any).logseq.App.setRightSidebarVisible(true);
         }
 
         // 2. Prepare instance data
+
         let instance = this.instances.get(title);
         if (instance) {
             // Update existing instance

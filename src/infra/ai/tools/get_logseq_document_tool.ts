@@ -3,34 +3,71 @@ import { z } from 'zod';
 import {
     type LogseqSelection,
     type LogseqBlock,
+    type LogseqPage,
     isLogseqBlockEntity
 } from './types';
+import { filterPropertyLinesFromContent, LOGSEQ_INTERNAL_CONTENT_PROPERTIES } from '../../../domain/logseq/properties';
 
 
 // Access the global logseq object
 const getLogseq = () => (window as any).logseq;
 
+function isIntegerId(value: string): boolean {
+    return /^\d+$/.test(value.trim());
+}
+
+/** Resolve page by optional document identifier (name, uuid, or integer id). Returns null if not found. */
+async function resolvePage(logseq: any, document?: string | number | null): Promise<LogseqPage | null> {
+    const raw = document === undefined || document === null ? '' : String(document).trim();
+    if (raw === '') {
+        return logseq.Editor.getCurrentPage();
+    }
+
+    // Try direct getPage first (works for name and uuid in Logseq)
+    let page = await logseq.Editor.getPage(raw);
+    if (page) return page;
+
+    // If input looks like an integer id, try to find page by id via getAllPages
+    if (isIntegerId(raw)) {
+        const id = Number(raw);
+        const allPages = await logseq.Editor.getAllPages?.();
+        if (Array.isArray(allPages)) {
+            const byId = allPages.find((p: any) => p.id === id);
+            if (byId) return byId;
+        }
+    }
+
+    return null;
+}
+
 export const createGetLogseqDocumentTool = (context: {
     mergeDefault: boolean,
     mergeBoth: boolean
 }) => tool({
-    description: 'Returns the active page or block from Logseq as a markdown tree with IDs.',
-    inputSchema: z.object({}),
-    execute: async (_args: any) => {
+    description: 'Returns a Logseq page as a markdown tree with IDs. Leave document empty for the current document, or pass a document name, UUID, or integer id.',
+    inputSchema: z.object({
+        document: z
+            .string()
+            .optional()
+            .describe('Optional: document name, UUID, or integer id. Omit or leave empty for the current document.'),
+    }),
+    execute: async (args: { document?: string }) => {
         const logseq = getLogseq();
         if (!logseq) {
             return 'Error: Logseq API not available.';
         }
 
-        const currentPage = await logseq.Editor.getCurrentPage();
+        const currentPage = await resolvePage(logseq, args?.document);
         if (!currentPage) {
-            return 'No document currently active.';
+            return args?.document
+                ? `Document not found: "${args.document}".`
+                : 'No document currently active.';
         }
 
         let blocks: LogseqBlock[] = [];
-        if (currentPage.uuid) {
-            // Get blocks tree
-            blocks = await logseq.Editor.getPageBlocksTree(currentPage.uuid) || [];
+        const pageRef = currentPage.uuid ?? (currentPage.name ?? currentPage.originalName ?? String(currentPage.id ?? ''));
+        if (pageRef) {
+            blocks = await logseq.Editor.getPageBlocksTree(pageRef) || [];
         }
 
         // Apply Merge Logic locally if enabled (recursive walk needed if blocks are a tree)
@@ -146,22 +183,28 @@ export function extractPageLabel(selection: LogseqBlock) {
 export function formatBlockTree(blocks: LogseqBlock[], depth: number = 0): string {
     if (!blocks || blocks.length === 0) return '';
 
-    return blocks.map(block => formatSingleBlock(block, depth)).join('\n');
+    return blocks.map((block, idx) => formatSingleBlock(block, depth, idx + 1)).join('\n');
 }
 
-function formatSingleBlock(block: LogseqBlock, depth: number): string {
+function formatSingleBlock(block: LogseqBlock, depth: number, siblingNumber: number): string {
     const indent = '  '.repeat(depth);
     const content = cleanBlockContent(block.content) || '(empty block)';
     const lines = content.split('\n');
 
-    // Header line: "- id:123 First line of content"
-    // Use hierarchy list style
     const idLabel = block.id !== undefined ? `id:${block.id}` : (block.uuid ? `uuid:${block.uuid}` : 'block');
 
-    let result = `${indent}- ${idLabel} ${lines[0]}`;
+    // Logseq normalises the raw key "logseq.order-list-type" by camelCasing each
+    // dot-separated segment, producing "logseq.orderListType".
+    // We keep the other variants as fallbacks for mocks and edge cases.
+    const isOrdered =
+        block.properties?.['logseq.orderListType'] === 'number' ||
+        block.properties?.logseqOrderListType === 'number' ||
+        block.properties?.['logseq.order-list-type'] === 'number';
+    const bullet = isOrdered ? `${siblingNumber}. ` : '- ';
+
+    let result = `${indent}${bullet}${idLabel} ${lines[0]}`;
 
     // Additional lines of content, indented relative to the bullet
-    // Bullet is "- " (2 chars) so text starts at indent + 2 spaces
     if (lines.length > 1) {
         const contentIndent = indent + '  ';
         const remainingLines = lines.slice(1).map(l => `${contentIndent}${l}`).join('\n');
@@ -183,9 +226,18 @@ export function cleanBlockContent(content?: string | null) {
     if (!content) {
         return '';
     }
-    const lines = content.split('\n');
-    const filtered = lines
-        .filter((line) => !/^(?:[-*+]\s+)?[\w.-]+::/.test(line.trim())) // Remove properties
+    // First pass: strip LDA operational properties (respects code blocks)
+    const afterLda = filterPropertyLinesFromContent(content);
+    // Second pass: strip Logseq internal content properties (e.g. logseq.order-list-type)
+    const filtered = afterLda
+        .split('\n')
+        .filter((line) => {
+            const trimmed = line.trim();
+            const propMatch = trimmed.match(/^([^:]+)::\s*.+$/);
+            if (!propMatch) return true;
+            const key = propMatch[1].trim();
+            return !(LOGSEQ_INTERNAL_CONTENT_PROPERTIES as readonly string[]).includes(key);
+        })
         .map((line) => line.trimEnd());
     return filtered.join('\n').trim();
 }

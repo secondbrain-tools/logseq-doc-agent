@@ -28,5 +28,14 @@ export interface IAIService {
      * @param providerId The identifier of the provider.
      */
     generateText(messages: Message[], modelId: string, providerId: string): Promise<string>;
+
+    /**
+     * Generates a strongly typed JSON object natively using a Zod schema.
+     * @param messages The full history of messages.
+     * @param schema The Zod schema to enforce.
+     * @param modelId The identifier of the model to use.
+     * @param providerId The identifier of the provider.
+     */
+    generateObject<T>(messages: Message[], schema: any, modelId: string, providerId: string): Promise<T>;
 }
 

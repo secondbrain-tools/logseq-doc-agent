@@ -3,6 +3,13 @@ import type { AgentDefinition } from '../../domain/agent/types';
 import { DEFAULT_AGENT_NAME, ASK_AGENT_NAME } from '../../domain/agent/types';
 import { builtInAgents } from '../../domain/agent/built-in-agents';
 import type { LogseqApi } from '../../application/ports/logseq-ports';
+import { filterPropertyLinesFromContent } from '../../domain/logseq/properties';
+
+/**
+ * Notice block content placed at the top of the agents page.
+ */
+const AGENTS_NOTICE = `⚠️ **Built-in agents** (marked with \`logseq-doc-agent.agent.version\`) are managed by the plugin and will be overwritten when a newer version is available. **Do not edit them here.**\nTo customise a built-in agent, create a block with the same \`logseq-doc-agent.agent\` value on any other page — it will take priority automatically.`;
+const NOTICE_MARKER_PROPERTY = 'logseq-doc-agent.notice';
 
 /**
  * Logseq-based implementation of agent repository
@@ -144,11 +151,14 @@ export class LogseqAgentRepository implements IAgentRepository {
         let agentsPage = await this.logseqApi.getPage(agentsPageName);
         if (!agentsPage) {
             console.log(`[LogseqAgentRepository] Creating agents page: ${agentsPageName}`);
-            agentsPage = await this.logseqApi.createPage(agentsPageName, {}, { createFirstBlock: false });
+            agentsPage = await this.logseqApi.createPage(agentsPageName, {}, { createFirstBlock: false, redirect: false });
         }
 
         // Get all blocks on the agents page to check for existing definitions
         const pageBlocks = await this.logseqApi.getPageBlocksTree(agentsPageName);
+
+        // Ensure notice block at the top
+        await this.ensureNoticeBlock(agentsPageName, pageBlocks);
 
         for (const agentConfig of builtInAgents) {
             try {
@@ -187,14 +197,14 @@ export class LogseqAgentRepository implements IAgentRepository {
 
                     console.log(`[LogseqAgentRepository] Updating agent block ${agentConfig.name} from v${existingVersion} to v${agentConfig.version}`);
 
-                    // Update Properties
-                    await this.logseqApi.upsertBlockProperty(existingBlock.uuid, LogseqAgentRepository.AGENT_PROPERTY, agentConfig.name);
-                    await this.logseqApi.upsertBlockProperty(existingBlock.uuid, LogseqAgentRepository.TOOLS_PROPERTY, agentConfig.tools);
-                    await this.logseqApi.upsertBlockProperty(existingBlock.uuid, LogseqAgentRepository.DESCRIPTION_PROPERTY, agentConfig.description);
-                    await this.logseqApi.upsertBlockProperty(existingBlock.uuid, LogseqAgentRepository.VERSION_PROPERTY, String(agentConfig.version));
-                    if (agentConfig.isDefault) {
-                        await this.logseqApi.upsertBlockProperty(existingBlock.uuid, LogseqAgentRepository.DEFAULT_PROPERTY, 'true');
-                    }
+                    const content = `## ${agentConfig.name}
+${LogseqAgentRepository.AGENT_PROPERTY}:: ${agentConfig.name}
+${LogseqAgentRepository.TOOLS_PROPERTY}:: ${agentConfig.tools}
+${LogseqAgentRepository.DESCRIPTION_PROPERTY}:: ${agentConfig.description}
+${LogseqAgentRepository.VERSION_PROPERTY}:: ${agentConfig.version}
+${agentConfig.isDefault ? `${LogseqAgentRepository.DEFAULT_PROPERTY}:: true` : ''}`;
+
+                    await this.logseqApi.updateBlock(existingBlock.uuid, content);
 
                     // Update Prompt (Child Block)
                     await this.updateAgentPrompt(existingBlock.uuid, agentConfig.prompt);
@@ -207,7 +217,7 @@ export class LogseqAgentRepository implements IAgentRepository {
                 console.log(`[LogseqAgentRepository] Creating new agent block: ${agentConfig.name}`);
 
                 // Content line + properties
-                const content = `${agentConfig.name}
+                const content = `## ${agentConfig.name}
 ${LogseqAgentRepository.AGENT_PROPERTY}:: ${agentConfig.name}
 ${LogseqAgentRepository.TOOLS_PROPERTY}:: ${agentConfig.tools}
 ${LogseqAgentRepository.DESCRIPTION_PROPERTY}:: ${agentConfig.description}
@@ -228,6 +238,29 @@ ${agentConfig.isDefault ? `${LogseqAgentRepository.DEFAULT_PROPERTY}:: true` : '
         }
 
         return anyCreatedOrUpdated;
+    }
+
+    /**
+     * Ensures the notice block exists at the top of the agents page.
+     */
+    private async ensureNoticeBlock(pageName: string, existingBlocks: any[]) {
+        const noticeContent = `${AGENTS_NOTICE}\n${NOTICE_MARKER_PROPERTY}:: true`;
+
+        const existingNotice = existingBlocks.find((b: any) => {
+            const content = b.content || '';
+            return content.includes(NOTICE_MARKER_PROPERTY);
+        });
+
+        if (existingNotice && existingNotice.uuid) {
+            // Update existing notice
+            await this.logseqApi.updateBlock(existingNotice.uuid, noticeContent);
+        } else if (existingBlocks.length > 0 && existingBlocks[0].uuid) {
+            // Insert after the first block (which should be the page description)
+            await this.logseqApi.insertBlock(existingBlocks[0].uuid, noticeContent, { before: false, sibling: true });
+        } else {
+            // Page is empty, just append
+            await this.logseqApi.appendBlockInPage(pageName, noticeContent);
+        }
     }
 
     private async updateAgentPrompt(blockUuid: string, prompt: string): Promise<void> {
@@ -366,15 +399,11 @@ ${agentConfig.isDefault ? `${LogseqAgentRepository.DEFAULT_PROPERTY}:: true` : '
     }
 
     /**
-     * Filters out lines that look like properties (key:: value)
+     * Filters out the LDA operational properties from block text content.
+     * Lines inside code blocks (fenced or inline backticks) are never removed.
      */
     private filterPropertyLines(content: string): string {
-        if (!content) return '';
-        const lines = content.split('\n');
-        return lines
-            .map(l => l.trim())
-            .filter(line => line && !/^[^:]+::\s*.+$/.test(line))
-            .join('\n');
+        return filterPropertyLinesFromContent(content);
     }
 
     private extractPropertyFromContent(content: string, propertyName: string): string | null {

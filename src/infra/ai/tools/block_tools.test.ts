@@ -6,15 +6,18 @@ import { createMoveBlockTool } from './move_block_tool';
 import { createUpdateBlockTool } from './update_block_tool';
 import { LDA_MERGE_PROPERTY } from '../../../domain/logseq/properties';
 
+const ORDER_LIST_PROPERTY = 'logseq.order-list-type';
+
 describe('Block Management Tools', () => {
     // Mocks
     const mockInsertBlock = vi.fn();
     const mockRemoveBlock = vi.fn();
     const mockMoveBlock = vi.fn();
     const mockGetBlock = vi.fn();
-    const mockGetPage = vi.fn(); // NEW
+    const mockGetPage = vi.fn();
     const mockUpdateBlock = vi.fn();
     const mockUpsertBlockProperty = vi.fn();
+    const mockRemoveBlockProperty = vi.fn();
 
     beforeEach(() => {
         vi.clearAllMocks();
@@ -25,9 +28,10 @@ describe('Block Management Tools', () => {
                 removeBlock: mockRemoveBlock,
                 moveBlock: mockMoveBlock,
                 getBlock: mockGetBlock,
-                getPage: mockGetPage, // NEW
+                getPage: mockGetPage,
                 updateBlock: mockUpdateBlock,
                 upsertBlockProperty: mockUpsertBlockProperty,
+                removeBlockProperty: mockRemoveBlockProperty,
             },
         });
     });
@@ -43,7 +47,7 @@ describe('Block Management Tools', () => {
             mockGetBlock.mockResolvedValue({ uuid: 'uuid-target' });
             mockInsertBlock.mockResolvedValue({ uuid: 'uuid-new', id: 999 });
 
-            const result = await (tool as any).execute({ targetId: 10, content: 'New Block' });
+            const result = await (tool as any).execute({ targetId: 10, content: 'New Block', parse_subtrees: false });
 
             expect(mockGetBlock).toHaveBeenCalledWith(10);
             expect(mockInsertBlock).toHaveBeenCalledWith('uuid-target', 'New Block', {});
@@ -99,6 +103,46 @@ describe('Block Management Tools', () => {
             expect(mockGetBlock).toHaveBeenCalledWith(99);
             expect(mockGetPage).toHaveBeenCalledWith(99);
             expect(mockInsertBlock).toHaveBeenCalledWith('uuid-page', 'Page Block', {});
+        });
+
+        it('should set order-list-type property when ordered=true (non-subtree)', async () => {
+            const tool = createAddBlockTool({ merge: false });
+            mockGetBlock.mockResolvedValue({ uuid: 'uuid-target' });
+            mockInsertBlock.mockResolvedValue({ uuid: 'uuid-new', id: 42 });
+
+            await (tool as any).execute({ targetId: 10, content: 'Numbered block', parse_subtrees: false, ordered: true });
+
+            expect(mockUpsertBlockProperty).toHaveBeenCalledWith('uuid-new', ORDER_LIST_PROPERTY, 'number');
+        });
+
+        it('should not set order-list-type property when ordered is not provided (non-subtree)', async () => {
+            const tool = createAddBlockTool({ merge: false });
+            mockGetBlock.mockResolvedValue({ uuid: 'uuid-target' });
+            mockInsertBlock.mockResolvedValue({ uuid: 'uuid-new', id: 42 });
+
+            await (tool as any).execute({ targetId: 10, content: 'Normal block', parse_subtrees: false });
+
+            const orderCalls = mockUpsertBlockProperty.mock.calls.filter(
+                (c: any[]) => c[1] === ORDER_LIST_PROPERTY
+            );
+            expect(orderCalls).toHaveLength(0);
+        });
+
+        it('should parse "1. " subtree items and call upsertBlockProperty for ordered blocks', async () => {
+            const tool = createAddBlockTool({ merge: false });
+            mockGetBlock.mockResolvedValue({ uuid: 'uuid-target' });
+            // First insert = root (preamble block), second = ordered child
+            mockInsertBlock
+                .mockResolvedValueOnce({ uuid: 'uuid-root', id: 1 })
+                .mockResolvedValueOnce({ uuid: 'uuid-child', id: 2 });
+
+            await (tool as any).execute({
+                targetId: 10,
+                content: 'Root\n1. Ordered child',
+                parse_subtrees: true,
+            });
+
+            expect(mockUpsertBlockProperty).toHaveBeenCalledWith('uuid-child', ORDER_LIST_PROPERTY, 'number');
         });
     });
 
@@ -258,12 +302,49 @@ describe('Block Management Tools', () => {
             const tool = createUpdateBlockTool({ merge: false });
             mockGetBlock.mockResolvedValue({ uuid: 'uuid-target' });
 
-            await (tool as any).execute({ id: 10, content: '- List item\n  - Nested item' });
+            await (tool as any).execute({ id: 10, content: '- List item\n  - Nested item', parse_subtrees: false });
 
             expect(mockUpdateBlock).toHaveBeenCalledWith(
                 'uuid-target',
                 '+ List item\n  + Nested item'
             );
+        });
+
+        it('should set order-list-type property when ordered=true', async () => {
+            const tool = createUpdateBlockTool({ merge: false });
+            mockGetBlock
+                .mockResolvedValueOnce({ uuid: 'uuid-target', content: 'Old content' })
+                .mockResolvedValueOnce({ id: 1, uuid: 'uuid-target', content: 'New content', children: [] });
+
+            await (tool as any).execute({ id: 10, content: 'New content', ordered: true });
+
+            expect(mockUpsertBlockProperty).toHaveBeenCalledWith('uuid-target', ORDER_LIST_PROPERTY, 'number');
+        });
+
+        it('should remove order-list-type property when ordered=false', async () => {
+            const tool = createUpdateBlockTool({ merge: false });
+            mockGetBlock
+                .mockResolvedValueOnce({ uuid: 'uuid-target', content: 'Old content' })
+                .mockResolvedValueOnce({ id: 1, uuid: 'uuid-target', content: 'New content', children: [] });
+
+            await (tool as any).execute({ id: 10, content: 'New content', ordered: false });
+
+            expect(mockRemoveBlockProperty).toHaveBeenCalledWith('uuid-target', ORDER_LIST_PROPERTY);
+        });
+
+        it('should not touch order-list-type property when ordered is undefined', async () => {
+            const tool = createUpdateBlockTool({ merge: false });
+            mockGetBlock
+                .mockResolvedValueOnce({ uuid: 'uuid-target', content: 'Old content' })
+                .mockResolvedValueOnce({ id: 1, uuid: 'uuid-target', content: 'New content', children: [] });
+
+            await (tool as any).execute({ id: 10, content: 'New content' });
+
+            const orderCalls = mockUpsertBlockProperty.mock.calls.filter(
+                (c: any[]) => c[1] === ORDER_LIST_PROPERTY
+            );
+            expect(orderCalls).toHaveLength(0);
+            expect(mockRemoveBlockProperty).not.toHaveBeenCalled();
         });
     });
 });

@@ -84,6 +84,10 @@ export async function insertSubtreeRecursive(
         }
         result.id = blockId !== undefined ? blockId : 'unknown';
 
+        if (node.ordered && newBlock.uuid) {
+            await logseq.Editor.upsertBlockProperty(newBlock.uuid, 'logseq.order-list-type', 'number');
+        }
+
         if (merge && newBlock.uuid) {
             const mergeData: MergeEntity = { type: 'add' };
             await logseq.Editor.upsertBlockProperty(newBlock.uuid, LDA_MERGE_PROPERTY, JSON.stringify(mergeData));

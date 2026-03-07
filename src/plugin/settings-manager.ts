@@ -236,6 +236,40 @@ export const configureSettings = () => {
         });
     }
 
+    // Evaluation Setting
+    settings.push({
+        key: 'heading_evaluation',
+        type: 'heading',
+        title: 'Evaluation',
+        description: '',
+        default: null
+    });
+
+    settings.push({
+        key: 'cognitiveForcing_suggestionAlternatives',
+        type: 'enum',
+        title: 'Suggestion Alternatives',
+        description: 'How many alternative fixes should be generated for medium and high impact issues?',
+        default: '2',
+        enumChoices: ['1', '2', '3'],
+    });
+
+    settings.push({
+        key: 'cognitiveForcing_preCommitmentPrompt',
+        type: 'boolean',
+        title: 'Pre-Commitment Prompt',
+        description: 'For high-impact criteria, ask for your self-assessment before revealing the AI evaluation score.',
+        default: false,
+    });
+
+    settings.push({
+        key: 'cognitiveForcing_counterargument',
+        type: 'boolean',
+        title: 'Counterarguments',
+        description: 'Force the AI to argue against its own identified issues with a ↯ Counterargument. This helps prevent blind trust in the AI\'s critique.',
+        default: true,
+    });
+
     // Reasoning Effort Settings
     settings.push({
         key: 'heading_reasoning',
@@ -277,7 +311,7 @@ export const configureSettings = () => {
         type: 'number',
         title: 'Max Agent Cycles',
         description: 'Maximum number of autonomous cycles (tool calls -> output -> continue) the agent can perform per request. Default: 10',
-        default: 10,
+        default: 25,
     });
 
     // 3. Storage Settings

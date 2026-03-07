@@ -5,8 +5,8 @@
     import {
         getCurrentPageContext,
         onCurrentPageChange,
-        type ContextItem,
     } from "../../../infra/logseq/context-utils";
+    import type { ContextItem } from "../../../domain/chat/types";
 
     import { PROVIDERS } from "../../../domain/settings/index";
     import type { ProviderGroup } from "./ModelSelector.svelte";
@@ -19,6 +19,8 @@
     import type { Message, MessagePart } from "../../../domain/chat/types";
     import type { ChatlogMetadata } from "../../../domain/chatlog/types";
     import type { AgentDefinition } from "../../../domain/agent/types";
+    import type { ChatPrompt } from "../../../domain/chat/prompt";
+    import { Services } from "../../../services";
 
     interface Props {
         messages: Writable<Message[]>;
@@ -40,6 +42,7 @@
             reasoningEffort?: "none" | "low" | "medium" | "high",
             agentName?: string,
             contextItems?: ContextItem[],
+            selectedPrompts?: string[],
         ) => void;
         onClose: () => void;
         onReset: () => void;
@@ -48,6 +51,7 @@
         onListChatlogs?: () => Promise<ChatlogMetadata[]>;
         onDeleteChatlog?: (id: string) => void;
         onStop?: () => void;
+        onAgentListOpen?: () => void;
     }
 
     let {
@@ -67,6 +71,7 @@
         onListChatlogs,
         onDeleteChatlog,
         onStop,
+        onAgentListOpen,
     }: Props = $props();
 
     // --- Context ---
@@ -98,6 +103,8 @@
     }
 
     let activeContexts = $state<ActiveContext[]>([]);
+    let selectedPrompts = $state<string[]>([]);
+    let availablePrompts = $state<ChatPrompt[]>([]);
 
     // --- Reactivity ---
     $effect(() => {
@@ -269,10 +276,12 @@
             currentModelSupportsReasoning ? reasoningEffort : undefined,
             agentName,
             activeContexts.filter((c) => c.isActive).map((c) => c.item), // Pass only active contexts
+            selectedPrompts, // user's selected prompts for this submit
         );
         inputText = "";
 
-        // Clear manual contexts, disable auto contexts
+        // Clear manual contexts, disable auto contexts, clear prompts
+        selectedPrompts = [];
         activeContexts = activeContexts
             .filter((c) => c.isAuto)
             .map((c) => ({ ...c, isActive: false }));
@@ -309,6 +318,14 @@
         activeContexts = newContexts;
     }
 
+    function refreshPrompts() {
+        Services.instance.promptTemplateService
+            .listPrompts()
+            .then((p: ChatPrompt[]) => {
+                availablePrompts = p;
+            });
+    }
+
     onMount(() => {
         const unsub = setupAutoContext();
         // Since setupAutoContext is async but returns a sync unsub function wrapper primarily,
@@ -319,8 +336,38 @@
         let cleanup: (() => void) | undefined;
         setupAutoContext().then((un) => (cleanup = un));
 
+        // Load Prompts
+        refreshPrompts();
+
+        // Intercept Ctrl/Cmd+C in capture phase so Logseq's own handlers don't swallow the
+        // copy when text is selected inside a message bubble.
+        const handleCopyKey = (e: KeyboardEvent) => {
+            if (!(e.ctrlKey || e.metaKey) || e.key !== "c") return;
+            if (!messageContainer) return;
+
+            const doc = messageContainer.ownerDocument ?? document;
+            const selection = doc.getSelection();
+            const selectedText = selection?.toString() ?? "";
+            if (!selectedText) return;
+
+            // Only intercept when the selection lives inside our message list.
+            const anchor = selection?.anchorNode;
+            if (!anchor || !messageContainer.contains(anchor)) return;
+
+            e.preventDefault();
+            e.stopPropagation();
+
+            navigator.clipboard.writeText(selectedText).catch(() => {
+                copyToClipboardFallback(selectedText);
+            });
+        };
+
+        const doc = document;
+        doc.addEventListener("keydown", handleCopyKey, true);
+
         return () => {
             if (cleanup) cleanup();
+            doc.removeEventListener("keydown", handleCopyKey, true);
         };
     });
 
@@ -341,6 +388,15 @@
             }
         }
         // isContextMenuOpen managed by ChatInputArea
+    }
+
+    function addManualContext(item: ContextItem) {
+        // Remove existing item with same ID if present
+        const filtered = activeContexts.filter((c) => c.item.id !== item.id);
+
+        // Ensure manual contexts are prepended but after auto contexts?
+        // Or just append. Append is fine.
+        activeContexts = [...filtered, { item, isActive: true, isAuto: false }];
     }
 
     function removeContext(id: string) {
@@ -384,9 +440,12 @@
         e.preventDefault();
         e.stopPropagation();
 
-        // Get current text selection
-        const selection = window.getSelection();
-        const selectedText = selection?.toString() || "";
+        // Get current text selection from the event target's document so it works
+        // correctly in the Logseq plugin/iframe context where window.getSelection()
+        // may refer to the wrong document.
+        const doc = (e.target as Node).ownerDocument ?? document;
+        const selection = doc.getSelection();
+        const selectedText = selection?.toString() ?? "";
 
         contextMenu = {
             visible: true,
@@ -541,6 +600,18 @@
         }
     });
 
+    // Re-enable auto context (current document) when a new chat session starts
+    $effect(() => {
+        const msgs = $messages;
+        if (msgs.length === 0) {
+            untrack(() => {
+                activeContexts = activeContexts.map((c) =>
+                    c.isAuto ? { ...c, isActive: true } : c,
+                );
+            });
+        }
+    });
+
     // --- Merging Consecutive Tool Messages ---
     let groupedMessages = $derived.by(() => {
         const msgs = $messages;
@@ -690,6 +761,8 @@
     <div class="lda-input-wrapper">
         <ChatInputArea
             bind:inputText
+            bind:selectedPrompts
+            {availablePrompts}
             isLoading={$isLoading}
             {activeContexts}
             agents={$agents || []}
@@ -703,6 +776,7 @@
             expandSignal={expandSignal ? $expandSignal : undefined}
             onSendMessage={handleSubmit}
             onAddContext={addCurrentPageContext}
+            onAddManualContext={addManualContext}
             onRemoveContext={removeContext}
             onToggleContext={toggleContext}
             onModelChange={handleModelChange}
@@ -710,6 +784,8 @@
                 if ($selectedAgent !== undefined) $selectedAgent = name;
             }}
             {onStop}
+            onAgentListOpen={onAgentListOpen}
+            onPromptPickerOpen={refreshPrompts}
         />
     </div>
 

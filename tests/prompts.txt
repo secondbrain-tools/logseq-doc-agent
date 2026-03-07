@@ -5,3 +5,10 @@ This is a test promptblock.
 ** Prompt 2
 doc-agent-feedback-prompt:: Verify code correctness
 Another prompt for testing.
+* Chat Prompts
+** Rewrite for Clarity
+logseq-doc-agent.prompt.name:: Rewrite
+Rewrite the selected text to make it more concise, clear, and easy to read.
+** Summarize Content
+logseq-doc-agent.prompt.name:: Summarize
+Provide a brief summary of the main points in the context provided. Extract only the key takeaways.

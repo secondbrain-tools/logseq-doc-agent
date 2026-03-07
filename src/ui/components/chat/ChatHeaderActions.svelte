@@ -1,16 +1,19 @@
 <script lang="ts">
+    import type { Writable } from "svelte/store";
     import ChatHistoryButton from "./ChatHistoryButton.svelte";
 
     interface Props {
         onReset: () => void;
         onHistoryClick?: () => void;
+        isLoading?: Writable<boolean>;
     }
 
-    let { onReset, onHistoryClick }: Props = $props();
+    let { onReset, onHistoryClick, isLoading }: Props = $props();
 
     function handleClick(e: MouseEvent) {
         e.stopPropagation();
         e.stopImmediatePropagation();
+        if (isLoading && $isLoading) return;
         if (onReset) onReset();
     }
 
@@ -31,6 +34,7 @@
         title="New Chat"
         type="button"
         draggable="false"
+        disabled={isLoading ? $isLoading : false}
         onclick={handleClick}
         onmousedown={handleMouseDown}
         ondragstart={handleDragStart}

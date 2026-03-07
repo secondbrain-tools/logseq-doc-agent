@@ -9,6 +9,7 @@ export interface ParsedBlock {
     content: string;
     properties: Record<string, string>;
     children: ParsedBlock[];
+    ordered?: boolean;
 }
 
 /**
@@ -32,10 +33,31 @@ function getIndentLevel(line: string): number {
 }
 
 /**
- * Checks if a line is a list item (starts with "- " after optional whitespace)
+ * Checks if a line is an unordered list item (starts with "- " after optional whitespace)
  */
 function isListItem(line: string): boolean {
     return /^\s*-\s+/.test(line);
+}
+
+/**
+ * Checks if a line is an ordered list item (starts with "N. " after optional whitespace)
+ */
+function isOrderedListItem(line: string): boolean {
+    return /^\s*\d+\.\s+/.test(line);
+}
+
+/**
+ * Checks if a line is a header item (starts with "#" after optional whitespace)
+ */
+function isHeaderItem(line: string): boolean {
+    return /^\s*#+\s+/.test(line);
+}
+
+/**
+ * Checks if a line is any kind of list item (unordered or ordered or header)
+ */
+function isAnyListItem(line: string): boolean {
+    return isListItem(line) || isOrderedListItem(line) || isHeaderItem(line);
 }
 
 /**
@@ -46,10 +68,17 @@ function isProperty(line: string): boolean {
 }
 
 /**
- * Extracts the content from a list item line (removes the "- " prefix)
+ * Extracts the content from an unordered list item line (removes the "- " prefix)
  */
 function extractListContent(line: string): string {
     return line.replace(/^\s*-\s+/, '');
+}
+
+/**
+ * Extracts the content from an ordered list item line (removes the "N. " prefix)
+ */
+function extractOrderedListContent(line: string): string {
+    return line.replace(/^\s*\d+\.\s+/, '');
 }
 
 /**
@@ -67,6 +96,9 @@ interface LineInfo {
     original: string;
     indentLevel: number;
     isListItem: boolean;
+    isOrderedItem: boolean;
+    isHeaderItem: boolean;
+    isAnyItem: boolean;
     isProperty: boolean;
     content: string;
 }
@@ -75,8 +107,9 @@ interface LineInfo {
  * Parses the input content into a tree structure.
  * 
  * Rules:
- * - Text before the first "- " line becomes root block content
- * - Lines starting with "- " become child blocks
+ * - Text before the first list item becomes root block content
+ * - Lines starting with "- " become unordered child blocks
+ * - Lines starting with "N. " (e.g. "1. ", "2. ") become ordered child blocks
  * - Indentation (tabs or 2+ spaces) determines nesting depth
  * - Lines with "key:: value" after a block are properties for that block
  * 
@@ -91,12 +124,15 @@ export function parseSubtree(input: string): ParsedBlock {
         original: line,
         indentLevel: getIndentLevel(line),
         isListItem: isListItem(line),
+        isOrderedItem: isOrderedListItem(line),
+        isHeaderItem: isHeaderItem(line),
+        isAnyItem: isAnyListItem(line),
         isProperty: isProperty(line),
         content: line.trim()
     }));
 
-    // Find where the list starts (first line with "- ")
-    const firstListIndex = lineInfos.findIndex(info => info.isListItem);
+    // Find where the list starts (first line with "- " or "N. ")
+    const firstListIndex = lineInfos.findIndex(info => info.isAnyItem);
 
     // Everything before the first list item is the root content
     let rootContent = '';
@@ -124,13 +160,6 @@ export function parseSubtree(input: string): ParsedBlock {
     };
 }
 
-/**
- * Recursively parses list items at a given base indent level.
- * 
- * @param lines Array of LineInfo objects
- * @param baseIndent The indent level of the parent (items at baseIndent+1 are children)
- * @returns Array of ParsedBlock children
- */
 function parseListItems(lines: LineInfo[], baseIndent: number): ParsedBlock[] {
     const result: ParsedBlock[] = [];
     let i = 0;
@@ -138,64 +167,100 @@ function parseListItems(lines: LineInfo[], baseIndent: number): ParsedBlock[] {
     while (i < lines.length) {
         const line = lines[i];
 
-        // Skip empty lines
+        // Skip empty lines at the root of this level
         if (line.content === '') {
             i++;
             continue;
         }
 
-        // If this is a list item at the expected level
-        if (line.isListItem && line.indentLevel === baseIndent) {
+        // We process any line that matches baseIndent as a block start
+        if (line.indentLevel === baseIndent) {
+            let itemContent = line.content;
+            if (line.isAnyItem) {
+                if (line.isOrderedItem) {
+                    itemContent = extractOrderedListContent(line.original);
+                } else if (line.isListItem) {
+                    itemContent = extractListContent(line.original);
+                } else if (line.isHeaderItem) {
+                    itemContent = line.content;
+                }
+            }
+
             const block: ParsedBlock = {
-                content: extractListContent(line.original),
+                content: itemContent,
                 properties: {},
-                children: []
+                children: [],
+                ordered: line.isOrderedItem ? true : undefined,
             };
 
             i++;
 
-            // Collect properties and children that follow this item
             const childLines: LineInfo[] = [];
+            let hasSeenChild = false;
+            let pendingEmptyLines = 0;
 
             while (i < lines.length) {
                 const nextLine = lines[i];
 
-                // Empty line - skip but continue
                 if (nextLine.content === '') {
+                    pendingEmptyLines++;
                     i++;
                     continue;
                 }
 
-                // Property at indent level > baseIndent belongs to current block
-                if (nextLine.isProperty && nextLine.indentLevel > baseIndent) {
+                if (nextLine.indentLevel < baseIndent) {
+                    // We hit a parent block
+                    break;
+                }
+
+                if (nextLine.indentLevel === baseIndent) {
+                    if (nextLine.isAnyItem || pendingEmptyLines > 0 || hasSeenChild) {
+                        // We hit a sibling block or a new paragraph, stop collecting for this block
+                        break;
+                    }
+                }
+
+                // If we reach here, nextLine.indentLevel > baseIndent
+
+                if (nextLine.isProperty) {
                     const prop = parseProperty(nextLine.original);
                     if (prop) {
                         block.properties[prop.key] = prop.value;
                     }
+                    pendingEmptyLines = 0;
                     i++;
                     continue;
                 }
 
-                // List item at higher indent = child
-                if (nextLine.isListItem && nextLine.indentLevel > baseIndent) {
+                if (nextLine.isAnyItem) {
+                    hasSeenChild = true;
+                }
+
+                if (!hasSeenChild) {
+                    // Continuation of current block's content
+                    for (let j = 0; j < pendingEmptyLines; j++) {
+                        block.content += '\n';
+                    }
+                    pendingEmptyLines = 0;
+                    block.content += '\n' + nextLine.content;
+                } else {
+                    // Add to child lines for recursive parsing
+                    for (let j = 0; j < pendingEmptyLines; j++) {
+                        childLines.push({
+                            original: '',
+                            indentLevel: baseIndent + 1, // Dummy indent sufficient for recursive call
+                            isListItem: false,
+                            isOrderedItem: false,
+                            isHeaderItem: false,
+                            isAnyItem: false,
+                            isProperty: false,
+                            content: ''
+                        });
+                    }
+                    pendingEmptyLines = 0;
                     childLines.push(nextLine);
-                    i++;
-                    continue;
                 }
 
-                // List item at same or lower indent = sibling or parent's sibling
-                if (nextLine.isListItem && nextLine.indentLevel <= baseIndent) {
-                    break;
-                }
-
-                // Non-list, non-property content at higher indent - could be continuation
-                // For now, treat as end of this subtree
-                if (nextLine.indentLevel <= baseIndent) {
-                    break;
-                }
-
-                // Higher indent non-list/non-property - add to children for parsing
-                childLines.push(nextLine);
                 i++;
             }
 
@@ -209,7 +274,7 @@ function parseListItems(lines: LineInfo[], baseIndent: number): ParsedBlock[] {
             // We've moved back to a parent level, stop
             break;
         } else {
-            // Skip lines that don't match our expected pattern
+            // Skip lines that somehow have higher indent without matching baseIndent first
             i++;
         }
     }

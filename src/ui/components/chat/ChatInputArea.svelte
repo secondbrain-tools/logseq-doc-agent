@@ -50,6 +50,8 @@
         onModelChange: (modelId: string, providerId: string) => void;
         onAgentChange: (agentName: string) => void;
         onStop?: () => void;
+        onAgentListOpen?: () => void;
+        onPromptPickerOpen?: () => void;
     }
 
     let {
@@ -75,6 +77,8 @@
         onModelChange,
         onAgentChange,
         onStop,
+        onAgentListOpen,
+        onPromptPickerOpen,
     }: Props = $props();
 
     // --- Local State ---
@@ -118,6 +122,63 @@
                 void toggleExpand();
             }, 100);
         }
+    });
+
+    // Capture-phase guard: when the expanded textarea is focused and the user
+    // presses PageUp/PageDown, stop the event before Logseq's capture-phase
+    // listeners can scroll the sidebar. Synthetic key events don't trigger
+    // default actions in textareas, so we scroll and move the cursor manually.
+    // Use the window that owns the textarea (parent when sidebar is in parent doc).
+    $effect(() => {
+        if (!isExpanded || !expandedTextareaElement) return;
+
+        const el = expandedTextareaElement;
+        const targetWin = el.ownerDocument.defaultView ?? window;
+
+        function charOffsetAtLineStart(text: string, lineIndex: number): number {
+            const lines = text.split("\n");
+            if (lineIndex <= 0) return 0;
+            return lines
+                .slice(0, lineIndex)
+                .join("\n")
+                .length;
+        }
+
+        const handler = (e: KeyboardEvent) => {
+            if (e.key !== "PageUp" && e.key !== "PageDown") return;
+            if (el.ownerDocument.activeElement !== el) return;
+
+            e.preventDefault();
+            e.stopPropagation();
+
+            const text = el.value;
+            const lines = text.split("\n");
+            const lineCount = lines.length;
+            const style = targetWin.getComputedStyle(el);
+            const lineHeight = parseFloat(style.lineHeight) || 24;
+            const linesPerPage = Math.max(1, Math.floor(el.clientHeight / lineHeight));
+
+            const cursor = el.selectionStart;
+            const lineIndex = text.substring(0, cursor).split("\n").length - 1;
+
+            if (e.key === "PageDown") {
+                el.scrollTop = Math.min(
+                    el.scrollTop + el.clientHeight,
+                    el.scrollHeight - el.clientHeight,
+                );
+                const newLine = Math.min(lineIndex + linesPerPage, lineCount - 1);
+                const newOffset = charOffsetAtLineStart(text, newLine);
+                el.setSelectionRange(newOffset, newOffset);
+            } else {
+                el.scrollTop = Math.max(el.scrollTop - el.clientHeight, 0);
+                const newLine = Math.max(lineIndex - linesPerPage, 0);
+                const newOffset = charOffsetAtLineStart(text, newLine);
+                el.setSelectionRange(newOffset, newOffset);
+            }
+        };
+
+        targetWin.addEventListener("keydown", handler, true);
+        return () => targetWin.removeEventListener("keydown", handler, true);
     });
 
     // --- Helpers ---
@@ -242,6 +303,9 @@
         // Stop Logseq from hijacking navigation keys
         if (NAV_KEYS.includes(e.key)) e.stopPropagation();
 
+        // Prevent Space from bubbling to ChatModal backdrop (which would close it)
+        if (e.key === " ") e.stopPropagation();
+
         // Ctrl/Cmd+F: search (expanded only)
         if ((e.ctrlKey || e.metaKey) && e.key === "f" && isExpanded) {
             e.preventDefault();
@@ -272,6 +336,7 @@
             isPromptPickerOpen = true;
             promptFilter = "";
             if (isExpanded) updatePopoverPosition();
+            onPromptPickerOpen?.();
         }
     }
 
@@ -303,9 +368,9 @@
     }
 
     function handleEnterKey(e: KeyboardEvent) {
+        e.stopPropagation();
         if (e.shiftKey) {
             e.preventDefault();
-            e.stopPropagation();
             const textarea = e.target as HTMLTextAreaElement;
             const start = textarea.selectionStart;
             const end = textarea.selectionEnd;
@@ -548,6 +613,7 @@
                 onChange={(agent) => {
                     if (agent) onAgentChange(agent.name);
                 }}
+                onOpen={onAgentListOpen}
             />
         {/if}
 

@@ -103,7 +103,7 @@
         </ul>
     {:else}
         <div class="p-2 text-sm" style="color: var(--ls-secondary-text-color)">
-            No prompts found for "{filterText}"
+            No user prompts found for "{filterText}"
         </div>
     {/if}
 </div>

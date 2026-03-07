@@ -51,6 +51,7 @@
         onListChatlogs?: () => Promise<ChatlogMetadata[]>;
         onDeleteChatlog?: (id: string) => void;
         onStop?: () => void;
+        onAgentListOpen?: () => void;
     }
 
     let {
@@ -70,6 +71,7 @@
         onListChatlogs,
         onDeleteChatlog,
         onStop,
+        onAgentListOpen,
     }: Props = $props();
 
     // --- Context ---
@@ -316,6 +318,14 @@
         activeContexts = newContexts;
     }
 
+    function refreshPrompts() {
+        Services.instance.promptTemplateService
+            .listPrompts()
+            .then((p: ChatPrompt[]) => {
+                availablePrompts = p;
+            });
+    }
+
     onMount(() => {
         const unsub = setupAutoContext();
         // Since setupAutoContext is async but returns a sync unsub function wrapper primarily,
@@ -327,18 +337,37 @@
         setupAutoContext().then((un) => (cleanup = un));
 
         // Load Prompts
-        Services.instance.promptTemplateService
-            .listPrompts()
-            .then((p: ChatPrompt[]) => {
-                availablePrompts = p;
-                console.log(
-                    "[ChatInterface] Fetched available prompts on mount:",
-                    p,
-                );
+        refreshPrompts();
+
+        // Intercept Ctrl/Cmd+C in capture phase so Logseq's own handlers don't swallow the
+        // copy when text is selected inside a message bubble.
+        const handleCopyKey = (e: KeyboardEvent) => {
+            if (!(e.ctrlKey || e.metaKey) || e.key !== "c") return;
+            if (!messageContainer) return;
+
+            const doc = messageContainer.ownerDocument ?? document;
+            const selection = doc.getSelection();
+            const selectedText = selection?.toString() ?? "";
+            if (!selectedText) return;
+
+            // Only intercept when the selection lives inside our message list.
+            const anchor = selection?.anchorNode;
+            if (!anchor || !messageContainer.contains(anchor)) return;
+
+            e.preventDefault();
+            e.stopPropagation();
+
+            navigator.clipboard.writeText(selectedText).catch(() => {
+                copyToClipboardFallback(selectedText);
             });
+        };
+
+        const doc = document;
+        doc.addEventListener("keydown", handleCopyKey, true);
 
         return () => {
             if (cleanup) cleanup();
+            doc.removeEventListener("keydown", handleCopyKey, true);
         };
     });
 
@@ -411,9 +440,12 @@
         e.preventDefault();
         e.stopPropagation();
 
-        // Get current text selection
-        const selection = window.getSelection();
-        const selectedText = selection?.toString() || "";
+        // Get current text selection from the event target's document so it works
+        // correctly in the Logseq plugin/iframe context where window.getSelection()
+        // may refer to the wrong document.
+        const doc = (e.target as Node).ownerDocument ?? document;
+        const selection = doc.getSelection();
+        const selectedText = selection?.toString() ?? "";
 
         contextMenu = {
             visible: true,
@@ -752,6 +784,8 @@
                 if ($selectedAgent !== undefined) $selectedAgent = name;
             }}
             {onStop}
+            onAgentListOpen={onAgentListOpen}
+            onPromptPickerOpen={refreshPrompts}
         />
     </div>
 

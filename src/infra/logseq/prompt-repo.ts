@@ -2,7 +2,7 @@ import type { Prompt, FeedbackPrompt } from '../../domain/logseq';
 import type { ChatPrompt } from '../../domain/chat/prompt';
 import type { PromptRepository } from '../../application/ports/prompt-repo';
 import type { LogseqApi } from '../../application/ports/logseq-ports';
-import { LDA_PROMPT_NAME_PROPERTY, LDA_PROMPT_NAME_PROPERTY_CAMEL } from '../../domain/logseq/properties';
+import { LDA_PROMPT_NAME_PROPERTY, LDA_PROMPT_NAME_PROPERTY_CAMEL, filterPropertyLinesFromContent } from '../../domain/logseq/properties';
 
 export class LogseqPromptRepository implements PromptRepository {
     constructor(private logseqApi: LogseqApi) { }
@@ -105,12 +105,7 @@ export class LogseqPromptRepository implements PromptRepository {
     }
 
     private filterPropertyLines(content: string): string {
-        if (!content) return '';
-        const lines = content.split('\n');
-        return lines
-            .map(l => l.trim())
-            .filter(line => line && !/^[^:]+::\s*.+$/.test(line))
-            .join('\n');
+        return filterPropertyLinesFromContent(content);
     }
 
     private extractPropertyFromContent(content: string, propertyName: string): string | null {

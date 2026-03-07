@@ -6,6 +6,7 @@ import {
     type LogseqPage,
     isLogseqBlockEntity
 } from './types';
+import { filterPropertyLinesFromContent, LOGSEQ_INTERNAL_CONTENT_PROPERTIES } from '../../../domain/logseq/properties';
 
 
 // Access the global logseq object
@@ -225,9 +226,18 @@ export function cleanBlockContent(content?: string | null) {
     if (!content) {
         return '';
     }
-    const lines = content.split('\n');
-    const filtered = lines
-        .filter((line) => !/^(?:[-*+]\s+)?[\w.-]+::/.test(line.trim())) // Remove properties
+    // First pass: strip LDA operational properties (respects code blocks)
+    const afterLda = filterPropertyLinesFromContent(content);
+    // Second pass: strip Logseq internal content properties (e.g. logseq.order-list-type)
+    const filtered = afterLda
+        .split('\n')
+        .filter((line) => {
+            const trimmed = line.trim();
+            const propMatch = trimmed.match(/^([^:]+)::\s*.+$/);
+            if (!propMatch) return true;
+            const key = propMatch[1].trim();
+            return !(LOGSEQ_INTERNAL_CONTENT_PROPERTIES as readonly string[]).includes(key);
+        })
         .map((line) => line.trimEnd());
     return filtered.join('\n').trim();
 }

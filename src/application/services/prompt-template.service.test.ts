@@ -10,7 +10,7 @@ describe('PromptTemplateService', () => {
     let mockLogseqApi: import('vitest').Mocked<LogseqApi>;
     let service: PromptTemplateService;
 
-    const basePage = `${LDA_NAMESPACE}/prompts/base`;
+    const systemPage = `${LDA_NAMESPACE}/prompts/system`;
     const customPage = 'Custom Prompts';
 
     beforeEach(() => {
@@ -34,55 +34,55 @@ describe('PromptTemplateService', () => {
             name,
             content,
             pageName,
-            isBase: name === 'base',
+            isBase: name === 'system',
         };
     }
 
-    describe('getBasePrompt', () => {
-        it('should return null if no base prompt exists', async () => {
+    describe('getSystemPrompt', () => {
+        it('should return null if no system prompt exists', async () => {
             mockPromptRepo.getChatPrompts.mockResolvedValue([]);
-            const result = await service.getBasePrompt();
+            const result = await service.getSystemPrompt();
             expect(result).toBeNull();
         });
 
-        it('should return the base prompt from namespace', async () => {
-            const prompt = createPrompt('base', 'Namespace Base Content', basePage);
+        it('should return the system prompt from namespace', async () => {
+            const prompt = createPrompt('system', 'Namespace System Content', systemPage);
             mockPromptRepo.getChatPrompts.mockResolvedValue([prompt]);
 
-            const result = await service.getBasePrompt();
+            const result = await service.getSystemPrompt();
             expect(result).toEqual(prompt);
         });
 
-        it('should prefer base prompt outside namespace over namespace one', async () => {
-            const nsPrompt = createPrompt('base', 'Namespace Base Content', basePage);
-            const userPrompt = createPrompt('base', 'User Base Content', customPage);
+        it('should prefer system prompt outside namespace over namespace one', async () => {
+            const nsPrompt = createPrompt('system', 'Namespace System Content', systemPage);
+            const userPrompt = createPrompt('system', 'User System Content', customPage);
 
             mockPromptRepo.getChatPrompts.mockResolvedValue([nsPrompt, userPrompt]);
 
-            const result = await service.getBasePrompt();
+            const result = await service.getSystemPrompt();
             expect(result).toEqual(userPrompt);
             expect(mockLogseqApi.UI.showMsg).not.toHaveBeenCalled();
         });
 
-        it('should show warning if multiple user base prompts exist', async () => {
-            const userPrompt1 = createPrompt('base', 'User Content 1', customPage);
-            const userPrompt2 = createPrompt('base', 'User Content 2', 'Another Page');
+        it('should show warning if multiple user system prompts exist', async () => {
+            const userPrompt1 = createPrompt('system', 'User Content 1', customPage);
+            const userPrompt2 = createPrompt('system', 'User Content 2', 'Another Page');
 
             mockPromptRepo.getChatPrompts.mockResolvedValue([userPrompt1, userPrompt2]);
 
-            const result = await service.getBasePrompt();
+            const result = await service.getSystemPrompt();
             expect(result).toEqual(userPrompt1);
             expect(mockLogseqApi.UI.showMsg).toHaveBeenCalledWith(
-                expect.stringContaining('Multiple prompts found with name "base" outside the namespace'),
+                expect.stringContaining('Multiple prompts found with name "system" outside the namespace'),
                 'warning'
             );
         });
     });
 
     describe('listPrompts', () => {
-        it('should list all available prompts avoiding base prompt', async () => {
+        it('should list all available prompts avoiding system prompt', async () => {
             mockPromptRepo.getChatPrompts.mockResolvedValue([
-                createPrompt('base', 'Base', basePage),
+                createPrompt('system', 'System', systemPage),
                 createPrompt('write', 'Write Content', customPage),
                 createPrompt('refactor', 'Refactor Content', customPage),
             ]);
@@ -95,7 +95,7 @@ describe('PromptTemplateService', () => {
 
         it('should resolve duplicates by preferring outside namespace', async () => {
             mockPromptRepo.getChatPrompts.mockResolvedValue([
-                createPrompt('translate', 'Namespace Translate', basePage),
+                createPrompt('translate', 'Namespace Translate', systemPage),
                 createPrompt('translate', 'User Translate', customPage),
             ]);
 

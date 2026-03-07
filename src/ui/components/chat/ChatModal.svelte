@@ -26,7 +26,16 @@
     }
 
     function handleBackdropKeydown(e: KeyboardEvent) {
-        if (e.key === "Enter" || e.key === " ") {
+        const target = e.target as HTMLElement;
+        const isInputElement =
+            target.tagName === "INPUT" ||
+            target.tagName === "TEXTAREA" ||
+            target.isContentEditable;
+
+        if (e.key === " " && !isInputElement) {
+            e.preventDefault();
+            onClose();
+        } else if (e.key === "Enter" && !isInputElement) {
             e.preventDefault();
             onClose();
         }

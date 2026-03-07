@@ -3,6 +3,7 @@ import type { AgentDefinition } from '../../domain/agent/types';
 import { DEFAULT_AGENT_NAME, ASK_AGENT_NAME } from '../../domain/agent/types';
 import { builtInAgents } from '../../domain/agent/built-in-agents';
 import type { LogseqApi } from '../../application/ports/logseq-ports';
+import { filterPropertyLinesFromContent } from '../../domain/logseq/properties';
 
 /**
  * Notice block content placed at the top of the agents page.
@@ -398,15 +399,11 @@ ${agentConfig.isDefault ? `${LogseqAgentRepository.DEFAULT_PROPERTY}:: true` : '
     }
 
     /**
-     * Filters out lines that look like properties (key:: value)
+     * Filters out the LDA operational properties from block text content.
+     * Lines inside code blocks (fenced or inline backticks) are never removed.
      */
     private filterPropertyLines(content: string): string {
-        if (!content) return '';
-        const lines = content.split('\n');
-        return lines
-            .map(l => l.trim())
-            .filter(line => line && !/^[^:]+::\s*.+$/.test(line))
-            .join('\n');
+        return filterPropertyLinesFromContent(content);
     }
 
     private extractPropertyFromContent(content: string, propertyName: string): string | null {

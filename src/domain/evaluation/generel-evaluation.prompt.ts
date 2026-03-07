@@ -46,9 +46,9 @@ Otherwise Ensure that there are at least two Criera in each Category.
 Create the Block Tree as a proposal in the page - not in the chat:
 
 [single block:]
-## [Prompt Name]
-\`logseq- doc - agent.prompt:: [Prompt Name]\`  
-Please evaluate the current page using submitBlockEvaluation tool. Here are the necessary information.
+  ## [Prompt Name]
+  logseq-doc-agent.prompt:: [Prompt Name]  
+  Please evaluate the current page using submitBlockEvaluation tool. Here are the necessary information.
 [subtree of parent block:]
   ├─ Category: [Name]
       ├─ Criterion: [Name]

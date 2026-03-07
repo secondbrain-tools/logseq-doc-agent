@@ -1,6 +1,7 @@
 <script lang="ts">
     import { slide } from "svelte/transition";
     import { marked } from "marked";
+    marked.use({ breaks: true });
     import type { Message, MessagePart } from "../../../domain/chat/types";
     import {
         buildDisplayItems,

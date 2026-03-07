@@ -1,7 +1,7 @@
 import type { BuiltInPromptConfig } from '../prompt/built-in-prompts';
 
 /**
- * The base prompt text.
+ * The system prompt text.
  *
  * Format rules (consumed by `parseSubtree`):
  *  - Lines before the first `- ` become the root block content.
@@ -9,8 +9,8 @@ import type { BuiltInPromptConfig } from '../prompt/built-in-prompts';
  *  - 2-space or tab indentation controls nesting depth.
  *  - `key:: value` lines after a block become Logseq properties.
  */
-export const BASE_PROMPT_CONFIG: BuiltInPromptConfig = {
-  name: "base",
+export const SYSTEM_PROMPT_CONFIG: BuiltInPromptConfig = {
+  name: "system",
   version: 1,
   text: `\
 You are an Agent working within Logseq.

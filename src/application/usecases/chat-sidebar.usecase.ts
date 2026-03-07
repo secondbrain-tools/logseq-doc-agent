@@ -134,6 +134,7 @@ export class ChatSidebarUseCase {
                 onLoadChatlog: (id: string) => this.loadChatlog(id),
                 onListChatlogs: () => this.listChatlogs(),
                 onDeleteChatlog: (id: string) => this.deleteChatlog(id),
+                onAgentListOpen: () => { this.loadAgents(); },
                 headerActions: ChatHeaderActions,
                 headerActionsProps: {
                     onReset: () => this.resetChat(),
@@ -278,23 +279,14 @@ export class ChatSidebarUseCase {
     /**
      * Build AgentContext from selected agent name and selected prompts
      */
-    private async buildAgentContext(agentName?: string, selectedPrompts?: string[]): Promise<AgentContext | undefined> {
+    private async buildAgentContext(agentName?: string): Promise<AgentContext | undefined> {
         let systemPrompt = '';
 
-        // 1. Get base and selected prompts
+        // 1. Get system prompt
         if (this.promptTemplateService) {
-            const basePrompt = await this.promptTemplateService.getBasePrompt();
-            if (basePrompt) {
-                systemPrompt += basePrompt.content;
-            }
-
-            if (selectedPrompts && selectedPrompts.length > 0) {
-                for (const pName of selectedPrompts) {
-                    const content = await this.promptTemplateService.resolvePromptContent(pName);
-                    if (content) {
-                        systemPrompt += `\n\n${content}`;
-                    }
-                }
+            const sysPrompt = await this.promptTemplateService.getSystemPrompt();
+            if (sysPrompt) {
+                systemPrompt += sysPrompt.content;
             }
         }
 
@@ -353,28 +345,40 @@ export class ChatSidebarUseCase {
             }
         }
 
-        // 1. Add prompt parts (display-only tags; content goes into system prompt)
+        // 1. Add User Prompt parts (display-only tags; content goes into prepended text)
+        let prependedPromptsText = '';
         if (selectedPrompts && selectedPrompts.length > 0) {
             for (const pName of selectedPrompts) {
                 parts.push({ type: 'prompt', promptName: pName });
+                if (this.promptTemplateService) {
+                    const content = await this.promptTemplateService.resolvePromptContent(pName);
+                    if (content) {
+                        prependedPromptsText += `--- User Prompt: ${pName} ---\n${content}\n---------------------------\n\n`;
+                    }
+                }
             }
+        }
+
+        let userMessageContent = text;
+        if (prependedPromptsText) {
+            userMessageContent = prependedPromptsText + userMessageContent;
         }
 
         // 2. Add User Message
         if (parts.length > 0) {
-            parts.unshift({
+            parts.push({
                 type: "content",
-                text: text
+                text: userMessageContent
             });
         }
         this.updateMessages(msgs => [...msgs, {
             id: Date.now().toString(),
             role: 'user',
-            content: text,
+            content: userMessageContent,
             parts: parts.length > 0 ? parts : undefined
         }]);
 
-        await this.executeAgentStream(modelId, providerId, merge, reasoningEffort, agentName, selectedPrompts);
+        await this.executeAgentStream(modelId, providerId, merge, reasoningEffort, agentName);
     }
 
     public async continueGeneration() {
@@ -385,7 +389,7 @@ export class ChatSidebarUseCase {
         await this.executeAgentStream(this.currentModel, this.currentProvider, merge, this.lastReasoningEffort, agentName);
     }
 
-    private async executeAgentStream(modelId: string, providerId: string, merge: boolean, reasoningEffort?: 'none' | 'low' | 'medium' | 'high', agentName?: string, selectedPrompts?: string[]) {
+    private async executeAgentStream(modelId: string, providerId: string, merge: boolean, reasoningEffort?: 'none' | 'low' | 'medium' | 'high', agentName?: string) {
         this.isLoading.set(true);
         const aiMsgId = (Date.now() + 1).toString();
 
@@ -399,7 +403,7 @@ export class ChatSidebarUseCase {
             }]);
 
             const currentMessages = get(this.messages);
-            const agentContext = await this.buildAgentContext(agentName, selectedPrompts);
+            const agentContext = await this.buildAgentContext(agentName);
 
             this.abortController = new AbortController();
 

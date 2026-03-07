@@ -10,11 +10,11 @@ export class PromptTemplateService {
     ) { }
 
     /**
-     * Get the base prompt.
+     * Get the system prompt.
      * Uses the duplicate resolution logic: prefers outside LDA_NAMESPACE/prompts.
      */
-    async getBasePrompt(): Promise<ChatPrompt | null> {
-        return this.resolvePrompt('base');
+    async getSystemPrompt(): Promise<ChatPrompt | null> {
+        return this.resolvePrompt('system');
     }
 
     /**
@@ -69,7 +69,7 @@ export class PromptTemplateService {
         // Group by name
         const grouped = new Map<string, ChatPrompt[]>();
         for (const prompt of allPrompts) {
-            if (prompt.isBase) continue; // Base prompt is auto-injected, not listed
+            if (prompt.isBase) continue; // System prompt is auto-injected, not listed
 
             const group = grouped.get(prompt.name) || [];
             group.push(prompt);

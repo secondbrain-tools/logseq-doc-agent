@@ -169,16 +169,40 @@ describe('getLogseqDocument tool', () => {
     });
 
     describe('cleanBlockContent', () => {
-        it('should remove property lines', () => {
+        it('should remove filtered LDA property lines (evaluation)', () => {
+            const content = 'Block Title\nlogseq-doc-agent.evaluation:: {"score":5}\nBody';
+            const cleaned = cleanBlockContent(content);
+            expect(cleaned).toBe('Block Title\nBody');
+        });
+
+        it('should remove filtered LDA property lines (merge)', () => {
+            const content = 'Block Title\nlogseq-doc-agent.merge:: {"base":"old"}\nBody';
+            const cleaned = cleanBlockContent(content);
+            expect(cleaned).toBe('Block Title\nBody');
+        });
+
+        it('should keep non-filtered property lines', () => {
             const content = 'Block Title\nprop:: value\nanother-prop:: value';
             const cleaned = cleanBlockContent(content);
-            expect(cleaned).toBe('Block Title');
+            expect(cleaned).toBe('Block Title\nprop:: value\nanother-prop:: value');
         });
 
         it('should keep regular content', () => {
             const content = 'Line 1\nLine 2';
             const cleaned = cleanBlockContent(content);
             expect(cleaned).toBe('Line 1\nLine 2');
+        });
+
+        it('should keep inline backtick-wrapped lines that look like filtered properties', () => {
+            const content = 'Title\n`logseq-doc-agent.evaluation:: value`\nBody';
+            const cleaned = cleanBlockContent(content);
+            expect(cleaned).toBe('Title\n`logseq-doc-agent.evaluation:: value`\nBody');
+        });
+
+        it('should keep lines inside fenced code blocks even if they are filtered properties', () => {
+            const content = 'Title\n```\nlogseq-doc-agent.evaluation:: value\n```\nBody';
+            const cleaned = cleanBlockContent(content);
+            expect(cleaned).toBe('Title\n```\nlogseq-doc-agent.evaluation:: value\n```\nBody');
         });
     });
 

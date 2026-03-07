@@ -4,6 +4,8 @@
   import EvaluationScore from "./EvaluationScore.svelte";
   import type { BlockEvaluation } from "../../../domain/evaluation/entity";
   import { FrontendEvaluationCalculator } from "../../../infra/frontend/evaluation-calculator";
+  import { AddToSidebarUseCase } from "../../../application/usecases/add-to-sidebar.usecase";
+  import { Services } from "../../../services";
 
   let {
     evaluationData,
@@ -112,8 +114,22 @@
     dispatch("toggle", { show: false });
   }
 
+  function openInSidebar() {
+    const useCase = new AddToSidebarUseCase(Services.instance.sidebarInjector);
+    useCase.showAnalysisSidebar(
+      evaluationData,
+      blockId,
+      undefined,
+      blockText,
+    );
+  }
+
   function handleClick(event: MouseEvent) {
     event.stopPropagation();
+    if (event.ctrlKey || event.metaKey) {
+      openInSidebar();
+      return;
+    }
     showPopover = !showPopover;
     dispatch("toggle", { show: showPopover });
   }
@@ -166,8 +182,8 @@
     class="lda-feedback-rating"
     onclick={handleClick}
     onkeydown={handleKeydown}
-    title="Rating: {rating}/5 - Click for details"
-    aria-label="Rating {rating} out of 5 stars, click for details"
+    title="Rating: {rating}/5 - Click for details, Ctrl+Click to open in Sidebar"
+    aria-label="Rating {rating} out of 5 stars, click for details, Ctrl+Click to open in Sidebar"
   >
     <EvaluationScore {rating} showValue={false} size="md" />
   </button>

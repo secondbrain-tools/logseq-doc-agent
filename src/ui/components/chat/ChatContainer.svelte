@@ -32,6 +32,7 @@
         onListChatlogs?: () => Promise<ChatlogMetadata[]>;
         onDeleteChatlog?: (id: string) => void;
         onStop?: () => void;
+        onAgentListOpen?: () => void;
     }
 
     let props: Props = $props();

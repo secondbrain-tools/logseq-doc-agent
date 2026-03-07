@@ -30,7 +30,7 @@ jobs:
       - name: Create release zip
         run: |
           ZIP_NAME="logseq-doc-agent-${{ github.ref_name }}.zip"
-          zip -r "$ZIP_NAME" dist README.md docs package.json
+          zip -r "$ZIP_NAME" dist README.md docs package.json icon.png
           [ -f LICENSE ] && zip -r "$ZIP_NAME" LICENSE || true
           echo "ZIP_NAME=$ZIP_NAME" >> "$GITHUB_ENV"
 

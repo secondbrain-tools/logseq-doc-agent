@@ -146,6 +146,97 @@ describe('subtree-parser', () => {
             expect(result.children).toHaveLength(1);
             expect(result.children[0].content).toBe('First list item');
         });
+
+        describe('ordered list items', () => {
+            it('should parse "1. " as ordered list item with ordered=true', () => {
+                const input = '1. First item';
+                const result = parseSubtree(input);
+
+                expect(result.content).toBe('');
+                expect(result.children).toHaveLength(1);
+                expect(result.children[0].content).toBe('First item');
+                expect(result.children[0].ordered).toBe(true);
+            });
+
+            it('should parse multiple ordered items', () => {
+                const input = '1. Alpha\n2. Beta\n3. Gamma';
+                const result = parseSubtree(input);
+
+                expect(result.children).toHaveLength(3);
+                expect(result.children[0].content).toBe('Alpha');
+                expect(result.children[0].ordered).toBe(true);
+                expect(result.children[1].content).toBe('Beta');
+                expect(result.children[1].ordered).toBe(true);
+                expect(result.children[2].content).toBe('Gamma');
+                expect(result.children[2].ordered).toBe(true);
+            });
+
+            it('should set ordered=undefined for unordered items', () => {
+                const input = '- Item';
+                const result = parseSubtree(input);
+
+                expect(result.children[0].ordered).toBeUndefined();
+            });
+
+            it('should parse nested ordered list with indentation', () => {
+                const input = '1. Parent\n  1. Child\n    1. Grandchild';
+                const result = parseSubtree(input);
+
+                expect(result.children).toHaveLength(1);
+                expect(result.children[0].content).toBe('Parent');
+                expect(result.children[0].ordered).toBe(true);
+                expect(result.children[0].children).toHaveLength(1);
+                expect(result.children[0].children[0].content).toBe('Child');
+                expect(result.children[0].children[0].ordered).toBe(true);
+                expect(result.children[0].children[0].children[0].content).toBe('Grandchild');
+                expect(result.children[0].children[0].children[0].ordered).toBe(true);
+            });
+
+            it('should parse mixed ordered and unordered items', () => {
+                const input = '- Unordered\n1. Ordered';
+                const result = parseSubtree(input);
+
+                expect(result.children).toHaveLength(2);
+                expect(result.children[0].content).toBe('Unordered');
+                expect(result.children[0].ordered).toBeUndefined();
+                expect(result.children[1].content).toBe('Ordered');
+                expect(result.children[1].ordered).toBe(true);
+            });
+
+            it('should parse ordered item with properties', () => {
+                const input = '1. Task\n  status:: done\n  priority:: high';
+                const result = parseSubtree(input);
+
+                expect(result.children).toHaveLength(1);
+                expect(result.children[0].content).toBe('Task');
+                expect(result.children[0].ordered).toBe(true);
+                expect(result.children[0].properties).toEqual({ status: 'done', priority: 'high' });
+            });
+
+            it('should parse ordered item with mixed ordered/unordered children', () => {
+                const input = '1. Parent\n  - Unordered child\n  2. Ordered child';
+                const result = parseSubtree(input);
+
+                expect(result.children).toHaveLength(1);
+                expect(result.children[0].content).toBe('Parent');
+                expect(result.children[0].children).toHaveLength(2);
+                expect(result.children[0].children[0].content).toBe('Unordered child');
+                expect(result.children[0].children[0].ordered).toBeUndefined();
+                expect(result.children[0].children[1].content).toBe('Ordered child');
+                expect(result.children[0].children[1].ordered).toBe(true);
+            });
+
+            it('should parse preamble followed by ordered list', () => {
+                const input = 'Introduction\n1. Step one\n2. Step two';
+                const result = parseSubtree(input);
+
+                expect(result.content).toBe('Introduction');
+                expect(result.children).toHaveLength(2);
+                expect(result.children[0].content).toBe('Step one');
+                expect(result.children[0].ordered).toBe(true);
+                expect(result.children[1].content).toBe('Step two');
+            });
+        });
     });
 
     describe('formatResultTree', () => {

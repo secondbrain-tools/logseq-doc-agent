@@ -1,7 +1,7 @@
 {
   "name": "logseq-doc-agent",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "concurrently \"vite build --watch\" \"http-server -c-1 -p 9000 .\"",
@@ -18,6 +18,7 @@
     "@testing-library/svelte": "^5.3.1",
     "@tsconfig/svelte": "^5.0.6",
     "@types/node": "^24.10.1",
+    "@types/textarea-caret": "^3.0.4",
     "concurrently": "^9.2.1",
     "http-server": "^14.1.1",
     "jsdom": "^27.4.0",
@@ -29,11 +30,11 @@
   },
   "logseq": {
     "id": "logseq-doc-agent",
-    "description": "A simple hello world plugin for Logseq",
+    "description": "An AI assistant for Logseq",
     "title": "Logseq Doc Agent",
     "icon": "icon.png",
-    "author": "Logseq Developer",
-    "repo": "https://github.com/yourusername/logseq-hello-world",
+    "author": "Stefan Kaufmann",
+    "repo": "https://github.com/secondbrain-tools/logseq-doc-agent",
     "main": "dist/index.html"
   },
   "dependencies": {
@@ -49,6 +50,7 @@
     "ai": "^6.0.39",
     "diff": "^8.0.3",
     "marked": "^17.0.1",
-    "ollama-ai-provider": "^1.2.0"
+    "ollama-ai-provider": "^1.2.0",
+    "textarea-caret": "^3.1.0"
   }
 }

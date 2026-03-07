@@ -28,6 +28,7 @@ describe('FrontendSidebarInjector', () => {
         vi.stubGlobal('logseq', {
             App: {
                 openRightSidebar: vi.fn(),
+                setRightSidebarVisible: vi.fn(),
             },
         });
 
@@ -51,7 +52,7 @@ describe('FrontendSidebarInjector', () => {
         injector.injectIntoSidebar(component, props, title);
 
         // @ts-ignore
-        expect(window.logseq.App.openRightSidebar).toHaveBeenCalled();
+        expect(window.logseq.App.setRightSidebarVisible).toHaveBeenCalledWith(true);
         expect(mount).toHaveBeenCalled();
 
         // Check if container was added to sidebar

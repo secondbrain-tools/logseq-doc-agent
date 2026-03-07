@@ -8,11 +8,11 @@ export class AddToSidebarUseCase {
         this.sidebarInjector.injectIntoSidebar(component, props, title, icon);
     }
 
-    showAnalysisSidebar(feedbackData: any, icon?: string) {
+    showAnalysisSidebar(evaluationData: any, blockId?: string, icon?: string, blockText?: string) {
         this.sidebarInjector.injectIntoSidebar(
             AnalysisSidebarContent,
-            { feedbackData },
-            "Analysis Report",
+            { evaluationData, blockText, blockId },
+            'Analysis Report',
             icon
         );
     }

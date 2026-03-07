@@ -7,23 +7,53 @@
         onClose: () => void;
         children: Snippet;
         headerActions?: Snippet;
+        overflowVisible?: boolean;
     }
 
-    let { isOpen, title, onClose, children, headerActions }: Props = $props();
+    let {
+        isOpen,
+        title,
+        onClose,
+        children,
+        headerActions,
+        overflowVisible = false,
+    }: Props = $props();
 
     function handleBackdropClick(e: MouseEvent) {
         if (e.target === e.currentTarget) {
             onClose();
         }
     }
+
+    function handleBackdropKeydown(e: KeyboardEvent) {
+        const target = e.target as HTMLElement;
+        const isInputElement =
+            target.tagName === "INPUT" ||
+            target.tagName === "TEXTAREA" ||
+            target.isContentEditable;
+
+        if (e.key === " " && !isInputElement) {
+            e.preventDefault();
+            onClose();
+        } else if (e.key === "Enter" && !isInputElement) {
+            e.preventDefault();
+            onClose();
+        }
+    }
 </script>
 
 {#if isOpen}
-    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-    <div class="lda-chat-modal-backdrop" onclick={handleBackdropClick}>
+    <div
+        class="lda-chat-modal-backdrop"
+        onclick={handleBackdropClick}
+        onkeydown={handleBackdropKeydown}
+        role="button"
+        tabindex="0"
+        aria-label="Close chat modal"
+    >
         <div class="lda-chat-modal-container">
             <!-- Header -->
-            <div class="lda-chat-modal-header">
+            <div class="lda-chat-modal-header" style="z-index: 60;">
                 {#if headerActions}
                     {@render headerActions()}
                 {/if}
@@ -50,7 +80,10 @@
             </div>
 
             <!-- Content -->
-            <div class="lda-chat-modal-content">
+            <div
+                class="lda-chat-modal-content"
+                style={overflowVisible ? "overflow: visible;" : ""}
+            >
                 {@render children()}
             </div>
         </div>

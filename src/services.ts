@@ -1,5 +1,5 @@
 
-import { InjectRatingsUseCase } from './application/usecases/inject-ratings.usecase';
+import { InjectEvaluationsUseCase } from './application/usecases/inject-evaluations.usecase';
 import { InjectMergesUseCase } from './application/usecases/inject-merges.usecase';
 import { FrontendComponentInjector, FrontendStyleInjector } from './infra/frontend';
 import { LogseqApiImpl } from './infra/logseq';
@@ -13,7 +13,11 @@ import { ChatlogService } from './application/services/chatlog.service';
 import { LogseqChatlogRepository } from './infra/logseq/chatlog-repository';
 import { LogseqSettingsAdapter } from './infra/logseq/settings-adapter';
 import { LogseqAgentRepository } from './infra/logseq/agent-repository';
-
+import { EvaluationReviewService } from './application/services/evaluation-review.service';
+import { IssueReplyService } from './application/services/issue-reply.service';
+import { PromptTemplateService } from './application/services/prompt-template.service';
+import { EvidenceHighlightService } from './application/services/evidence-highlight.service';
+import { textHighlighter } from './infra/frontend/text-highlighter';
 // Globals from previous implementation
 // We use 'parent.document' because the plugin runs in an iframe
 export const doc = parent.document;
@@ -30,11 +34,15 @@ export class Services {
     public promptRepo: LogseqPromptRepository;
     public chatlogService: ChatlogService;
     public agentRepository: LogseqAgentRepository;
+    public promptTemplateService: PromptTemplateService;
 
     // Use Cases
-    public injectRatingsUseCase: InjectRatingsUseCase;
+    public injectEvaluationsUseCase: InjectEvaluationsUseCase;
     public injectMergesUseCase: InjectMergesUseCase;
     public chatUseCase: ChatSidebarUseCase;
+    public evaluationReviewService: EvaluationReviewService;
+    public issueReplyService: IssueReplyService;
+    public evidenceHighlightService: EvidenceHighlightService;
 
     // Globals
     public pluginID: string;
@@ -68,8 +76,13 @@ export class Services {
             getStorageRoot
         );
 
+        this.promptTemplateService = new PromptTemplateService(
+            this.promptRepo,
+            this.logseqApi
+        );
+
         // Initialize Use Cases
-        this.injectRatingsUseCase = new InjectRatingsUseCase(
+        this.injectEvaluationsUseCase = new InjectEvaluationsUseCase(
             new FrontendComponentInjector(),
             new FrontendStyleInjector(),
             this.logseqApi
@@ -84,8 +97,13 @@ export class Services {
             this.sidebarInjector,
             aiAdapter,
             this.chatlogService,
-            this.agentRepository
+            this.agentRepository,
+            this.promptTemplateService
         );
+
+        this.evaluationReviewService = new EvaluationReviewService(this.logseqApi);
+        this.issueReplyService = new IssueReplyService(aiAdapter, this.logseqApi, this.evaluationReviewService, settingsAdapter);
+        this.evidenceHighlightService = new EvidenceHighlightService(textHighlighter);
 
         // Initialize Globals
         // Note: package.json import handling might need adjustment based on build system

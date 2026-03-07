@@ -1,6 +1,7 @@
 <script lang="ts">
     import { slide } from "svelte/transition";
     import { marked } from "marked";
+    marked.use({ breaks: true });
     import type { Message, MessagePart } from "../../../domain/chat/types";
     import {
         buildDisplayItems,
@@ -18,9 +19,13 @@
     let { msg, onToggleCollapse, onContextMenu }: Props = $props();
 
     // --- Helpers ---
+    /** Normalize tabs to spaces so marked parses nested lists reliably (marked#3126). */
+    function normalizeListIndent(text: string): string {
+        return text.replace(/\t/g, '  ');
+    }
     function renderMarkdown(text: string): string {
         try {
-            return marked.parse(text) as string;
+            return marked.parse(normalizeListIndent(text)) as string;
         } catch (e) {
             console.warn("Markdown parse error", e);
             return text;
@@ -243,6 +248,11 @@
                                     </div>
                                 </details>
                             </div>
+                        {:else if part.type === "prompt"}
+                            <span class="lda-prompt-bubble-tag">
+                                <span class="lda-prompt-bubble-icon">✨</span>
+                                <span class="lda-prompt-bubble-name">{part.promptName}</span>
+                            </span>
                         {/if}
                     {:else if item.type === "tool_group"}
                         {@const groupKey = item.subgroups[0].parts[0].index}

@@ -5,7 +5,7 @@ import '@logseq/libs';
 
 // Standard imports to include in the bundle (dist/index.css)
 import '../app.css';
-import '../ui/styles/feedback-components.css';
+import '../ui/styles/evaluation-components.css';
 import '../ui/styles/merge-components.css';
 import '../ui/styles/modal.css';
 import '../ui/styles/chat.css';
@@ -44,7 +44,7 @@ export const setupPlugin = async () => {
             Services.instance.sidebarInjector.dispose();
 
             // Clean up injected ratings and merge icons
-            Services.instance.injectRatingsUseCase.dispose();
+            Services.instance.injectEvaluationsUseCase.dispose();
             Services.instance.injectMergesUseCase.dispose();
         });
     }
@@ -88,6 +88,9 @@ export const setupPlugin = async () => {
 
     // Register Merge Toolbar Pagebar Item (placeholder for dynamic content)
     services.injectMergesUseCase.registerPagebarItem();
+
+    // Register Evaluation Toolbar Pagebar Item
+    services.injectEvaluationsUseCase.registerPagebarItem();
 
     // Register Command Palette & Hotkey for Opening Chat
     logseq.App.registerCommandPalette({
@@ -179,12 +182,6 @@ export const setupPlugin = async () => {
         }
     });
 
-    // Register a pagebar button (Legacy/Debug)
-    logseq.App.registerUIItem('pagebar', {
-        key: 'hello-world',
-        template: '<a title="logseq-doc-agent" style="font-size:15px;color:#1f9ee1;opacity:unset" data-on-click="injectIntoPage" class="button icon">.🤖</a>'
-    });
-
     // Helper for debouncing
     const debounce = (func: Function, wait: number) => {
         let timeout: any;
@@ -199,7 +196,7 @@ export const setupPlugin = async () => {
         // Small delay to ensure DOM is ready (especially for route changes)
         setTimeout(() => {
             try {
-                services.injectRatingsUseCase.execute();
+                services.injectEvaluationsUseCase.execute();
                 services.injectMergesUseCase.execute();
             } catch (error) {
                 console.error('Error injecting feedback components:', error);
@@ -223,14 +220,6 @@ export const setupPlugin = async () => {
     logseq.DB.onChanged((e) => {
         // Optional: Filter events if needed, but for now we just debounce everything
         debouncedOnDbChanged();
-    });
-
-    // Handle the pagebar button click
-    logseq.provideModel({
-        async injectIntoPage() {
-            console.log('[src/plugin/index.ts] Manual injection triggered');
-            injectComponents();
-        },
     });
 
     // Initial injection on startup (after DOM is ready)

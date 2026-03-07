@@ -1,7 +1,7 @@
 {
   "name": "logseq-doc-agent",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "concurrently \"vite build --watch\" \"http-server -c-1 -p 9000 .\"",
@@ -30,11 +30,11 @@
   },
   "logseq": {
     "id": "logseq-doc-agent",
-    "description": "A simple hello world plugin for Logseq",
+    "description": "An AI assistant for Logseq",
     "title": "Logseq Doc Agent",
     "icon": "icon.png",
-    "author": "Logseq Developer",
-    "repo": "https://github.com/yourusername/logseq-hello-world",
+    "author": "Stefan Kaufmann",
+    "repo": "https://github.com/secondbrain-tools/logseq-doc-agent",
     "main": "dist/index.html"
   },
   "dependencies": {

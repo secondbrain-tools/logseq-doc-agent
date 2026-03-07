@@ -36,8 +36,6 @@ export const PROVIDERS: ProviderDefinition[] = [
         apiKeyLabel: 'OpenAI API Key',
         apiKeyDesc: 'Enter your OpenAI API key.',
         models: [
-            { label: 'GPT-5.4', value: 'gpt-5.4', defaultEnabled: true, supportsReasoning: true },
-            { label: 'GPT-5.3', value: 'gpt-5.3', defaultEnabled: true, supportsReasoning: true },
             { label: 'GPT-5.2', value: 'gpt-5.2', defaultEnabled: true, supportsReasoning: true },
             { label: 'GPT-5.1', value: 'gpt-5.1', defaultEnabled: true, supportsReasoning: true },
             { label: 'GPT-5 Mini', value: 'gpt-5-mini', defaultEnabled: true },

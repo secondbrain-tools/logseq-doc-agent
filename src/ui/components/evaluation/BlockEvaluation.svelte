@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createEventDispatcher, onMount, onDestroy } from "svelte";
+  import { createEventDispatcher, onMount, onDestroy, untrack } from "svelte";
   import EvaluationPopover from "./EvaluationPopover.svelte";
   import EvaluationScore from "./EvaluationScore.svelte";
   import type { BlockEvaluation } from "../../../domain/evaluation/entity";
@@ -17,11 +17,12 @@
     blockText?: string;
   } = $props();
 
+  let localEvaluationData = $state<BlockEvaluation>(untrack(() => evaluationData));
   let showPopover = $state(false);
 
   // Calculate the overall score dynamically or use summary
   const calculator = new FrontendEvaluationCalculator();
-  const rating = $derived(calculator.calculateOverallScore(evaluationData));
+  const rating = $derived(calculator.calculateOverallScore(localEvaluationData));
 
   // Element references
   let buttonRef = $state<HTMLElement>();
@@ -117,7 +118,7 @@
   function openInSidebar() {
     const useCase = new AddToSidebarUseCase(Services.instance.sidebarInjector);
     useCase.showAnalysisSidebar(
-      evaluationData,
+      localEvaluationData,
       blockId,
       undefined,
       blockText,
@@ -201,7 +202,8 @@
       tabindex="0"
     >
       <EvaluationPopover
-        {evaluationData}
+        evaluationData={localEvaluationData}
+        onDataUpdate={(updated) => { localEvaluationData = updated; }}
         {blockId}
         {blockText}
         {showPopover}

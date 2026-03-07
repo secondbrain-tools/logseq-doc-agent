@@ -215,6 +215,7 @@
     margin-bottom: 0.5rem;
     line-height: 1.5;
     color: inherit;
+    font-weight: normal;
 }
 
 .lda-chat-container .markdown-body a {
@@ -241,10 +242,21 @@
     font-size: 0.9em;
 }
 
-.lda-chat-container .markdown-body ul {
+.lda-chat-container .markdown-body ul,
+.lda-chat-container .markdown-body ol {
     list-style-type: disc;
+    list-style-position: outside;
     padding-left: 1.25rem;
     margin-bottom: 0.5rem;
+}
+
+.lda-chat-container .markdown-body ol {
+    list-style-type: decimal;
+}
+
+.lda-chat-container .markdown-body li {
+    font-weight: normal;
+    margin-bottom: 0.25rem;
 }
 
 .lda-animate-fadeIn {

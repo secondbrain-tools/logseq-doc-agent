@@ -1,3 +1,5 @@
+import type { MergeEntity } from '../merge/entity';
+
 /**
  * Helper to filter properties based on glob patterns
  * Returns [cleanContent, headerString]
@@ -143,4 +145,45 @@ export function parseProperties(header: string): Record<string, string> {
         }
     }
     return props;
+}
+
+export function extractExistingMergeData(content: string): MergeEntity | null {
+    const match = content.match(new RegExp(`${LDA_MERGE_PROPERTY}::\\s*(.+)`));
+    if (match && match[1]) {
+        try {
+            return JSON.parse(match[1]);
+        } catch (e) { }
+    }
+    return null;
+}
+
+export function splitContentAttributes(content: string) {
+    const lines = content.split('\n');
+    const properties: string[] = [];
+    const body: string[] = [];
+    let inProps = true;
+
+    // Regex for property key:: value
+    const propRegex = /^.+::/;
+
+    for (const line of lines) {
+        if (inProps) {
+            if (propRegex.test(line)) {
+                // Check if it's our merge prop - skip it for base content calculation?
+                if (!line.startsWith(`${LDA_MERGE_PROPERTY}::`)) {
+                    properties.push(line);
+                }
+            } else {
+                inProps = false;
+                body.push(line);
+            }
+        } else {
+            body.push(line);
+        }
+    }
+
+    return {
+        body: body.join('\n'),
+        properties: properties.join('\n')
+    };
 }

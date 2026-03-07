@@ -65,13 +65,27 @@ export class TextHighlighter implements HighlightPort {
 
     /**
      * Collects text nodes and builds a plain-text map across one or more containers.
+     * @param doc The document
+     * @param containers Containers to walk
+     * @param skipProperties If true, skips nodes inside .block-properties
      */
-    private collectTextNodes(doc: Document, containers: Iterable<HTMLElement>): { textNodes: TextNodeMapping[], plainText: string } {
+    private collectTextNodes(doc: Document, containers: Iterable<HTMLElement>, skipProperties: boolean = false): { textNodes: TextNodeMapping[], plainText: string } {
         const textNodes: TextNodeMapping[] = [];
         let plainText = '';
 
         for (const container of containers) {
-            const walker = doc.createTreeWalker(container, NodeFilter.SHOW_TEXT, null);
+            const walker = doc.createTreeWalker(container, NodeFilter.SHOW_TEXT, (node) => {
+                if (skipProperties) {
+                    let parent = node.parentElement;
+                    while (parent && parent !== container) {
+                        if (parent.classList.contains('block-properties')) {
+                            return NodeFilter.FILTER_REJECT;
+                        }
+                        parent = parent.parentElement;
+                    }
+                }
+                return NodeFilter.FILTER_ACCEPT;
+            });
             let currentNode = walker.nextNode();
 
             while (currentNode) {
@@ -206,7 +220,7 @@ export class TextHighlighter implements HighlightPort {
      * Finds text nodes in a container and applies the highlight
      */
     private highlightSelectorInContainer(doc: Document, container: HTMLElement, selector: TextQuoteSelector): HTMLElement[] {
-        const { textNodes, plainText } = this.collectTextNodes(doc, [container]);
+        const { textNodes, plainText } = this.collectTextNodes(doc, [container], true);
 
         console.log(`${LOG_PREFIX} Container "${container.className}" text (${plainText.length} chars): "${plainText.substring(0, 200)}${plainText.length > 200 ? '...' : ''}"`);
 
@@ -278,7 +292,7 @@ export class TextHighlighter implements HighlightPort {
     private findMatchInContainers(doc: Document, containers: HTMLElement[], selector: TextQuoteSelector): MatchInTextNodes | null {
         // Try each container individual first
         for (const container of containers) {
-            const { textNodes, plainText } = this.collectTextNodes(doc, [container]);
+            const { textNodes, plainText } = this.collectTextNodes(doc, [container], true);
 
             const match = findBestMatch(plainText, selector);
             if (match) {
@@ -287,7 +301,7 @@ export class TextHighlighter implements HighlightPort {
         }
 
         // Fallback: cross-container matching
-        const { textNodes: combinedTextNodes, plainText: combinedPlainText } = this.collectTextNodes(doc, containers);
+        const { textNodes: combinedTextNodes, plainText: combinedPlainText } = this.collectTextNodes(doc, containers, true);
 
         const match = findBestMatch(combinedPlainText, selector);
         if (match) {

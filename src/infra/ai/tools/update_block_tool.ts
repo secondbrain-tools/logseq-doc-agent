@@ -7,6 +7,7 @@ import { parseSubtree } from './subtree-parser';
 import { insertSubtreeRecursive } from './block-operations';
 import { applyMergeLogicToTree, formatBlockTree } from './get_logseq_document_tool';
 import type { LogseqBlock } from './types';
+import { extractExistingMergeData, splitContentAttributes, LDA_MERGE_PROPERTY } from '../../../domain/logseq/properties';
 
 // Access the global logseq object
 const getLogseq = () => (window as any).logseq;
@@ -103,7 +104,7 @@ Returns the updated block and its full subtree in markdown tree format.`,
                 }
 
                 await logseq.Editor.updateBlock(uuid, newBlockContent);
-                await logseq.Editor.upsertBlockProperty(uuid, 'logseq-doc-agent.merge', JSON.stringify(mergeData));
+                await logseq.Editor.upsertBlockProperty(uuid, LDA_MERGE_PROPERTY, JSON.stringify(mergeData));
 
             } else {
                 // Overwrite
@@ -152,58 +153,16 @@ Returns the updated block and its full subtree in markdown tree format.`,
 
 // --- Helpers ---
 
-function extractExistingMergeData(content: string): MergeEntity | null {
-    const match = content.match(/logseq-doc-agent\.merge::\s*(.+)/);
-    if (match && match[1]) {
-        try {
-            return JSON.parse(match[1]);
-        } catch (e) { }
-    }
-    return null;
-}
-
 function extractProperties(content: string): string[] {
     // simplified extraction
     const lines = content.split('\n');
     const props = [];
     for (const line of lines) {
-        if (/^.+::/.test(line) && !line.startsWith('logseq-doc-agent.merge::')) {
+        if (/^.+::/.test(line) && !line.startsWith(`${LDA_MERGE_PROPERTY}::`)) {
             props.push(line);
         } else {
             break; // Standard Logseq properties are at the top
         }
     }
     return props;
-}
-
-function splitContentAttributes(content: string) {
-    const lines = content.split('\n');
-    const properties: string[] = [];
-    const body: string[] = [];
-    let inProps = true;
-
-    // Regex for property key:: value
-    const propRegex = /^.+::/;
-
-    for (const line of lines) {
-        if (inProps) {
-            if (propRegex.test(line)) {
-                // Check if it's our merge prop - skip it for base content calculation?
-                // The previous code included it in existingProperties (except merge prop)
-                if (!line.startsWith('logseq-doc-agent.merge::')) {
-                    properties.push(line);
-                }
-            } else {
-                inProps = false;
-                body.push(line);
-            }
-        } else {
-            body.push(line);
-        }
-    }
-
-    return {
-        body: body.join('\n'),
-        properties: properties.join('\n')
-    };
 }

@@ -186,7 +186,7 @@ ${evaluationContext}
         }
 
         const updatedBlock = await this.logseq.getBlock(blockUuid);
-        const evalString = updatedBlock?.properties?.['logseq-doc-agent.evaluation'] || updatedBlock?.properties?.['evaluation'] || updatedBlock?.properties?.['evaluationCamel'];
+        const evalString = updatedBlock?.properties?.['logseq-doc-agent.evaluation'] || updatedBlock?.properties?.['evaluation'] || updatedBlock?.properties?.['logseqDocAgent.evaluation'];
         return typeof evalString === 'string' ? JSON.parse(evalString) : evalString;
     }
 

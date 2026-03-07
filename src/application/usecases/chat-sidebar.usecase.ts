@@ -353,7 +353,7 @@ export class ChatSidebarUseCase {
                 if (this.promptTemplateService) {
                     const content = await this.promptTemplateService.resolvePromptContent(pName);
                     if (content) {
-                        prependedPromptsText += `--- User Prompt: ${pName} ---\n${content}\n---------------------------\n\n`;
+                        prependedPromptsText += `${content}\n\n`;
                     }
                 }
             }

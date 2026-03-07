@@ -1,6 +1,8 @@
 import type { BlockEvaluation, CriterionResult, Issue } from "../../../domain/evaluation/entity";
 import type { ContextScope } from "../../../domain/evaluation/issue-reply.types";
 import { Services } from "../../../services";
+import { LDA_MERGE_PROPERTY, extractExistingMergeData, splitContentAttributes } from "../../../domain/logseq/properties";
+import type { MergeEntity } from "../../../domain/merge/entity";
 
 export function groupByCategory(results: CriterionResult[]): Record<string, CriterionResult[]> {
     const groups: Record<string, CriterionResult[]> = {};
@@ -238,17 +240,29 @@ export async function applySuggestion(
         // 2. Read current block content
         const blockText = await Services.instance.logseqApi.Editor.getBlockText(blockId);
 
-        // 3. Perform string replacement (only replacing the first occurrence that matches exactly)
-        if (!blockText.includes(targetSelector.exact)) {
+        const { body: currentBody, properties: existingPropsStr } = splitContentAttributes(blockText);
+
+        // 3. Perform string replacement on the body (only replacing the first occurrence that matches exactly)
+        if (!currentBody.includes(targetSelector.exact)) {
             // For safety, warn if exact text isn't found anymore (e.g. user changed it since eval)
             console.warn("Target string not found in the block. Application aborted.", targetSelector.exact);
             // We could still mark it accepted, but maybe returning early is safer.
             // For now we try to replace if possible.
         } else {
-            const newContent = blockText.replace(targetSelector.exact, targetSuggestion.proposed_text);
+            const newBody = currentBody.replace(targetSelector.exact, targetSuggestion.proposed_text);
 
-            // 4. Update the block content
+            const existingMergeData = extractExistingMergeData(blockText);
+            const base = existingMergeData?.base || currentBody;
+
+            const mergeData: MergeEntity = {
+                type: 'update',
+                base: base
+            };
+
+            const newContent = existingPropsStr ? existingPropsStr + '\n' + newBody : newBody;
+
             await Services.instance.logseqApi.Editor.updateBlock(blockId, newContent);
+            await Services.instance.logseqApi.upsertBlockProperty(blockId, LDA_MERGE_PROPERTY, JSON.stringify(mergeData));
         }
 
         // 5. Update state to accepted and resolved

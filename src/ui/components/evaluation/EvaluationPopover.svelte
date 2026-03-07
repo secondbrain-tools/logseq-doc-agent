@@ -21,11 +21,13 @@
     blockId,
     blockText,
     showPopover = false,
+    onDataUpdate,
   }: {
     evaluationData: BlockEvaluation;
     blockId?: string;
     blockText?: string;
     showPopover?: boolean;
+    onDataUpdate?: (updated: BlockEvaluation) => void;
   } = $props();
 
   function cloneEvaluationData(source: BlockEvaluation): BlockEvaluation {
@@ -100,6 +102,7 @@
 
   function handleDataUpdate(updated: BlockEvaluation) {
     localEvaluationData = updated;
+    onDataUpdate?.(updated);
     // If we're focused on an issue, update the focused reference too
     if (focusedIssue) {
       for (const res of updated.results) {

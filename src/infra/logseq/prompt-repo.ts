@@ -2,7 +2,7 @@ import type { Prompt, FeedbackPrompt } from '../../domain/logseq';
 import type { ChatPrompt } from '../../domain/chat/prompt';
 import type { PromptRepository } from '../../application/ports/prompt-repo';
 import type { LogseqApi } from '../../application/ports/logseq-ports';
-import { LDA_PROMPT_NAME_PROPERTY, LDA_PROMPT_NAME_PROPERTY_CAMEL, filterPropertyLinesFromContent } from '../../domain/logseq/properties';
+import { LDA_PROMPT_NAME_PROPERTY, LDA_PROMPT_NAME_PROPERTY_CAMEL } from '../../domain/logseq/properties';
 
 export class LogseqPromptRepository implements PromptRepository {
     constructor(private logseqApi: LogseqApi) { }
@@ -90,22 +90,49 @@ export class LogseqPromptRepository implements PromptRepository {
         return prompt;
     }
 
-    private async collectChildrenText(children: any[]): Promise<string> {
-        const texts: string[] = [];
+    /**
+     * Collect children as markdown list lines so chat markdown rendering shows bullets and nesting.
+     * Each level is indented with 2 spaces; list marker "- " is added so marked parses lists correctly.
+     */
+    private async collectChildrenText(children: any[], depth = 0): Promise<string> {
+        const lines: string[] = [];
+        const indent = '  '.repeat(depth);
         for (const child of children) {
-            const text = this.filterPropertyLines(child.content || '');
-            if (text) texts.push(text);
-
+            const raw = this.filterPropertyLines(child.content || '');
+            if (raw) {
+                const contentLines = raw.split('\n');
+                const first = contentLines[0].replace(/^\s*-\s*/, '').trimStart();
+                lines.push(`${indent}- ${first}`);
+                for (let i = 1; i < contentLines.length; i++) {
+                    lines.push(`${indent}  ${contentLines[i]}`);
+                }
+            }
             if (child.children && Array.isArray(child.children)) {
-                const nestedText = await this.collectChildrenText(child.children);
-                if (nestedText) texts.push(nestedText);
+                const nested = await this.collectChildrenText(child.children, depth + 1);
+                if (nested) lines.push(nested);
             }
         }
-        return texts.join('\n');
+        return lines.join('\n');
     }
 
     private filterPropertyLines(content: string): string {
-        return filterPropertyLinesFromContent(content);
+        if (!content) return '';
+        const lines = content.split('\n');
+        const filtered = lines.filter(line => {
+            const trimmed = line.trim();
+            // Strip markdown heading lines used as block title (e.g. ## Prompt Name)
+            if (/^#+\s/.test(trimmed)) return false;
+            // Strip all logseq-doc-agent.* and logseqDocAgent.* property lines
+            const propMatch = trimmed.match(/^([^:]+)::\s*.+$/);
+            if (propMatch) {
+                const key = propMatch[1].trim();
+                if (key.startsWith('logseq-doc-agent.') || key.startsWith('logseqDocAgent.')) {
+                    return false;
+                }
+            }
+            return true;
+        });
+        return filtered.join('\n');
     }
 
     private extractPropertyFromContent(content: string, propertyName: string): string | null {

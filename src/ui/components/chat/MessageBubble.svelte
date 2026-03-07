@@ -19,9 +19,13 @@
     let { msg, onToggleCollapse, onContextMenu }: Props = $props();
 
     // --- Helpers ---
+    /** Normalize tabs to spaces so marked parses nested lists reliably (marked#3126). */
+    function normalizeListIndent(text: string): string {
+        return text.replace(/\t/g, '  ');
+    }
     function renderMarkdown(text: string): string {
         try {
-            return marked.parse(text) as string;
+            return marked.parse(normalizeListIndent(text)) as string;
         } catch (e) {
             console.warn("Markdown parse error", e);
             return text;

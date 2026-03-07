@@ -250,7 +250,7 @@ export const configureSettings = () => {
         type: 'enum',
         title: 'Suggestion Alternatives',
         description: 'How many alternative fixes should be generated for medium and high impact issues?',
-        default: '1',
+        default: '2',
         enumChoices: ['1', '2', '3'],
     });
 
@@ -267,7 +267,7 @@ export const configureSettings = () => {
         type: 'boolean',
         title: 'Counterarguments',
         description: 'Force the AI to argue against its own identified issues with a ↯ Counterargument. This helps prevent blind trust in the AI\'s critique.',
-        default: false,
+        default: true,
     });
 
     // Reasoning Effort Settings
@@ -311,7 +311,7 @@ export const configureSettings = () => {
         type: 'number',
         title: 'Max Agent Cycles',
         description: 'Maximum number of autonomous cycles (tool calls -> output -> continue) the agent can perform per request. Default: 10',
-        default: 10,
+        default: 25,
     });
 
     // 3. Storage Settings

@@ -22,6 +22,7 @@
     import { ICONS } from "../../icons";
     import { onDestroy } from "svelte";
     import { Services } from "../../../services";
+    import { untrack } from "svelte";
 
     let {
         issue,
@@ -90,10 +91,14 @@
     $effect(() => {
         // Track issueIdx to re-clear state if the parent popover changes the props
         let _currentIdx = issueIdx;
-        activeSuggestionIdx = null;
-        if (blockId) {
-            Services.instance.evidenceHighlightService.clearPreview();
-        }
+
+        // We use untrack to prevent this effect from re-running when activeSuggestionIdx changes locally
+        untrack(() => {
+            activeSuggestionIdx = null;
+            if (blockId) {
+                Services.instance.evidenceHighlightService.clearPreview();
+            }
+        });
     });
 
     onDestroy(() => {
@@ -111,6 +116,9 @@
             Services.instance.evidenceHighlightService.clearPreview();
         } else {
             // Select and preview
+            console.log(
+                `[EvaluationIssueBlock] new index ${idx} selected, applying preview`,
+            );
             activeSuggestionIdx = idx;
             Services.instance.evidenceHighlightService.previewSuggestion(
                 blockId,

@@ -182,12 +182,6 @@ export const setupPlugin = async () => {
         }
     });
 
-    // Register a pagebar button (Legacy/Debug)
-    logseq.App.registerUIItem('pagebar', {
-        key: 'hello-world',
-        template: '<a title="logseq-doc-agent" style="font-size:15px;color:#1f9ee1;opacity:unset" data-on-click="injectIntoPage" class="button icon">.🤖</a>'
-    });
-
     // Helper for debouncing
     const debounce = (func: Function, wait: number) => {
         let timeout: any;
@@ -226,14 +220,6 @@ export const setupPlugin = async () => {
     logseq.DB.onChanged((e) => {
         // Optional: Filter events if needed, but for now we just debounce everything
         debouncedOnDbChanged();
-    });
-
-    // Handle the pagebar button click
-    logseq.provideModel({
-        async injectIntoPage() {
-            console.log('[src/plugin/index.ts] Manual injection triggered');
-            injectComponents();
-        },
     });
 
     // Initial injection on startup (after DOM is ready)

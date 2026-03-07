@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { tool } from 'ai';
 import { sanitizeBlockId } from './tool-utils';
-import { LDA_EVALUATION_PROPERTY } from '../../../domain/logseq/properties';
+import { LDA_EVALUATION_PROPERTY, LDA_EVALUATION_PROPERTY_CAMEL } from '../../../domain/logseq/properties';
 import { BlockEvaluationSchema, createStrictEvaluationSchema } from '../../../domain/evaluation/entity';
 
 // Access the global logseq object
@@ -84,6 +84,17 @@ export const createSubmitBlockEvaluationTool = () => {
                 const uuid = block.uuid;
 
                 normalizeCategories(evaluation);
+
+                // Remove any existing evaluation under all known key variants before writing,
+                // so that re-running an evaluation always overwrites rather than leaving stale data.
+                const keysToRemove = [LDA_EVALUATION_PROPERTY, LDA_EVALUATION_PROPERTY_CAMEL, 'evaluation'];
+                for (const key of keysToRemove) {
+                    try {
+                        await logseq.Editor.removeBlockProperty(uuid, key);
+                    } catch {
+                        // best-effort; key may not exist
+                    }
+                }
 
                 await logseq.Editor.upsertBlockProperty(uuid, LDA_EVALUATION_PROPERTY, JSON.stringify(evaluation));
 

@@ -104,4 +104,27 @@ describe('TextHighlighter', () => {
         expect(block.querySelectorAll('.lda-preview-insert')).toHaveLength(0);
         expect(normalizedText(block)).toBe('target text');
     });
+
+    it('skips .block-properties and matches text in .block-content-inner', () => {
+        document.body.innerHTML = `
+            <div blockid="block-prop-test">
+                <div class="block-properties">
+                    <div class="block-properties-row">
+                        <span class="block-properties-name">logseq-doc-agent.merge:</span>
+                        <span class="block-properties-value">{"base": "Actual visible content but in props"}</span>
+                    </div>
+                </div>
+                <div class="block-content-inner">Actual visible content</div>
+            </div>
+        `;
+
+        highlighter.highlight('block-prop-test', [{ selector: createSelector('Actual visible content') }]);
+        const block = document.querySelector('div[blockid="block-prop-test"]') as HTMLElement;
+        const marks = block.querySelectorAll('mark.lda-highlight');
+
+        // It should match the one in .block-content-inner, not the one in .block-properties
+        expect(marks).toHaveLength(1);
+        expect(marks[0].parentElement?.className).toBe('block-content-inner');
+        expect(marks[0].textContent).toBe('Actual visible content');
+    });
 });

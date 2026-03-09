@@ -8,6 +8,33 @@ import {
     type OpenAICompatProviderMeta,
 } from '../domain/settings/index';
 
+/**
+ * Derives a short ID from a display label and guarantees uniqueness against
+ * the existing list of compatible providers.
+ *
+ * Steps:
+ *   1. Lowercase and replace every run of non-alphanumeric characters with `_`.
+ *   2. Strip leading/trailing underscores.
+ *   3. If the resulting base ID is already taken, append `_2`, `_3`, … until unique.
+ */
+export function generateUniqueCompatProviderId(
+    label: string,
+    existing: OpenAICompatProviderMeta[]
+): string {
+    const base = label
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '') || 'provider';
+
+    const existingIds = new Set(existing.map(p => p.id));
+
+    if (!existingIds.has(base)) return base;
+
+    let counter = 2;
+    while (existingIds.has(`${base}_${counter}`)) counter++;
+    return `${base}_${counter}`;
+}
+
 export const configureSettings = () => {
     const currentSettings = (logseq.settings as any) || {};
     const settings: SettingSchemaDesc[] = [];
@@ -186,19 +213,19 @@ export const configureSettings = () => {
     });
 
     settings.push({
-        key: 'add_compat_provider_id',
+        key: 'add_compat_provider_label',
         type: 'string',
-        title: 'Add Provider — Short ID',
-        description: 'Alphanumeric identifier for the new provider (e.g. "groq"). Fill both fields then click away.',
+        title: 'Add Provider — Display Name',
+        description: 'Name for the new provider (e.g. "OpenRouter"). A unique short ID is derived from this name automatically.',
         default: '',
     });
 
     settings.push({
-        key: 'add_compat_provider_label',
-        type: 'string',
-        title: 'Add Provider — Display Name',
-        description: 'Human-readable name for the new provider (e.g. "Groq").',
-        default: '',
+        key: 'add_compat_provider_confirm',
+        type: 'boolean',
+        title: 'Add this provider (turn on to create)',
+        description: 'After filling in the Display Name above, toggle this on to create the provider.',
+        default: false,
     });
 
     for (const compat of compatProviders) {
@@ -242,7 +269,7 @@ export const configureSettings = () => {
             key: `${keyPrefix}name`,
             type: 'string',
             title: `${compat.label} Provider Name`,
-            description: 'Internal name passed to the AI SDK (e.g. "groq"). Defaults to the short ID.',
+            description: 'Internal name passed to the AI SDK (e.g. "openrouter"). Defaults to the short ID.',
             default: compat.id,
         });
 
@@ -250,7 +277,7 @@ export const configureSettings = () => {
             key: `${keyPrefix}baseURL`,
             type: 'string',
             title: `${compat.label} Base URL`,
-            description: 'API base URL (e.g. https://api.groq.com/openai/v1).',
+            description: 'API base URL (e.g. https://openrouter.ai/api/v1).',
             default: '',
         });
 
@@ -579,15 +606,17 @@ export const setupSettings = () => {
             shouldReconfigure = true;
         }
 
-        // Add new compatible provider (both id and label must be filled)
-        const newCompatId = (newSettings['add_compat_provider_id'] as string || '').trim().replace(/[^a-zA-Z0-9_]/g, '_');
+        // Add new compatible provider — only when the confirm toggle is explicitly turned on
         const newCompatLabel = (newSettings['add_compat_provider_label'] as string || '').trim();
-        if (newCompatId && newCompatLabel) {
-            if (!compatProviders.find((p: OpenAICompatProviderMeta) => p.id === newCompatId)) {
-                compatProviders.push({ id: newCompatId, label: newCompatLabel });
-                shouldUpdateCompatProviders = true;
-            }
-            logseq.updateSettings({ add_compat_provider_id: '', add_compat_provider_label: '' });
+        const confirmAdd = newSettings['add_compat_provider_confirm'] === true;
+        if (confirmAdd && newCompatLabel) {
+            const newCompatId = generateUniqueCompatProviderId(newCompatLabel, compatProviders);
+            compatProviders.push({ id: newCompatId, label: newCompatLabel });
+            shouldUpdateCompatProviders = true;
+            logseq.updateSettings({ add_compat_provider_label: '', add_compat_provider_confirm: false });
+        } else if (confirmAdd && !newCompatLabel) {
+            // Reset the toggle if fired without a label
+            logseq.updateSettings({ add_compat_provider_confirm: false });
         }
 
         // Remove a compatible provider

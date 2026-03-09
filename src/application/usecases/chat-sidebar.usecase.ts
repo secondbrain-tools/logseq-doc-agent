@@ -15,6 +15,7 @@ import { PROVIDERS } from '../../domain/settings/index';
 import { getContextContent } from '../../infra/logseq/context-utils';
 import type { ContextItem } from '../../domain/chat/types';
 import { ICONS } from '../../ui/icons';
+import { normalizeAiErrorMessage } from '../util/ai-error';
 
 export class ChatSidebarUseCase {
     private isChatOpen = false;
@@ -448,6 +449,11 @@ export class ChatSidebarUseCase {
                         if ((chunk as any).value === 'max_cycles_reached') {
                             this.showContinueButton.set(true);
                         }
+                    } else if (partType === 'error') {
+                        // AgentRunner encodes errors as explicit chunks so they reliably
+                        // reach this loop even in Electron runtimes that don't propagate
+                        // controller.error() through for-await.
+                        throw (chunk as any).error;
                     }
 
                     this.updateMessages(msgs => msgs.map(m => m.id === aiMsgId ? {
@@ -470,10 +476,16 @@ export class ChatSidebarUseCase {
                 console.log('[ChatSidebar] Generation aborted (catch block)');
             } else {
                 console.error('[ChatSidebar] Error getting AI response:', error);
+                const displayMessage = normalizeAiErrorMessage(error);
                 this.updateMessages(msgs => msgs.map(m => m.id === aiMsgId ? {
                     ...m,
-                    content: `**Error:** Failed to get response. ${(error as any).message || error}`
+                    content: `**Error:** ${displayMessage}`
                 } : m));
+                try {
+                    (window as any).logseq?.UI?.showMsg?.(displayMessage, 'error');
+                } catch {
+                    // showMsg failure must never shadow the original error
+                }
             }
         } finally {
             this.isLoading.set(false);

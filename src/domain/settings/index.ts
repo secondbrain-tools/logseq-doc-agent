@@ -81,13 +81,13 @@ export const PROVIDERS: ProviderDefinition[] = [
 
 // ---- OpenAI Compatible (multi-provider) ----
 
-/** Prefix prepended to user-defined IDs to form the runtime providerId, e.g. "openai_compat_groq". */
+/** Prefix prepended to user-defined IDs to form the runtime providerId, e.g. "openai_compat_openrouter". */
 export const OPENAI_COMPAT_ID_PREFIX = 'openai_compat_';
-/** Prefix used for individual settings keys, e.g. "oc_groq_apiKey". */
+/** Prefix used for individual settings keys, e.g. "oc_openrouter_apiKey". */
 export const OPENAI_COMPAT_KEY_PREFIX = 'oc_';
 
 export interface OpenAICompatProviderMeta {
-    /** Short alphanumeric identifier chosen by the user, e.g. "groq". */
+    /** Short alphanumeric identifier chosen by the user, e.g. "openrouter". */
     id: string;
     /** Human-readable display name, e.g. "Groq". */
     label: string;

@@ -115,13 +115,6 @@ We use **Vitest** for automated testing, configured with `jsdom` for browser sim
 
 # AI Agent Tools & Conventions
 
-### Tool List (agents configuration)
-The canonical tool list with version lives in `.agent/rules/agents.md` (Tool List section). When you add, remove, or change tools:
-1. Bump `logseq-doc-agent.tool-list-version` in that file.
-2. Run `npm run generate:tool-list` and replace the list content with the output.
-
-Descriptions are taken from the tool definitions in `src/infra/ai/tools/` (exported description constants).
-
 ### Short ID Addressing
 We use **Session-based Short IDs** (e.g., `#a1b2`) for stable, concise block references without graph pollution.
 
@@ -155,6 +148,10 @@ We use **Session-based Short IDs** (e.g., `#a1b2`) for stable, concise block ref
     <button use:clickAction={() => doSomething()}>Click</button>
     ```
 *   **When to use**: Prefer actions for interactive elements in dynamic lists, modals, or any component where standard `onclick` fails silently.
+
+## Changing infra/ai/tools
+
+When adding, removing or changing tools, increment logseq-doc-agent.tool-list-version, so an auto-documentation will be triggered when the plugin updates within logseq.
 
 # UI Block Injection
 

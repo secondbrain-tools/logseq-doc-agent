@@ -129,6 +129,11 @@ export class Services {
             if (created) {
                 console.log('[Services] Default agent was created');
             }
+
+            const toolListUpdated = await this.agentRepository.ensureToolListBlock();
+            if (toolListUpdated) {
+                console.log('[Services] Tool list was created or updated');
+            }
         } catch (error) {
             console.error('[Services] Error initializing agents:', error);
         }

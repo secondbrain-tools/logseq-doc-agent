@@ -93,11 +93,12 @@
 ## Customize Agents and Prompts
 
 The page `logseq-doc-agent`in graph acts as entrypoint for logseq.
- - in the subpage Agent, you find the included agent definition. Add you own agents on any other page in your graph. To  change the built in agents, use their name to override them.
- - in the subpage Prompt, you find the included prompt definitions. Similar to agents, you can add your own prompts on any other page in your graph. To change the built in prompts, use their name to override them.
-   - Except for the base prompt, all prompts are written from the user's perspective, normally using I. They will be prepended before your message.
+ - in the subpage *agents*, you find the included agent definition. Add you own agents on any other page in your graph. To  change the built-in agents, use their name to override them.
+   - Available Tools (currently not many) ad listed in the *Available Tool List* in the *agents* page. 
+ - in the subpage *prompts*, you find the included prompt definitions. Similar to agents, you can add your own prompts on any other page in your graph. To change the built-in prompts, use their name to override them.
+   - Except for the *system* prompt, all prompts are written from the user's perspective, normally using I. They will be prepended before your message.
    - Prompts can be added using `/`in the Chat Input.
- - Built in prompts or agents under `logseq-doc-agent` can be overwritten with future updates. 
+ - Built-in prompts or agents under `logseq-doc-agent` may be overwritten with future updates. 
 
 ## Current Insights
 - The merge mode improves working with important documents by making changes easy to track and, if necessary, revert. Ideally, the diff and merge workflow would be integrated directly into the document; however, this functionality might also be better implemented in Logseq itself.

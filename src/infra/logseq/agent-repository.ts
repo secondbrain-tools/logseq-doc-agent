@@ -4,6 +4,9 @@ import { DEFAULT_AGENT_NAME, ASK_AGENT_NAME } from '../../domain/agent/types';
 import { builtInAgents } from '../../domain/agent/built-in-agents';
 import type { LogseqApi } from '../../application/ports/logseq-ports';
 import { filterPropertyLinesFromContent } from '../../domain/logseq/properties';
+import { generateToolListString, TOOL_LIST_VERSION } from '../ai/tools/tool-list-generator';
+import { parseSubtree } from '../ai/tools/subtree-parser';
+import { insertSubtreeRecursive } from '../ai/tools/block-operations';
 
 /**
  * Notice block content placed at the top of the agents page.
@@ -16,6 +19,10 @@ const NOTICE_MARKER_PROPERTY = 'logseq-doc-agent.notice';
  * Queries blocks with logseq-doc-agent.agent property
  */
 export class LogseqAgentRepository implements IAgentRepository {
+    // Tool list property
+    private static readonly TOOL_LIST_VERSION_PROPERTY = 'logseq-doc-agent.tool-list-version';
+    private static readonly TOOL_LIST_VERSION_PROPERTY_CAMEL = 'logseqDocAgent.toolListVersion';
+
     // Base property names
     private static readonly AGENT_PROPERTY = 'logseq-doc-agent.agent';
     private static readonly TOOLS_PROPERTY = 'logseq-doc-agent.agent.tools';
@@ -238,6 +245,94 @@ ${agentConfig.isDefault ? `${LogseqAgentRepository.DEFAULT_PROPERTY}:: true` : '
         }
 
         return anyCreatedOrUpdated;
+    }
+
+    async ensureToolListBlock(): Promise<boolean> {
+        const storageRoot = this.getStorageRoot();
+        const agentsPageName = `${storageRoot}/agents`;
+
+        let agentsPage = await this.logseqApi.getPage(agentsPageName);
+        if (!agentsPage) {
+            agentsPage = await this.logseqApi.createPage(agentsPageName, {}, { createFirstBlock: false, redirect: false });
+        }
+
+        const pageBlocks = await this.logseqApi.getPageBlocksTree(agentsPageName);
+
+        const existingBlock = this.findBlockByProperty(
+            pageBlocks,
+            LogseqAgentRepository.TOOL_LIST_VERSION_PROPERTY
+        );
+
+        if (existingBlock) {
+            const existingVersion = this.readToolListVersion(existingBlock);
+            if (existingVersion >= TOOL_LIST_VERSION) {
+                return false;
+            }
+            console.log(`[LogseqAgentRepository] Updating tool list from v${existingVersion} to v${TOOL_LIST_VERSION}`);
+            await this.replaceBlockSubtree(existingBlock.uuid, TOOL_LIST_VERSION);
+            return true;
+        }
+
+        console.log(`[LogseqAgentRepository] Creating tool list v${TOOL_LIST_VERSION}`);
+        const parsed = parseSubtree(generateToolListString(TOOL_LIST_VERSION));
+        // The ## title is parsed as a list item, so the root block is parsed.children[0]
+        const rootNode = parsed.children[0];
+        if (!rootNode) return false;
+
+        const newBlock = await this.logseqApi.appendBlockInPage(agentsPageName, rootNode.content);
+        if (newBlock) {
+            for (const child of rootNode.children) {
+                await insertSubtreeRecursive(newBlock.uuid, child, {}, false);
+            }
+        }
+        return true;
+    }
+
+    private findBlockByProperty(blocks: any[], propertyName: string): any | null {
+        for (const b of blocks) {
+            if (b.properties?.[propertyName] !== undefined) return b;
+            if (b.content?.includes(`${propertyName}::`)) return b;
+            if (b.children?.length > 0) {
+                const found = this.findBlockByProperty(b.children, propertyName);
+                if (found) return found;
+            }
+        }
+        return null;
+    }
+
+    private readToolListVersion(block: any): number {
+        const props = block.properties || {};
+        for (const key of [
+            LogseqAgentRepository.TOOL_LIST_VERSION_PROPERTY,
+            LogseqAgentRepository.TOOL_LIST_VERSION_PROPERTY_CAMEL
+        ]) {
+            if (props[key] !== undefined) return Number(props[key]) || 0;
+        }
+
+        const content = block.content || '';
+        const match = content.match(/logseq-doc-agent\.tool-list-version::\s*(\d+)/);
+        return match ? Number(match[1]) : 0;
+    }
+
+    private async replaceBlockSubtree(blockUuid: string, version: number): Promise<void> {
+        const block = await this.logseqApi.getBlock(blockUuid, { includeChildren: true });
+        if (block?.children?.length) {
+            for (const child of [...block.children].reverse()) {
+                const childUuid = (child as any).uuid || (Array.isArray(child) ? child[1] : (child as any).id);
+                if (childUuid) await this.logseqApi.deleteBlock(childUuid);
+            }
+        }
+
+        const parsed = parseSubtree(generateToolListString(version));
+        // The ## title is parsed as a list item, so the root block is parsed.children[0]
+        const rootNode = parsed.children[0];
+        if (!rootNode) return;
+
+        await this.logseqApi.updateBlock(blockUuid, rootNode.content);
+
+        for (const child of rootNode.children) {
+            await insertSubtreeRecursive(blockUuid, child, {}, false);
+        }
     }
 
     /**

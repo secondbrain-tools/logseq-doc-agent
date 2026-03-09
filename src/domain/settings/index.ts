@@ -76,6 +76,14 @@ export const PROVIDERS: ProviderDefinition[] = [
             { label: 'Mistral Large', value: 'mistral-large-latest', defaultEnabled: true },
             { label: 'Mistral Small', value: 'mistral-small-latest', defaultEnabled: true },
         ]
+    },
+    {
+        id: 'openai_compatible',
+        label: 'OpenAI Compatible',
+        apiKeySettingKey: 'openaiCompatibleApiKey',
+        apiKeyLabel: 'OpenAI Compatible API Key',
+        apiKeyDesc: 'Enter your API key for the OpenAI-compatible provider.',
+        models: [],
     }
 ];
 

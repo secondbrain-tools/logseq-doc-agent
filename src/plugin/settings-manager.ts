@@ -57,6 +57,33 @@ export const configureSettings = () => {
                 inputAs: 'password' as any
             });
 
+            // OpenAI Compatible extra configuration
+            if (provider.id === 'openai_compatible') {
+                settings.push({
+                    key: 'openaiCompatibleName',
+                    type: 'string',
+                    title: 'Provider Name',
+                    description: 'A short identifier for this provider (e.g. "groq", "together"). Used internally as the provider name.',
+                    default: 'openai-compatible',
+                });
+
+                settings.push({
+                    key: 'openaiCompatibleBaseURL',
+                    type: 'string',
+                    title: 'Base URL',
+                    description: 'The base URL for the OpenAI-compatible API (e.g. https://api.groq.com/openai/v1).',
+                    default: '',
+                });
+
+                settings.push({
+                    key: 'openaiCompatibleIncludeUsage',
+                    type: 'boolean',
+                    title: 'Include Usage in Streaming',
+                    description: 'Include token usage information in streaming responses.',
+                    default: false,
+                });
+            }
+
             // Models Heading
             settings.push({
                 key: `heading_models_${provider.id}`,

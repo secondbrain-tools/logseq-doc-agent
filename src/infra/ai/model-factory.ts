@@ -3,6 +3,7 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createMistral } from '@ai-sdk/mistral';
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { wrapLanguageModel, extractReasoningMiddleware, type LanguageModel } from 'ai';
 
 export interface ModelConfig {
@@ -59,6 +60,22 @@ export class ModelFactory {
             });
             // Raw model, middleware applied in configureModel if needed
             model = mistral(modelId);
+        } else if (providerId === 'openai_compatible') {
+            const name = (settings['openaiCompatibleName'] as string) || 'openai-compatible';
+            const baseURL = settings['openaiCompatibleBaseURL'] as string;
+            const includeUsage = settings['openaiCompatibleIncludeUsage'] === true;
+
+            if (!baseURL) {
+                throw new Error('Base URL for OpenAI-compatible provider is not configured in settings.');
+            }
+
+            const compatibleProvider = createOpenAICompatible({
+                name,
+                apiKey,
+                baseURL,
+                includeUsage,
+            });
+            model = compatibleProvider(modelId);
         } else {
             throw new Error(`Provider ${providerId} not supported yet.`);
         }

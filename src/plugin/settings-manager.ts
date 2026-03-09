@@ -494,11 +494,11 @@ export const configureSettings = () => {
         default: 25,
     });
 
-    // 3. Storage Settings
+    // 3. UI Settings
     settings.push({
-        key: 'heading_storage',
+        key: 'heading_ui',
         type: 'heading',
-        title: 'Storage Settings',
+        title: 'UI Settings',
         description: '',
         default: null
     });
@@ -509,6 +509,15 @@ export const configureSettings = () => {
         title: 'Maximized Chat Width',
         description: 'Width of the chat area when maximized (e.g. "900px", "60%", "40rem"). Default: 900px',
         default: '80rem',
+    });
+
+    // 4. Storage Settings
+    settings.push({
+        key: 'heading_storage',
+        type: 'heading',
+        title: 'Storage Settings',
+        description: '',
+        default: null
     });
 
     settings.push({

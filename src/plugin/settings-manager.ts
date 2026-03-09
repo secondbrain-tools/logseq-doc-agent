@@ -1,5 +1,12 @@
 import '@logseq/libs';
-import { PROVIDERS, type SettingSchemaDesc } from '../domain/settings/index';
+import {
+    PROVIDERS,
+    OPENAI_COMPAT_ID_PREFIX,
+    OPENAI_COMPAT_KEY_PREFIX,
+    parseOpenAICompatProviders,
+    type SettingSchemaDesc,
+    type OpenAICompatProviderMeta,
+} from '../domain/settings/index';
 
 export const configureSettings = () => {
     const currentSettings = (logseq.settings as any) || {};
@@ -56,33 +63,6 @@ export const configureSettings = () => {
                 default: '',
                 inputAs: 'password' as any
             });
-
-            // OpenAI Compatible extra configuration
-            if (provider.id === 'openai_compatible') {
-                settings.push({
-                    key: 'openaiCompatibleName',
-                    type: 'string',
-                    title: 'Provider Name',
-                    description: 'A short identifier for this provider (e.g. "groq", "together"). Used internally as the provider name.',
-                    default: 'openai-compatible',
-                });
-
-                settings.push({
-                    key: 'openaiCompatibleBaseURL',
-                    type: 'string',
-                    title: 'Base URL',
-                    description: 'The base URL for the OpenAI-compatible API (e.g. https://api.groq.com/openai/v1).',
-                    default: '',
-                });
-
-                settings.push({
-                    key: 'openaiCompatibleIncludeUsage',
-                    type: 'boolean',
-                    title: 'Include Usage in Streaming',
-                    description: 'Include token usage information in streaming responses.',
-                    default: false,
-                });
-            }
 
             // Models Heading
             settings.push({
@@ -185,6 +165,152 @@ export const configureSettings = () => {
             });
         }
     }
+
+    // ---- OpenAI Compatible Providers (dynamic, multi-instance) ----
+    const compatProviders = parseOpenAICompatProviders(currentSettings);
+
+    settings.push({
+        key: 'spacer_compat_providers',
+        type: 'heading',
+        title: '',
+        description: '',
+        default: null
+    });
+
+    settings.push({
+        key: 'heading_compat_providers',
+        type: 'heading',
+        title: 'OpenAI Compatible Providers',
+        description: '',
+        default: null
+    });
+
+    settings.push({
+        key: 'add_compat_provider_id',
+        type: 'string',
+        title: 'Add Provider — Short ID',
+        description: 'Alphanumeric identifier for the new provider (e.g. "groq"). Fill both fields then click away.',
+        default: '',
+    });
+
+    settings.push({
+        key: 'add_compat_provider_label',
+        type: 'string',
+        title: 'Add Provider — Display Name',
+        description: 'Human-readable name for the new provider (e.g. "Groq").',
+        default: '',
+    });
+
+    for (const compat of compatProviders) {
+        const providerId = `${OPENAI_COMPAT_ID_PREFIX}${compat.id}`;
+        const keyPrefix = `${OPENAI_COMPAT_KEY_PREFIX}${compat.id}_`;
+
+        settings.push({
+            key: `spacer_compat_${compat.id}`,
+            type: 'heading',
+            title: '',
+            description: '',
+            default: null
+        });
+
+        settings.push({
+            key: `heading_compat_${compat.id}`,
+            type: 'heading',
+            title: `  ${compat.label}`,
+            description: '',
+            default: null
+        });
+
+        settings.push({
+            key: `remove_compat_provider_${compat.id}`,
+            type: 'boolean',
+            title: `Remove ${compat.label}`,
+            description: 'Toggle on to remove this compatible provider.',
+            default: false,
+        });
+
+        settings.push({
+            key: `${keyPrefix}apiKey`,
+            type: 'string',
+            title: `${compat.label} API Key`,
+            description: `API key for ${compat.label}.`,
+            default: '',
+            inputAs: 'password' as any,
+        });
+
+        settings.push({
+            key: `${keyPrefix}name`,
+            type: 'string',
+            title: `${compat.label} Provider Name`,
+            description: 'Internal name passed to the AI SDK (e.g. "groq"). Defaults to the short ID.',
+            default: compat.id,
+        });
+
+        settings.push({
+            key: `${keyPrefix}baseURL`,
+            type: 'string',
+            title: `${compat.label} Base URL`,
+            description: 'API base URL (e.g. https://api.groq.com/openai/v1).',
+            default: '',
+        });
+
+        settings.push({
+            key: `${keyPrefix}includeUsage`,
+            type: 'boolean',
+            title: `${compat.label} Include Usage in Streaming`,
+            description: 'Include token usage information in streaming responses.',
+            default: false,
+        });
+
+        settings.push({
+            key: `heading_compat_models_${compat.id}`,
+            type: 'heading',
+            title: `  ${compat.label} Models`,
+            description: '',
+            default: null
+        });
+
+        const compatCustomModels = customModels[providerId] || [];
+        for (const modelName of compatCustomModels) {
+            enabledModels.push({
+                label: `${compat.label}: ${modelName}`,
+                value: modelName,
+            });
+
+            settings.push({
+                key: `remove_custom_model_${providerId}_${modelName}`,
+                type: 'boolean',
+                title: `Remove ${modelName}`,
+                description: 'Remove this model.',
+                default: false,
+            });
+
+            settings.push({
+                key: `disable_streaming_${providerId}_${modelName}`,
+                type: 'boolean',
+                title: `    ↳ Disable Streaming`,
+                description: 'Show full response at once.',
+                default: false,
+            });
+
+            settings.push({
+                key: `enable_reasoning_${providerId}_${modelName}`,
+                type: 'boolean',
+                title: `    ↳ Enable Reasoning`,
+                description: 'Enable reasoning capabilities for this model.',
+                default: false,
+            });
+        }
+
+        settings.push({
+            key: `add_custom_model_${providerId}`,
+            type: 'string',
+            title: `Add New ${compat.label} Model`,
+            description: 'Enter a model ID and click away to add (e.g. llama-3.1-70b-versatile).',
+            default: '',
+        });
+    }
+    // ---- end OpenAI Compatible Providers ----
 
     // Merge Settings
     settings.push({
@@ -443,6 +569,82 @@ export const setupSettings = () => {
             logseq.updateSettings({ custom_models: JSON.stringify(customModels) });
             return;
         }
+
+        // ---- Handle OpenAI Compatible providers ----
+        let compatProviders = parseOpenAICompatProviders(newSettings);
+        let shouldUpdateCompatProviders = false;
+
+        // Check for openai_compat_providers list change (triggers reconfigure)
+        if (newSettings['openai_compat_providers'] !== oldSettings['openai_compat_providers']) {
+            shouldReconfigure = true;
+        }
+
+        // Add new compatible provider (both id and label must be filled)
+        const newCompatId = (newSettings['add_compat_provider_id'] as string || '').trim().replace(/[^a-zA-Z0-9_]/g, '_');
+        const newCompatLabel = (newSettings['add_compat_provider_label'] as string || '').trim();
+        if (newCompatId && newCompatLabel) {
+            if (!compatProviders.find((p: OpenAICompatProviderMeta) => p.id === newCompatId)) {
+                compatProviders.push({ id: newCompatId, label: newCompatLabel });
+                shouldUpdateCompatProviders = true;
+            }
+            logseq.updateSettings({ add_compat_provider_id: '', add_compat_provider_label: '' });
+        }
+
+        // Remove a compatible provider
+        const providersToRemove: string[] = [];
+        for (const compat of compatProviders) {
+            const removeKey = `remove_compat_provider_${compat.id}`;
+            if (newSettings[removeKey] === true) {
+                providersToRemove.push(compat.id);
+                logseq.updateSettings({ [removeKey]: false });
+            }
+        }
+        if (providersToRemove.length > 0) {
+            compatProviders = compatProviders.filter((p: OpenAICompatProviderMeta) => !providersToRemove.includes(p.id));
+            shouldUpdateCompatProviders = true;
+        }
+
+        if (shouldUpdateCompatProviders) {
+            logseq.updateSettings({ openai_compat_providers: JSON.stringify(compatProviders) });
+            return;
+        }
+
+        // Add/remove custom models for each compatible provider
+        let shouldUpdateCompatModels = false;
+        for (const compat of compatProviders) {
+            const providerId = `${OPENAI_COMPAT_ID_PREFIX}${compat.id}`;
+
+            const addKey = `add_custom_model_${providerId}`;
+            const newModelName = (newSettings[addKey] as string || '').trim();
+            if (newModelName) {
+                if (!customModels[providerId]) customModels[providerId] = [];
+                if (!customModels[providerId].includes(newModelName)) {
+                    customModels[providerId].push(newModelName);
+                    shouldUpdateCompatModels = true;
+                }
+                logseq.updateSettings({ [addKey]: '' });
+            }
+
+            const compatModels = customModels[providerId] || [];
+            const compatModelsToRemove: string[] = [];
+            for (const modelName of compatModels) {
+                const removeKey = `remove_custom_model_${providerId}_${modelName}`;
+                if (newSettings[removeKey] === true) {
+                    compatModelsToRemove.push(modelName);
+                    logseq.updateSettings({ [removeKey]: false });
+                }
+            }
+            if (compatModelsToRemove.length > 0) {
+                customModels[providerId] = customModels[providerId].filter(m => !compatModelsToRemove.includes(m));
+                shouldUpdateCompatModels = true;
+            }
+        }
+
+        if (shouldUpdateCompatModels) {
+            logseq.updateSettings({ custom_models: JSON.stringify(customModels) });
+            return;
+        }
+        // ---- end OpenAI Compatible providers ----
 
         if (shouldReconfigure) {
             console.log('Settings schema affecting configuration changed, refreshing schema...');

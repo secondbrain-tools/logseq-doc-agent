@@ -8,7 +8,11 @@
     } from "../../../infra/logseq/context-utils";
     import type { ContextItem } from "../../../domain/chat/types";
 
-    import { PROVIDERS } from "../../../domain/settings/index";
+    import {
+        PROVIDERS,
+        OPENAI_COMPAT_ID_PREFIX,
+        parseOpenAICompatProviders,
+    } from "../../../domain/settings/index";
     import type { ProviderGroup } from "./ModelSelector.svelte";
     import ChatHistoryModal from "./ChatHistoryModal.svelte";
     import ContextMenu from "./ContextMenu.svelte";
@@ -192,6 +196,30 @@
                 });
             }
         }
+
+        // Dynamic OpenAI Compatible providers
+        const compatProviders = parseOpenAICompatProviders(settings);
+        for (const compat of compatProviders) {
+            const providerId = `${OPENAI_COMPAT_ID_PREFIX}${compat.id}`;
+            const compatCustomModels: string[] = customModels[providerId] || [];
+            const groupModels: any[] = compatCustomModels.map((modelName) => {
+                const reasoningKey = `enable_reasoning_${providerId}_${modelName}`;
+                return {
+                    id: modelName,
+                    name: modelName,
+                    supportsReasoning: settings[reasoningKey] || false,
+                };
+            });
+
+            if (groupModels.length > 0) {
+                groups.push({
+                    providerId,
+                    providerName: compat.label,
+                    models: groupModels,
+                });
+            }
+        }
+
         modelGroups = groups;
 
         // Ensure selected model is still valid

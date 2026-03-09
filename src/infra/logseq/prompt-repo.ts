@@ -63,7 +63,7 @@ export class LogseqPromptRepository implements PromptRepository {
                     name,
                     content,
                     pageName,
-                    isBase: name === 'base'
+                    isBase: name === 'system'
                 });
             } catch (e) {
                 console.error('[LogseqPromptRepository] Error parsing prompt block', block, e);

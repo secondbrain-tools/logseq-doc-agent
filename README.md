@@ -1,4 +1,7 @@
-# Logseq Doc Agent
+# <img src="icon.png" alt="Doc Agent Icon" width="33" style="float:left;padding:0 10px 0px 0">  Logseq Doc Agent
+
+
+
 
   <center>
     <a href="https://raw.githubusercontent.com/secondbrain-tools/logseq-doc-agent/master/docs/screenshots/doc-agent.png">
@@ -67,7 +70,34 @@
 - OpenAI Compatible Providers: Define multiple custom provides. For example for [OpenRouter](https://openrouter.ai/), [LM Studio](https://lmstudio.ai/) or [Ollama](https://ollama.ai/) . 
   - Remark: currently an API kay is always required, even if the provider is not using it. (just enter any random string)
 
+## Installation
 
+1. Install it via the Logseq Marketplace. Add at least one LLM provider to your setup.
+
+2. Select a default AI Model and a Mini AI model. The latter is used for small tasks like name chatlogs.
+
+3. **Important:** edit your `config.edn`:
+
+   We need to hide clunky merge and evaluation blocks from the UI.
+   - via Settings > General > Custom configuration > [Edit config.edn]
+   - Add the following two properties your `block-hidden-properties`
+   
+     - `logseq-doc-agent.merge`
+     - `logseq-doc-agent.evaluation`
+   
+     e.g.:
+     ```clojure
+     :block-hidden-properties #{:logseq-doc-agent. merge :logseq-doc-agent.evaluation}
+     ```
+
+## Customize Agents and Prompts
+
+The page `logseq-doc-agent`in graph acts as entrypoint for logseq.
+ - in the subpage Agent, you find the included agent definition. Add you own agents on any other page in your graph. To  change the built in agents, use their name to override them.
+ - in the subpage Prompt, you find the included prompt definitions. Similar to agents, you can add your own prompts on any other page in your graph. To change the built in prompts, use their name to override them.
+   - Except for the base prompt, all prompts are written from the user's perspective, normally using I. They will be prepended before your message.
+   - Prompts can be added using `/`in the Chat Input.
+ - Built in prompts or agents under `logseq-doc-agent` can be overwritten with future updates. 
 
 ## Current Insights
 - The merge mode improves working with important documents by making changes easy to track and, if necessary, revert. Ideally, the diff and merge workflow would be integrated directly into the document; however, this functionality might also be better implemented in Logseq itself.

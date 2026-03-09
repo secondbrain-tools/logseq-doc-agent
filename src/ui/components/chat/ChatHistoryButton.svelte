@@ -1,4 +1,6 @@
 <script lang="ts">
+    import { clickHandler } from "../../util/actions";
+
     interface Props {
         onClick: () => void;
     }
@@ -27,7 +29,7 @@
     title="Chat History"
     type="button"
     draggable="false"
-    onclick={handleClick}
+    use:clickHandler={handleClick}
     onmousedown={handleMouseDown}
     ondragstart={handleDragStart}
 >

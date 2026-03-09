@@ -1,5 +1,6 @@
 <script lang="ts">
     import { onMount, onDestroy } from "svelte";
+    import { clickHandler } from "../../util/actions";
 
     // Types
     export interface ModelItem {
@@ -148,7 +149,7 @@
     onMount(() => {
         const targetDoc = window.parent?.document || window.document;
 
-        const clickHandler = (e: Event) => {
+        const clickOutsideHandler = (e: Event) => {
             const target = e.target as HTMLElement;
             // If click inside trigger or popover, ignore
             if (triggerRef && triggerRef.contains(target)) return;
@@ -164,11 +165,11 @@
             }
         };
 
-        targetDoc.addEventListener("click", clickHandler);
+        targetDoc.addEventListener("click", clickOutsideHandler);
         targetDoc.addEventListener("keydown", keyHandler);
 
         cleanupListeners = () => {
-            targetDoc.removeEventListener("click", clickHandler);
+            targetDoc.removeEventListener("click", clickOutsideHandler);
             targetDoc.removeEventListener("keydown", keyHandler);
         };
     });
@@ -182,7 +183,7 @@
     <button
         bind:this={triggerRef}
         class="lda-model-trigger"
-        onclick={toggleOpen}
+        use:clickHandler={toggleOpen}
         {disabled}
         title="Select AI Model"
     >

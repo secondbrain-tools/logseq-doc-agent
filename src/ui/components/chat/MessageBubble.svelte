@@ -9,6 +9,7 @@
         getToolSummary,
         type ToolSubGroup,
     } from "./message-bubble.utils";
+    import { clickHandler } from "../../util/actions";
 
     interface Props {
         msg: Message;
@@ -65,7 +66,7 @@
             type="button"
             class="flex justify-between items-center w-full p-2 cursor-pointer focus:outline-none hover:opacity-80 transition-opacity gap-3"
             style="background: none; border: none; color: var(--ls-primary-text-color); text-align: left;"
-            onclick={() => onToggleCollapse(pIndex)}
+            use:clickHandler={() => onToggleCollapse(pIndex)}
             aria-expanded={!isCollapsed}
         >
             <div class="flex items-center gap-2 font-mono overflow-hidden">
@@ -186,7 +187,7 @@
                                 <button
                                     class="text-xs font-medium flex items-center hover:underline focus:outline-none"
                                     style="color: var(--ls-secondary-text-color); background: none; border: none; cursor: pointer;"
-                                    onclick={() => onToggleCollapse(pIndex)}
+                                    use:clickHandler={() => onToggleCollapse(pIndex)}
                                 >
                                     <span class="mr-1"
                                         >{part.isCollapsed ? "▶" : "▼"}</span
@@ -279,7 +280,7 @@
                                 <button
                                     class="flex items-center gap-2 p-2 rounded border text-xs cursor-pointer hover:bg-opacity-80 transition hover:shadow-sm relative z-10"
                                     style="background: var(--ls-secondary-background-color); border-color: var(--ls-border-color); color: var(--ls-primary-text-color); width: 100%; min-width: 0;"
-                                    onclick={() => toggleGroup(key)}
+                                    use:clickHandler={() => toggleGroup(key)}
                                 >
                                     <span class="font-mono">🔨</span>
                                     <span class="font-bold flex-1 text-left"
@@ -320,7 +321,7 @@
                                 <button
                                     class="text-xs font-medium flex items-center hover:underline focus:outline-none"
                                     style="color: var(--ls-secondary-text-color); background: none; border: none; cursor: pointer;"
-                                    onclick={() => toggleGroup(groupKey)}
+                                    use:clickHandler={() => toggleGroup(groupKey)}
                                 >
                                     <span class="mr-1"
                                         >{isExpanded ? "▼" : "▶"}</span

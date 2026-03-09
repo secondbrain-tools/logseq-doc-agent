@@ -3,6 +3,7 @@
     import { fade } from "svelte/transition";
     import type { AgentDefinition } from "../../../domain/agent/types";
     import ChatModal from "./ChatModal.svelte";
+    import { clickHandler } from "../../util/actions";
 
     interface Props {
         agents: AgentDefinition[];
@@ -121,7 +122,7 @@
     onMount(() => {
         const targetDoc = window.parent?.document || window.document;
 
-        const clickHandler = (e: Event) => {
+        const clickOutsideHandler = (e: Event) => {
             const target = e.target as HTMLElement;
             if (triggerRef && triggerRef.contains(target)) return;
             if (popoverRef && popoverRef.contains(target)) return;
@@ -134,11 +135,11 @@
             }
         };
 
-        targetDoc.addEventListener("click", clickHandler);
+        targetDoc.addEventListener("click", clickOutsideHandler);
         targetDoc.addEventListener("keydown", keyHandler);
 
         cleanupListeners = () => {
-            targetDoc.removeEventListener("click", clickHandler);
+            targetDoc.removeEventListener("click", clickOutsideHandler);
             targetDoc.removeEventListener("keydown", keyHandler);
         };
     });
@@ -152,7 +153,7 @@
     <button
         bind:this={triggerRef}
         class="lda-agent-trigger"
-        onclick={toggleOpen}
+        use:clickHandler={toggleOpen}
         {disabled}
         title="Select Agent"
     >
@@ -185,7 +186,7 @@
                 <span class="lda-popover-title">Agents</span>
                 <button
                     class="lda-icon-btn"
-                    onclick={openModal}
+                    use:clickHandler={openModal}
                     title="View all agents with details"
                 >
                     <svg
@@ -264,7 +265,7 @@
                 <button
                     class="lda-agent-card"
                     class:selected={agent.name === value}
-                    onclick={() => selectAgent(agent)}
+                    use:clickHandler={() => selectAgent(agent)}
                 >
                     <div class="lda-agent-card-header">
                         <div class="lda-agent-name-group">

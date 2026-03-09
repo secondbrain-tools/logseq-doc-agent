@@ -13,7 +13,7 @@
     } from "../../../infra/logseq/context-utils";
     import type { ContextItem } from "../../../infra/logseq/context-utils";
     import type { ChatPrompt } from "../../../domain/chat/prompt";
-    import { autoresize, clickAction } from "../../util/actions";
+    import { autoresize, clickAction, clickHandler } from "../../util/actions";
     import { ICONS } from "../../icons";
     import {
         applyPromptSelection,
@@ -566,7 +566,7 @@
         {#if isMaxedOut}
             <button
                 class="lda-maximize-btn"
-                onclick={toggleExpand}
+                use:clickHandler={() => void toggleExpand()}
                 title="Maximize Input"
             >
                 {@html ICONS.maximizeInput}
@@ -661,7 +661,7 @@
         {#if isLoading}
             <button
                 class="lda-btn-primary lda-stop-btn"
-                onclick={onStop}
+                use:clickHandler={() => onStop?.()}
                 title="Stop Generation"
             >
                 <svg
@@ -681,7 +681,7 @@
         {:else}
             <button
                 class="lda-btn-primary"
-                onclick={onSendMessage}
+                use:clickHandler={onSendMessage}
                 title="Send"
                 disabled={!inputText.trim()}
                 style={!inputText.trim()

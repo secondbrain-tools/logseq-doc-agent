@@ -1,5 +1,6 @@
 <script lang="ts">
     import { onMount } from "svelte";
+    import { clickHandler } from "../../util/actions";
 
     interface Option {
         label: string;
@@ -69,7 +70,7 @@
     {#each options as option}
         <button
             class="lda-context-menu-item {option.danger ? 'danger' : ''}"
-            onclick={() => {
+            use:clickHandler={() => {
                 option.action();
                 onClose();
             }}

@@ -21,6 +21,7 @@
     import type { AgentDefinition } from "../../../domain/agent/types";
     import type { ChatPrompt } from "../../../domain/chat/prompt";
     import { Services } from "../../../services";
+    import { clickHandler } from "../../util/actions";
 
     interface Props {
         messages: Writable<Message[]>;
@@ -724,7 +725,7 @@
                 <div class="flex justify-center p-2 animate-fade-in">
                     <button
                         class="px-3 py-1 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-md shadow-sm transition-colors flex items-center gap-2"
-                        onclick={onContinue}
+                        use:clickHandler={() => onContinue?.()}
                     >
                         <svg
                             xmlns="http://www.w3.org/2000/svg"

@@ -2,6 +2,7 @@
     import type { ChatlogMetadata } from "../../../domain/chatlog/types";
     import "../../styles/chathistory.css";
     import ChatModal from "./ChatModal.svelte";
+    import { clickHandler } from "../../util/actions";
 
     interface Props {
         isOpen: boolean;
@@ -233,7 +234,7 @@
                         {#each group.items as chatlog (chatlog.id)}
                             <div
                                 class="lda-history-item"
-                                onclick={() => handleSelect(chatlog.id)}
+                                use:clickHandler={() => handleSelect(chatlog.id)}
                                 onkeydown={(event) =>
                                     handleItemKeydown(event, chatlog.id)}
                                 role="button"
@@ -258,7 +259,7 @@
                                     chatlog.id
                                         ? 'confirm'
                                         : ''}"
-                                    onclick={(e) => handleDelete(chatlog.id, e)}
+                                    use:clickHandler={(e) => handleDelete(chatlog.id, e)}
                                     title={deleteConfirmId === chatlog.id
                                         ? "Click again to confirm"
                                         : "Delete"}

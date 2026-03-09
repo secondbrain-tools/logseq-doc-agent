@@ -3,5 +3,5 @@ export interface ChatPrompt {
     name: string;      // Prompt name from property
     content: string;   // Block content + children (property lines filtered out)
     pageName: string;  // Page where the prompt lives
-    isBase: boolean;   // Whether name === 'base'
+    isBase: boolean;   // Whether name === 'system'
 }

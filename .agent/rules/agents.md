@@ -149,6 +149,10 @@ We use **Session-based Short IDs** (e.g., `#a1b2`) for stable, concise block ref
     ```
 *   **When to use**: Prefer actions for interactive elements in dynamic lists, modals, or any component where standard `onclick` fails silently.
 
+## Changing infra/ai/tools
+
+When adding, removing or changing tools, increment logseq-doc-agent.tool-list-version, so an auto-documentation will be triggered when the plugin updates within logseq.
+
 # UI Block Injection
 
 The Blockinjector offers UI injection methods (MutationObservers, Virtualization support, Parent-block scoping) for Logseq blocks.

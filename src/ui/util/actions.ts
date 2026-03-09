@@ -8,6 +8,19 @@ export function clickAction(node: HTMLElement, fn: (e: MouseEvent) => void) {
     return { destroy: () => node.removeEventListener('click', handler) };
 }
 
+/**
+ * Svelte action that attaches a click handler directly on the element,
+ * bypassing Svelte's event delegation. Use this instead of `onclick={...}`
+ * in Logseq plugin context (iframe -> parent.document injection) to avoid
+ * delegation failures across document boundaries.
+ *
+ * Unlike `clickAction`, does NOT call preventDefault or stopPropagation.
+ */
+export function clickHandler(node: HTMLElement, fn: (e: MouseEvent) => void) {
+    node.addEventListener('click', fn);
+    return { destroy: () => node.removeEventListener('click', fn) };
+}
+
 export function autoresize(node: HTMLTextAreaElement, _value: string) {
     let isMaxedOut = false;
 

@@ -1,6 +1,7 @@
 <script lang="ts">
     import type { Writable } from "svelte/store";
     import ChatHistoryButton from "./ChatHistoryButton.svelte";
+    import { clickHandler } from "../../util/actions";
 
     interface Props {
         onReset: () => void;
@@ -35,7 +36,7 @@
         type="button"
         draggable="false"
         disabled={isLoading ? $isLoading : false}
-        onclick={handleClick}
+        use:clickHandler={handleClick}
         onmousedown={handleMouseDown}
         ondragstart={handleDragStart}
     >

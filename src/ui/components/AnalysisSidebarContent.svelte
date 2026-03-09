@@ -9,6 +9,7 @@
         genericClick,
     } from "./evaluation/evaluation-review-logic";
     import { ICONS } from "../icons";
+    import { clickHandler } from "../util/actions";
 
     let {
         evaluationData,
@@ -149,7 +150,7 @@
                         <select
                             class="lda-threshold-select"
                             bind:value={scoreThreshold}
-                            onclick={(e) => e.stopPropagation()}
+                            use:clickHandler={(e) => e.stopPropagation()}
                         >
                             {#each [1, 2, 3, 4] as n}
                                 <option value={n}>{n}</option>

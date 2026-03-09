@@ -1,5 +1,6 @@
 <script lang="ts">
     import type { Snippet } from "svelte";
+    import { clickHandler } from "../../util/actions";
 
     interface Props {
         isOpen: boolean;
@@ -45,7 +46,7 @@
 {#if isOpen}
     <div
         class="lda-chat-modal-backdrop"
-        onclick={handleBackdropClick}
+        use:clickHandler={handleBackdropClick}
         onkeydown={handleBackdropKeydown}
         role="button"
         tabindex="0"
@@ -63,7 +64,7 @@
                     <h3 class="lda-chat-modal-title">{title}</h3>
                 {/if}
 
-                <button class="lda-btn-icon-sm" onclick={onClose} title="Close">
+                <button class="lda-btn-icon-sm" use:clickHandler={onClose} title="Close">
                     <svg
                         xmlns="http://www.w3.org/2000/svg"
                         width="18"

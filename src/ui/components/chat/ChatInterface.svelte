@@ -8,7 +8,11 @@
     } from "../../../infra/logseq/context-utils";
     import type { ContextItem } from "../../../domain/chat/types";
 
-    import { PROVIDERS } from "../../../domain/settings/index";
+    import {
+        PROVIDERS,
+        OPENAI_COMPAT_ID_PREFIX,
+        parseOpenAICompatProviders,
+    } from "../../../domain/settings/index";
     import type { ProviderGroup } from "./ModelSelector.svelte";
     import ChatHistoryModal from "./ChatHistoryModal.svelte";
     import ContextMenu from "./ContextMenu.svelte";
@@ -21,6 +25,7 @@
     import type { AgentDefinition } from "../../../domain/agent/types";
     import type { ChatPrompt } from "../../../domain/chat/prompt";
     import { Services } from "../../../services";
+    import { clickHandler } from "../../util/actions";
 
     interface Props {
         messages: Writable<Message[]>;
@@ -191,6 +196,30 @@
                 });
             }
         }
+
+        // Dynamic OpenAI Compatible providers
+        const compatProviders = parseOpenAICompatProviders(settings);
+        for (const compat of compatProviders) {
+            const providerId = `${OPENAI_COMPAT_ID_PREFIX}${compat.id}`;
+            const compatCustomModels: string[] = customModels[providerId] || [];
+            const groupModels: any[] = compatCustomModels.map((modelName) => {
+                const reasoningKey = `enable_reasoning_${providerId}_${modelName}`;
+                return {
+                    id: modelName,
+                    name: modelName,
+                    supportsReasoning: settings[reasoningKey] || false,
+                };
+            });
+
+            if (groupModels.length > 0) {
+                groups.push({
+                    providerId,
+                    providerName: compat.label,
+                    models: groupModels,
+                });
+            }
+        }
+
         modelGroups = groups;
 
         // Ensure selected model is still valid
@@ -724,7 +753,7 @@
                 <div class="flex justify-center p-2 animate-fade-in">
                     <button
                         class="px-3 py-1 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-md shadow-sm transition-colors flex items-center gap-2"
-                        onclick={onContinue}
+                        use:clickHandler={() => onContinue?.()}
                     >
                         <svg
                             xmlns="http://www.w3.org/2000/svg"

@@ -69,7 +69,11 @@ export class AgentRunner {
             }
         } catch (err) {
             console.error('[AgentRunner] Error in manual loop:', err);
-            controller.error(err);
+            // Enqueue an explicit error chunk instead of controller.error() so that the
+            // error reliably propagates through for-await regardless of the runtime's
+            // ReadableStream async-iterator support (varies across Electron versions).
+            try { controller.enqueue({ type: 'error', error: err }); } catch { /* already closed */ }
+            try { controller.close(); } catch { /* already closed */ }
         }
     }
 

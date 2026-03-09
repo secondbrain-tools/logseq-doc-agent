@@ -1,6 +1,13 @@
-# Logseq Doc Agent
+# <img src="icon.png" alt="Doc Agent Icon" width="33" style="float:left;padding:0 10px 0px 0">  Logseq Doc Agent
 
-  <center><a href="docs/screenshots/doc-agent.png"><img src="docs/screenshots/doc-agent.png" alt="Logeseq with Doc Agent editing Content" width="500"/></a></center>
+
+
+
+  <center>
+    <a href="https://raw.githubusercontent.com/secondbrain-tools/logseq-doc-agent/master/docs/screenshots/doc-agent.png">
+      <img src="https://raw.githubusercontent.com/secondbrain-tools/logseq-doc-agent/master/docs/screenshots/doc-agent.png" alt="Logeseq with Doc Agent editing Content" width="500"/>
+    </a>
+  </center>
 
 - The Doc Agent is inspired by modern IDE coding-agent integrations. It is a research prototype, but it is already useful in practice.
 - The intent is to explore non-intrusive ways to integrate an agent into knowledge management and content creation systems like Logseq. Since Logseq is a thinking space, the Doc Agent shall be developed to support thought processes, not take them over.
@@ -26,8 +33,17 @@
    #### Evaluations are integrated non-intrusively in the Logseq UI and meant to support your thinking
    - Browse Issues by category and criterion within a popover or in the sidebar. Choose between multiple suggestions and see a counterargument to let you reason about the feedback.
      Remark: This is the current state of development. It seems a bit cumbersome to navigate - at least in the popover.  
-     <center><a href="docs/screenshots/evaluation-sidebar.png"><img src="docs/screenshots/evaluation-sidebar.png" alt="Evaluation Sidebar" width="500"/></a>
-     <a href="docs/screenshots/evaluation-popover.png"><img src="docs/screenshots/evaluation-popover.png" alt="Evaluation Popover" width="500"/></a></center>
+
+     <center>
+       <a href="https://raw.githubusercontent.com/secondbrain-tools/logseq-doc-agent/master/docs/screenshots/evaluation-sidebar.png">
+        <img src="https://raw.githubusercontent.com/secondbrain-tools/logseq-doc-agent/master/docs/screenshots/evaluation-sidebar.png" alt="Evaluation Sidebar" width="500"/>
+      </a>
+     
+      <a href="https://raw.githubusercontent.com/secondbrain-tools/logseq-doc-agent/master/docs/screenshots/evaluation-popover.png">
+        <img src="https://raw.githubusercontent.com/secondbrain-tools/logseq-doc-agent/master/docs/screenshots/evaluation-popover.png" alt="Evaluation Popover" width="500"/>
+      </a>
+     </center>
+
    - Activate the "Pre-Commitment Prompt" that requires you to enter an improvement suggestion for an issue, before seeing the AI generated ones.
    - Discuss issues with the LLM directly within the evaluation UI.
    
@@ -50,9 +66,39 @@
 - Google
 - Mistral
 - OpenAI (currently, the only one tested)
-- Ollama
 
-(Local LLMs are coming - I thought that was done, but didn't check)
+- OpenAI Compatible Providers: Define multiple custom provides. For example for [OpenRouter](https://openrouter.ai/), [LM Studio](https://lmstudio.ai/) or [Ollama](https://ollama.ai/) . 
+  - Remark: currently an API kay is always required, even if the provider is not using it. (just enter any random string)
+
+## Installation
+
+1. Install it via the Logseq Marketplace. Add at least one LLM provider to your setup.
+
+2. Select a default AI Model and a Mini AI model. The latter is used for small tasks like name chatlogs.
+
+3. **Important:** edit your `config.edn`:
+
+   We need to hide clunky merge and evaluation blocks from the UI.
+   - via Settings > General > Custom configuration > [Edit config.edn]
+   - Add the following two properties your `block-hidden-properties`
+   
+     - `logseq-doc-agent.merge`
+     - `logseq-doc-agent.evaluation`
+   
+     e.g.:
+     ```clojure
+     :block-hidden-properties #{:logseq-doc-agent. merge :logseq-doc-agent.evaluation}
+     ```
+
+## Customize Agents and Prompts
+
+The page `logseq-doc-agent`in graph acts as entrypoint for logseq.
+ - in the subpage *agents*, you find the included agent definition. Add you own agents on any other page in your graph. To  change the built-in agents, use their name to override them.
+   - Available Tools (currently not many) ad listed in the *Available Tool List* in the *agents* page. 
+ - in the subpage *prompts*, you find the included prompt definitions. Similar to agents, you can add your own prompts on any other page in your graph. To change the built-in prompts, use their name to override them.
+   - Except for the *system* prompt, all prompts are written from the user's perspective, normally using I. They will be prepended before your message.
+   - Prompts can be added using `/`in the Chat Input.
+ - Built-in prompts or agents under `logseq-doc-agent` may be overwritten with future updates. 
 
 ## Current Insights
 - The merge mode improves working with important documents by making changes easy to track and, if necessary, revert. Ideally, the diff and merge workflow would be integrated directly into the document; however, this functionality might also be better implemented in Logseq itself.

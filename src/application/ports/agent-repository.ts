@@ -24,4 +24,11 @@ export interface IAgentRepository {
      * @returns true if any agent was created
      */
     ensureBuiltInAgentsExist(): Promise<boolean>;
+
+    /**
+     * Ensure the tool list block on the agents page is up-to-date.
+     * Compares the source TOOL_LIST_VERSION against the version stored
+     * in the Logseq block and regenerates if stale or missing.
+     */
+    ensureToolListBlock(): Promise<boolean>;
 }

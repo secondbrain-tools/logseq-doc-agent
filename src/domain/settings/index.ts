@@ -79,6 +79,31 @@ export const PROVIDERS: ProviderDefinition[] = [
     }
 ];
 
+// ---- OpenAI Compatible (multi-provider) ----
+
+/** Prefix prepended to user-defined IDs to form the runtime providerId, e.g. "openai_compat_openrouter". */
+export const OPENAI_COMPAT_ID_PREFIX = 'openai_compat_';
+/** Prefix used for individual settings keys, e.g. "oc_openrouter_apiKey". */
+export const OPENAI_COMPAT_KEY_PREFIX = 'oc_';
+
+export interface OpenAICompatProviderMeta {
+    /** Short alphanumeric identifier chosen by the user, e.g. "openrouter". */
+    id: string;
+    /** Human-readable display name, e.g. "Groq". */
+    label: string;
+}
+
+export function parseOpenAICompatProviders(settings: Record<string, any>): OpenAICompatProviderMeta[] {
+    try {
+        const parsed = JSON.parse(settings['openai_compat_providers'] || '[]');
+        return Array.isArray(parsed) ? parsed : [];
+    } catch {
+        return [];
+    }
+}
+
+// ---- end OpenAI Compatible ----
+
 // Helper to get all models for backward compatibility or direct access if needed
 export const ALL_MODELS = PROVIDERS.flatMap(p => p.models.map(m => ({
     label: `${p.label}: ${m.label}`,

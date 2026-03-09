@@ -2,6 +2,7 @@
     import ContextMenu from "./chat/ContextMenu.svelte";
     import { ICONS } from "../icons";
     import { PopoutManager } from "./chat-popout-manager";
+    import { clickHandler } from "../util/actions";
 
     interface Props {
         title?: string;
@@ -112,7 +113,7 @@
         class="ui__button inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm gap-1 font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 select-none h-7 px-2"
         {title}
         type="button"
-        onclick={action}
+        use:clickHandler={action}
         {disabled}
         style={disabled ? "opacity: 0.3; cursor: not-allowed;" : ""}
     >
@@ -134,7 +135,7 @@
         >
             <button
                 class="flex flex-row p-2 items-center flex-1 overflow-hidden"
-                onclick={toggleCollapse}
+                use:clickHandler={toggleCollapse}
                 aria-expanded={!isCollapsed}
                 type="button"
             >
@@ -222,7 +223,7 @@
                         </p>
                         <button
                             class="ui__button whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2"
-                            onclick={() => popoutManager.restorePopout()}
+                            use:clickHandler={() => popoutManager.restorePopout()}
                         >
                             Restore to Sidebar
                         </button>

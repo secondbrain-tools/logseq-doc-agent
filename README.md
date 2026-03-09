@@ -1,6 +1,10 @@
 # Logseq Doc Agent
 
-  <center><a href="docs/screenshots/doc-agent.png"><img src="docs/screenshots/doc-agent.png" alt="Logeseq with Doc Agent editing Content" width="500"/></a></center>
+  <center>
+    <a href="https://raw.githubusercontent.com/secondbrain-tools/logseq-doc-agent/master/docs/screenshots/doc-agent.png">
+      <img src="https://raw.githubusercontent.com/secondbrain-tools/logseq-doc-agent/master/docs/screenshots/doc-agent.png" alt="Logeseq with Doc Agent editing Content" width="500"/>
+    </a>
+  </center>
 
 - The Doc Agent is inspired by modern IDE coding-agent integrations. It is a research prototype, but it is already useful in practice.
 - The intent is to explore non-intrusive ways to integrate an agent into knowledge management and content creation systems like Logseq. Since Logseq is a thinking space, the Doc Agent shall be developed to support thought processes, not take them over.
@@ -26,8 +30,17 @@
    #### Evaluations are integrated non-intrusively in the Logseq UI and meant to support your thinking
    - Browse Issues by category and criterion within a popover or in the sidebar. Choose between multiple suggestions and see a counterargument to let you reason about the feedback.
      Remark: This is the current state of development. It seems a bit cumbersome to navigate - at least in the popover.  
-     <center><a href="docs/screenshots/evaluation-sidebar.png"><img src="docs/screenshots/evaluation-sidebar.png" alt="Evaluation Sidebar" width="500"/></a>
-     <a href="docs/screenshots/evaluation-popover.png"><img src="docs/screenshots/evaluation-popover.png" alt="Evaluation Popover" width="500"/></a></center>
+
+     <center>
+       <a href="https://raw.githubusercontent.com/secondbrain-tools/logseq-doc-agent/master/docs/screenshots/evaluation-sidebar.png">
+        <img src="https://raw.githubusercontent.com/secondbrain-tools/logseq-doc-agent/master/docs/screenshots/evaluation-sidebar.png" alt="Evaluation Sidebar" width="500"/>
+      </a>
+     
+      <a href="https://raw.githubusercontent.com/secondbrain-tools/logseq-doc-agent/master/docs/screenshots/evaluation-popover.png">
+        <img src="https://raw.githubusercontent.com/secondbrain-tools/logseq-doc-agent/master/docs/screenshots/evaluation-popover.png" alt="Evaluation Popover" width="500"/>
+      </a>
+     </center>
+
    - Activate the "Pre-Commitment Prompt" that requires you to enter an improvement suggestion for an issue, before seeing the AI generated ones.
    - Discuss issues with the LLM directly within the evaluation UI.
    
@@ -50,9 +63,11 @@
 - Google
 - Mistral
 - OpenAI (currently, the only one tested)
-- Ollama
 
-(Local LLMs are coming - I thought that was done, but didn't check)
+- OpenAI Compatible Providers: Define multiple custom provides. For example for [OpenRouter](https://openrouter.ai/), [LM Studio](https://lmstudio.ai/) or [Ollama](https://ollama.ai/) . 
+  - Remark: currently an API kay is always required, even if the provider is not using it. (just enter any random string)
+
+
 
 ## Current Insights
 - The merge mode improves working with important documents by making changes easy to track and, if necessary, revert. Ideally, the diff and merge workflow would be integrated directly into the document; however, this functionality might also be better implemented in Logseq itself.

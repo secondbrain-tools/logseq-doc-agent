@@ -90,7 +90,6 @@ The user should have `npm run dev` running on port 9000. If not ask the user to 
 Use this environment to iterate on component designs and verify interactions before integrating them into the main plugin.
 
 
-
 # Automated Testing
 
 We use **Vitest** for automated testing, configured with `jsdom` for browser simulation.
@@ -147,7 +146,7 @@ We use **Session-based Short IDs** (e.g., `#a1b2`) for stable, concise block ref
 
 ## Changing infra/ai/tools
 
-When adding, removing or changing tools, increment logseq-doc-agent.tool-list-version, so an auto-documentation will be triggered when the plugin updates within logseq.
+When adding, removing or changing tools, increment logseq-doc-agent.tool-list-version, so an auto-documentation will be triggered when the plugin updates within Logseq.
 
 # UI Block Injection
 

@@ -3,6 +3,7 @@ import type { ContextScope } from "../../../domain/evaluation/issue-reply.types"
 import { Services } from "../../../services";
 import { LDA_MERGE_PROPERTY, extractExistingMergeData, splitContentAttributes } from "../../../domain/logseq/properties";
 import type { MergeEntity } from "../../../domain/merge/entity";
+import { resolveSourceIdToUuid } from "../../../application/services/block-resolver";
 
 export function groupByCategory(results: CriterionResult[]): Record<string, CriterionResult[]> {
     const groups: Record<string, CriterionResult[]> = {};
@@ -215,7 +216,8 @@ export async function applySuggestion(
     criterionId: string,
     issueIdx: number,
     suggestionIdx: number,
-    evaluationData: BlockEvaluation
+    evaluationData: BlockEvaluation,
+    rawSourceId?: string | null
 ): Promise<BlockEvaluation | null> {
     if (!blockId) return null;
 
@@ -236,9 +238,13 @@ export async function applySuggestion(
         return null;
     }
 
+    // Resolve the child block UUID if a raw source_id was provided.
+    // Falls back to the parent blockId when not resolvable.
+    const resolvedBlockId = (await resolveSourceIdToUuid(rawSourceId)) ?? blockId;
+
     try {
-        // 2. Read current block content
-        const blockText = await Services.instance.logseqApi.Editor.getBlockText(blockId);
+        // 2. Read current block content (from child block if applicable)
+        const blockText = await Services.instance.logseqApi.Editor.getBlockText(resolvedBlockId);
 
         const { body: currentBody, properties: existingPropsStr } = splitContentAttributes(blockText);
 
@@ -261,8 +267,8 @@ export async function applySuggestion(
 
             const newContent = existingPropsStr ? existingPropsStr + '\n' + newBody : newBody;
 
-            await Services.instance.logseqApi.Editor.updateBlock(blockId, newContent);
-            await Services.instance.logseqApi.upsertBlockProperty(blockId, LDA_MERGE_PROPERTY, JSON.stringify(mergeData));
+            await Services.instance.logseqApi.Editor.updateBlock(resolvedBlockId, newContent);
+            await Services.instance.logseqApi.upsertBlockProperty(resolvedBlockId, LDA_MERGE_PROPERTY, JSON.stringify(mergeData));
         }
 
         // 5. Update state to accepted and resolved
@@ -278,6 +284,15 @@ export async function applySuggestion(
         console.error("Failed to apply suggestion:", err);
         return null;
     }
+}
+
+/**
+ * Returns the raw source_id (e.g. "block:843") from the first evidence entry
+ * of an issue, or null if none is present. Used to redirect highlight, preview,
+ * and apply operations to the correct child block.
+ */
+export function getIssueSourceId(issue: Issue | undefined): string | null {
+    return issue?.evidence?.[0]?.source_id ?? null;
 }
 
 export function getPreCommitmentSuggestion(issue: Issue | undefined, fallbackSuggestions: Record<string, string>, issueUniqueId: string): string | null {

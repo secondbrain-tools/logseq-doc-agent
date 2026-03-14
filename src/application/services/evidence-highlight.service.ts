@@ -1,25 +1,31 @@
 import type { Issue } from '../../domain/evaluation/entity';
 import type { HighlightPort } from '../ports/highlight-port';
 import type { TextQuoteSelector, Suggestion } from '../../domain/evaluation/entity';
+import { resolveSourceIdToUuid } from './block-resolver';
 
 export class EvidenceHighlightService {
     constructor(private highlightPort: HighlightPort) { }
 
     /**
      * Extracts text selectors from the given issue's evidence and suggestions,
-     * resolving any specific source IDs, and then coordinates with the HighlightPort
+     * resolving source_ids to UUIDs, and coordinates with the HighlightPort
      * to apply the visual highlights.
      */
-    public focusIssue(blockId: string, issue: Issue): void {
+    public async focusIssue(blockId: string, issue: Issue): Promise<void> {
         const highlightSelectors: Array<{
             selector: TextQuoteSelector;
             source_id?: string | null;
         }> = [];
 
+        // Derive a UUID source for suggestions from the first evidence entry
+        const issueRawSourceId = issue.evidence?.[0]?.source_id ?? null;
+        const issueResolvedSourceId = await resolveSourceIdToUuid(issueRawSourceId);
+
         if (issue.evidence) {
             for (const ev of issue.evidence) {
+                const resolvedId = await resolveSourceIdToUuid(ev.source_id);
                 for (const sel of ev.selectors) {
-                    highlightSelectors.push({ selector: sel, source_id: ev.source_id });
+                    highlightSelectors.push({ selector: sel, source_id: resolvedId });
                 }
             }
         }
@@ -29,7 +35,8 @@ export class EvidenceHighlightService {
                 if (sug.selector) {
                     highlightSelectors.push({
                         selector: sug.selector,
-                        source_id: null,
+                        // Suggestions inherit the resolved child block ID from evidence
+                        source_id: issueResolvedSourceId,
                     });
                 }
             }
@@ -50,10 +57,16 @@ export class EvidenceHighlightService {
     }
 
     /**
-     * Previews a specific suggestion by applying inline DOM modifications
+     * Previews a specific suggestion by applying inline DOM modifications.
+     * @param blockId The UUID of the block that owns the evaluation.
+     * @param suggestion The suggestion to preview.
+     * @param rawSourceId Optional raw source_id (e.g. "block:843") of the child block
+     *   where the suggestion text actually lives. If provided and resolvable, the child
+     *   block UUID will be used for the DOM lookup instead of blockId.
      */
-    public previewSuggestion(blockId: string, suggestion: Suggestion): void {
-        this.highlightPort.previewSuggestion(blockId, suggestion);
+    public async previewSuggestion(blockId: string, suggestion: Suggestion, rawSourceId?: string | null): Promise<void> {
+        const resolvedId = await resolveSourceIdToUuid(rawSourceId);
+        this.highlightPort.previewSuggestion(resolvedId ?? blockId, suggestion);
     }
 
     /**

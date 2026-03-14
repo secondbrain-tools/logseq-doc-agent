@@ -15,6 +15,7 @@
         savePreCommitmentSuggestion,
         needsPreCommitment,
         getPreCommitmentSuggestion,
+        getIssueSourceId,
         genericClick,
         startAiIssueReply,
         editFeedback,
@@ -70,6 +71,10 @@
         `lda-feedback-input-${issueUniqueId}-${activeFeedbackInput ?? "inactive"}`,
     );
 
+    // The raw source_id from the first evidence entry (e.g. "block:843").
+    // Used to redirect preview and apply operations to the correct child block.
+    const issueRawSourceId = $derived(getIssueSourceId(issue));
+
     const isDone = $derived(
         issue.status === "resolved" ||
             issue.user_feedback?.some((fb) => fb.type === "done") ||
@@ -123,6 +128,7 @@
             Services.instance.evidenceHighlightService.previewSuggestion(
                 blockId,
                 suggestion,
+                issueRawSourceId,
             );
         }
     }
@@ -303,6 +309,7 @@
             issueIdx,
             sIdx,
             evaluationData,
+            issueRawSourceId,
         );
         if (updated) {
             onDataUpdate(updated);

@@ -14,6 +14,7 @@
     "release": "changeset version && git add . && git commit -m \"chore: release v$(node -p \"require('./package.json').version\")\" && git tag v$(node -p \"require('./package.json').version\") && git push origin master --tags",
     "test:e2e": "playwright test",
     "test:e2e:debug": "PWDEBUG=1 playwright test",
+    "test:e2e:ui": "playwright test --ui",
     "test:e2e:auto": "tsx scripts/run-e2e.ts"
   },
   "devDependencies": {

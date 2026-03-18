@@ -15,7 +15,8 @@ dist-ssr
 .tmp
 .cache
 blob-report
-playwrite-report
+playwright-report
+test-results 
 
 # create a symlink to the AGENTS.md file
 GEMINI.md

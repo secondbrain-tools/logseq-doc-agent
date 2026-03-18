@@ -1,0 +1,18 @@
+{
+    "legacy": {
+        "tag": "0.10.15"
+    },
+    "db": {
+        "tag": "PUT-YOUR-DB-TAG-HERE",
+        "assetNameOverrides": {
+        "linux-x64": "PUT-YOUR-DB-LINUX-X64-ASSET-HERE",
+        "linux-arm64": "PUT-YOUR-DB-LINUX-ARM64-ASSET-HERE",
+        "darwin-x64": "PUT-YOUR-DB-DARWIN-X64-ASSET-HERE",
+        "darwin-arm64": "PUT-YOUR-DB-DARWIN-ARM64-ASSET-HERE"
+        },
+        "binaryRelativePathOverrides": {
+        "darwin-x64": "Logseq.app/Contents/MacOS/Logseq",
+        "darwin-arm64": "Logseq.app/Contents/MacOS/Logseq"
+        }
+}
+}

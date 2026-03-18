@@ -11,6 +11,12 @@ dist
 dist-ssr
 *.local
 
+## playwrite
+.tmp
+.cache
+blob-report
+playwrite-report
+
 # create a symlink to the AGENTS.md file
 GEMINI.md
 

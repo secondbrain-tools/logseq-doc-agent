@@ -40,6 +40,36 @@ describe('ChatlogService', () => {
         });
     });
 
+    describe('sanitizeTitle', () => {
+        it('should strip non-alphanumeric characters', () => {
+            const result = (service as any).sanitizeTitle('Hello, World! @2024 #test');
+            expect(result).toBe('Hello World 2024 test');
+        });
+
+        it('should strip newlines and colons', () => {
+            const result = (service as any).sanitizeTitle('Title:\nWith Newline');
+            expect(result).toBe('Title With Newline');
+        });
+
+        it('should collapse multiple spaces', () => {
+            const result = (service as any).sanitizeTitle('Word1    Word2');
+            expect(result).toBe('Word1 Word2');
+        });
+
+        it('should limit length to 50 characters and append ellipsis', () => {
+            const longTitle = 'This is a very long title that exceeds the maximum allowed length for a chatlog title';
+            const result = (service as any).sanitizeTitle(longTitle);
+            expect(result.length).toBe(50);
+            expect(result.endsWith('...')).toBe(true);
+            expect(result).not.toContain('  '); // Should still be collapsed
+        });
+
+        it('should return "New Chat" if result is empty after sanitization', () => {
+            const result = (service as any).sanitizeTitle('!!! @@@ ###');
+            expect(result).toBe('New Chat');
+        });
+    });
+
     describe('generateTitle', () => {
         it('should return "New Chat" when no user messages', () => {
             const messages: Message[] = [
@@ -50,17 +80,17 @@ describe('ChatlogService', () => {
             expect(title).toBe('New Chat');
         });
 
-        it('should use first user message content if <= 50 chars', () => {
+        it('should use first user message content and sanitize it', () => {
             const messages: Message[] = [
-                { id: '1', role: 'user', content: 'Short question' }
+                { id: '1', role: 'user', content: 'What is AI?' }
             ];
 
             const title = service.generateTitle(messages);
-            expect(title).toBe('Short question');
+            expect(title).toBe('What is AI'); // ? is stripped
         });
 
-        it('should truncate long messages to 47 chars with ellipsis', () => {
-            const longContent = 'This is a very long message that exceeds the fifty character limit and should be truncated';
+        it('should truncate long messages and sanitize', () => {
+            const longContent = 'This is a very long message! With some @ special characters : that should be stripped.';
             const messages: Message[] = [
                 { id: '1', role: 'user', content: longContent }
             ];
@@ -68,11 +98,12 @@ describe('ChatlogService', () => {
             const title = service.generateTitle(messages);
             expect(title.length).toBe(50);
             expect(title.endsWith('...')).toBe(true);
+            expect(title).not.toMatch(/[:!@]/); // Special chars stripped
         });
     });
 
     describe('generateTitleAsync', () => {
-        it('should use MiniModelRunner with formatted context', async () => {
+        it('should use MiniModelRunner with formatted context and sanitize result', async () => {
             const messages: Message[] = [
                 { id: '1', role: 'user', content: 'What is AI?' }
             ];
@@ -107,29 +138,29 @@ Last Model Answer: Last A`;
             expect(mockMiniModelRunner.generateTitle).toHaveBeenCalledWith(expectedContext);
         });
 
-        it('should fallback to simple title when AI fails', async () => {
+        it('should fallback to simple title when AI fails and sanitize', async () => {
             mockMiniModelRunner.generateTitle = vi.fn().mockRejectedValue(new Error('API Error'));
             service = new ChatlogService(mockRepository, mockMiniModelRunner);
 
             const messages: Message[] = [
-                { id: '1', role: 'user', content: 'Simple question' }
+                { id: '1', role: 'user', content: 'Simple question?' }
             ];
 
             const title = await service.generateTitleAsync(messages);
 
-            expect(title).toBe('Simple question');
+            expect(title).toBe('Simple question'); // ? stripped
         });
 
-        it('should use fallback when no MiniModelRunner', async () => {
+        it('should use fallback when no MiniModelRunner and sanitize', async () => {
             service = new ChatlogService(mockRepository); // No runner
 
             const messages: Message[] = [
-                { id: '1', role: 'user', content: 'Test question' }
+                { id: '1', role: 'user', content: 'Test: question!' }
             ];
 
             const title = await service.generateTitleAsync(messages);
 
-            expect(title).toBe('Test question');
+            expect(title).toBe('Test question'); // : and ! stripped
         });
     });
 

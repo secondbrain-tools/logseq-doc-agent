@@ -27,19 +27,38 @@ export class ChatlogService {
         return this.repository.generateId();
     }
 
-    /**
-     * Generate a simple fallback title from the first user message (sync)
-     */
     generateTitle(messages: Message[]): string {
         const firstUserMsg = messages.find(m => m.role === 'user');
         if (!firstUserMsg) {
             return 'New Chat';
         }
         const content = firstUserMsg.content.trim();
-        if (content.length <= 50) {
-            return content;
+        return this.sanitizeTitle(content);
+    }
+
+    /**
+     * Sanitize a title to be safe for filenames and Logseq pages.
+     * Limits to alphanumeric characters and spaces, and enforces length.
+     */
+    private sanitizeTitle(title: string): string {
+        // 1. Replace all non-alphanumeric (except spaces) with spaces
+        // 2. Collapse multiple spaces
+        // 3. Trim
+        const sanitized = title
+            .replace(/[^a-zA-Z0-9\s]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        if (!sanitized) {
+            return 'New Chat';
         }
-        return content.substring(0, 47) + '...';
+
+        // Limit to 50 chars, but try to stay under 47 if we need to add ellipsis
+        if (sanitized.length <= 50) {
+            return sanitized;
+        }
+
+        return sanitized.substring(0, 47).trim() + '...';
     }
 
     /**
@@ -78,7 +97,8 @@ export class ChatlogService {
                     }
                 }
 
-                return await this.titleGenerator.generateTitle(context.trim());
+                const title = await this.titleGenerator.generateTitle(context.trim());
+                return this.sanitizeTitle(title);
             } catch (error) {
                 console.warn('[ChatlogService] AI title generation failed, using fallback:', error);
             }

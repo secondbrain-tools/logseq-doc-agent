@@ -46,6 +46,11 @@
    CONTAINER & INDICATOR STYLES
    ========================================================================== */
 
+/* Offset merge container when an evaluation badge is also present on the same block */
+[blockid]:has(.block-evaluation-container) > .feedback-rating-container:has(.lda-merge-controls) {
+    top: 28px;
+}
+
 /* Container for the merge buttons (Interactive Menu) */
 .lda-merge-controls {
     display: none;

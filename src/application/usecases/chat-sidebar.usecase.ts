@@ -414,7 +414,11 @@ export class ChatSidebarUseCase {
             let currentParts: any[] = [];
 
             try {
-                for await (const chunk of stream) {
+                const reader = stream.getReader();
+                while (true) {
+                    const { done, value: chunk } = await reader.read();
+                    if (done) break;
+
                     const partType = (chunk as any).type;
 
                     if (partType === 'text-delta') {

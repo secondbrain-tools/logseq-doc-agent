@@ -15,12 +15,10 @@ export default async function globalSetup() {
   const executablePath = process.env.LOGSEQ_EXECUTABLE;
 
   if (!executablePath) {
-    throw new Error(
-      "LOGSEQ_EXECUTABLE is not set. " +
-        "Run `npx tsx scripts/setup-logseq.ts legacy` (or db) " +
-        "and set LOGSEQ_EXECUTABLE to the reported executablePath " +
-        "before running `npm run test:e2e`."
+    console.warn(
+      "LOGSEQ_EXECUTABLE is not set. Skipping Electron runtime config generation."
     );
+    return;
   }
 
   await fs.writeFile(

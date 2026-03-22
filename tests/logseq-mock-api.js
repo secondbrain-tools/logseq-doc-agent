@@ -64,6 +64,12 @@ export const logseq = {
             console.log('[MockLogseq] openRightSidebar');
             window.dispatchEvent(new CustomEvent('logseq:open-sidebar'));
         },
+        setRightSidebarVisible: (visible) => {
+            console.log(`[MockLogseq] setRightSidebarVisible: ${visible}`);
+            if (visible) {
+                window.dispatchEvent(new CustomEvent('logseq:open-sidebar'));
+            }
+        },
         onRouteChanged: (callback) => {
             console.log('[MockLogseq] onRouteChanged registered');
             logseq.App._routeChangedCallback = callback;

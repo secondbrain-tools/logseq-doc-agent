@@ -185,8 +185,22 @@ export class TextHighlighter implements HighlightPort {
                     if (!scrollTarget) {
                         scrollTarget = combinedHighlights[0];
                     }
+                    matched = true;
+                }
+            }
+
+            if (!matched) {
+                // Last resort: the LLM's source_id may point to a parent block while the
+                // text lives in one of its children. Walk all descendant div[blockid] elements.
+                console.log(`${LOG_PREFIX} No match in block containers, searching descendant blocks...`);
+                const descendantHighlights = this.highlightSelectorInDescendants(doc, blockEl, selector);
+                if (descendantHighlights.length > 0) {
+                    this.activeHighlights.push(...descendantHighlights);
+                    if (!scrollTarget) {
+                        scrollTarget = descendantHighlights[0];
+                    }
                 } else {
-                    console.warn(`${LOG_PREFIX} No match found for selector exact="${selector.exact}" in any container of block "${targetBlockId}"`);
+                    console.warn(`${LOG_PREFIX} No match found for selector exact="${selector.exact}" in block "${targetBlockId}" or any of its descendants`);
                 }
             }
         }
@@ -196,6 +210,67 @@ export class TextHighlighter implements HighlightPort {
         }
 
         console.log(`${LOG_PREFIX} highlight() complete. ${this.activeHighlights.length} highlight(s) applied.`);
+    }
+
+    /**
+     * Returns all descendant div[blockid] elements within the given block element,
+     * in DOM order. Used as a fallback when the LLM's source_id points to a parent
+     * block but the target text actually lives in one of its children.
+     */
+    private getDescendantBlockElements(blockEl: HTMLElement): HTMLElement[] {
+        return Array.from(blockEl.querySelectorAll('div[blockid]')) as HTMLElement[];
+    }
+
+    /**
+     * Tries to highlight the selector in each descendant block of blockEl.
+     * Stops and returns highlights from the first descendant where a match is found.
+     */
+    private highlightSelectorInDescendants(doc: Document, blockEl: HTMLElement, selector: TextQuoteSelector): HTMLElement[] {
+        const descendants = this.getDescendantBlockElements(blockEl);
+        console.log(`${LOG_PREFIX} Searching ${descendants.length} descendant block(s) for exact="${selector.exact.substring(0, 60)}"`);
+
+        for (const descendant of descendants) {
+            const containers = this.getTextContainers(descendant);
+            if (containers.length === 0) continue;
+
+            for (const container of containers) {
+                const highlights = this.highlightSelectorInContainer(doc, container, selector);
+                if (highlights.length > 0) {
+                    console.log(`${LOG_PREFIX} Match found in descendant block "${descendant.getAttribute('blockid')}"`);
+                    return highlights;
+                }
+            }
+
+            const combined = this.highlightSelectorAcrossContainers(doc, containers, selector);
+            if (combined.length > 0) {
+                console.log(`${LOG_PREFIX} Match found (combined) in descendant block "${descendant.getAttribute('blockid')}"`);
+                return combined;
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * Tries to find a text match in each descendant block of blockEl.
+     * Stops and returns the first match found.
+     */
+    private findMatchInDescendants(doc: Document, blockEl: HTMLElement, selector: TextQuoteSelector): MatchInTextNodes | null {
+        const descendants = this.getDescendantBlockElements(blockEl);
+        console.log(`${LOG_PREFIX} Searching ${descendants.length} descendant block(s) for preview match exact="${selector.exact.substring(0, 60)}"`);
+
+        for (const descendant of descendants) {
+            const containers = this.getTextContainers(descendant);
+            if (containers.length === 0) continue;
+
+            const match = this.findMatchInContainers(doc, containers, selector);
+            if (match) {
+                console.log(`${LOG_PREFIX} Preview match found in descendant block "${descendant.getAttribute('blockid')}"`);
+                return match;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -449,9 +524,13 @@ export class TextHighlighter implements HighlightPort {
         const containers = this.getTextContainers(blockEl);
         if (containers.length === 0) return;
 
-        const matchData = this.findMatchInContainers(doc, containers, suggestion.selector);
+        let matchData = this.findMatchInContainers(doc, containers, suggestion.selector);
         if (!matchData) {
-            console.warn(`${LOG_PREFIX} Could not find text match for suggestion preview.`);
+            // Fallback: text may live in a descendant block
+            matchData = this.findMatchInDescendants(doc, blockEl, suggestion.selector);
+        }
+        if (!matchData) {
+            console.warn(`${LOG_PREFIX} Could not find text match for suggestion preview in block or descendants.`);
             return;
         }
 

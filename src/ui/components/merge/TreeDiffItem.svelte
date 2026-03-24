@@ -31,6 +31,7 @@
 
     // Track the last known external prop value to detect EXTERNAL changes only
     let lastKnownCurrentContent = $state<string | undefined>(undefined);
+    let lastKnownItemContent = $state<string | undefined>(undefined);
 
     // Stable content for diff view to prevent cycles.
     // We want the Diff to be static (Base vs Incoming) while we toggle parts to generate Output.
@@ -40,10 +41,17 @@
         if (initializedItemUuid !== item.uuid) {
             initializedItemUuid = item.uuid;
             lastKnownCurrentContent = currentContent;
+            lastKnownItemContent = item.content;
             stableUnifiedContent = item.content;
             editContent =
                 currentContent ?? item.mergeData?.currentContent ?? item.content;
             return;
+        }
+
+        // If the item.content changed entirely from the outside (e.g. we refreshed the modal from DB)
+        if (item.content !== lastKnownItemContent) {
+            lastKnownItemContent = item.content;
+            stableUnifiedContent = item.content;
         }
 
         // Only sync when currentContent changes from OUTSIDE (parent update)

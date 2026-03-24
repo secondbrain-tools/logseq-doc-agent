@@ -3,6 +3,7 @@ import type { ContextScope } from "../../../domain/evaluation/issue-reply.types"
 import { Services } from "../../../services";
 import { LDA_MERGE_PROPERTY, extractExistingMergeData, splitContentAttributes } from "../../../domain/logseq/properties";
 import type { MergeEntity } from "../../../domain/merge/entity";
+import { resolveSourceIdToUuid } from "../../../application/services/block-resolver";
 
 export function groupByCategory(results: CriterionResult[]): Record<string, CriterionResult[]> {
     const groups: Record<string, CriterionResult[]> = {};
@@ -210,12 +211,52 @@ export async function setSuggestionStatus(
     return cloned;
 }
 
+/**
+ * Finds the UUID of the block (starting from `startUuid` and walking its children)
+ * that contains `exactText` in its own body content.
+ *
+ * The LLM sometimes provides a parent block's source_id when the text actually
+ * lives in one of its children, so we walk the subtree via the Logseq API.
+ *
+ * Returns the UUID of the matching block, or null if not found.
+ */
+async function findBlockContainingText(startUuid: string, exactText: string): Promise<string | null> {
+    const logseq = (window as any).logseq;
+    if (!logseq) return null;
+
+    // BFS over the block subtree
+    const queue: string[] = [startUuid];
+    while (queue.length > 0) {
+        const uuid = queue.shift()!;
+        try {
+            const block = await logseq.Editor.getBlock(uuid, { includeChildren: true });
+            if (!block) continue;
+
+            const { body } = splitContentAttributes(block.content || '');
+            if (body.includes(exactText)) {
+                return uuid;
+            }
+
+            if (block.children && block.children.length > 0) {
+                for (const child of block.children) {
+                    if (child.uuid) queue.push(child.uuid);
+                }
+            }
+        } catch {
+            // skip blocks that can't be fetched
+        }
+    }
+
+    return null;
+}
+
 export async function applySuggestion(
     blockId: string | undefined,
     criterionId: string,
     issueIdx: number,
     suggestionIdx: number,
-    evaluationData: BlockEvaluation
+    evaluationData: BlockEvaluation,
+    rawSourceId?: string | null
 ): Promise<BlockEvaluation | null> {
     if (!blockId) return null;
 
@@ -236,18 +277,30 @@ export async function applySuggestion(
         return null;
     }
 
+    // Resolve the child block UUID if a raw source_id was provided.
+    // Falls back to the parent blockId when not resolvable.
+    const resolvedBlockId = (await resolveSourceIdToUuid(rawSourceId)) ?? blockId;
+    console.log(`[applySuggestion] parentBlockId="${blockId}" rawSourceId="${rawSourceId}" => resolvedBlockId="${resolvedBlockId}"`);
+
     try {
-        // 2. Read current block content
-        const blockText = await Services.instance.logseqApi.Editor.getBlockText(blockId);
+        // 2. Find the block that actually contains the target text.
+        // The resolved block may be a parent; if so, walk its children to find the right one.
+        const targetBlockUuid = await findBlockContainingText(resolvedBlockId, targetSelector.exact);
+        if (!targetBlockUuid) {
+            console.warn(`[applySuggestion] Target text not found in block "${resolvedBlockId}" or any of its children. exact="${targetSelector.exact}"`);
+            return null;
+        }
+        console.log(`[applySuggestion] Target text found in block "${targetBlockUuid}"`);
+
+        const blockText = await Services.instance.logseqApi.Editor.getBlockText(targetBlockUuid);
+        console.log(`[applySuggestion] blockText (${blockText.length} chars): "${blockText.substring(0, 120)}${blockText.length > 120 ? '...' : ''}"`);
 
         const { body: currentBody, properties: existingPropsStr } = splitContentAttributes(blockText);
 
-        // 3. Perform string replacement on the body (only replacing the first occurrence that matches exactly)
+        // 3. Perform string replacement on the body
         if (!currentBody.includes(targetSelector.exact)) {
-            // For safety, warn if exact text isn't found anymore (e.g. user changed it since eval)
-            console.warn("Target string not found in the block. Application aborted.", targetSelector.exact);
-            // We could still mark it accepted, but maybe returning early is safer.
-            // For now we try to replace if possible.
+            // Should not happen since findBlockContainingText already verified inclusion
+            console.warn(`[applySuggestion] Unexpected: text vanished from block "${targetBlockUuid}" between lookup and apply.`);
         } else {
             const newBody = currentBody.replace(targetSelector.exact, targetSuggestion.proposed_text);
 
@@ -261,8 +314,8 @@ export async function applySuggestion(
 
             const newContent = existingPropsStr ? existingPropsStr + '\n' + newBody : newBody;
 
-            await Services.instance.logseqApi.Editor.updateBlock(blockId, newContent);
-            await Services.instance.logseqApi.upsertBlockProperty(blockId, LDA_MERGE_PROPERTY, JSON.stringify(mergeData));
+            await Services.instance.logseqApi.Editor.updateBlock(targetBlockUuid, newContent);
+            await Services.instance.logseqApi.upsertBlockProperty(targetBlockUuid, LDA_MERGE_PROPERTY, JSON.stringify(mergeData));
         }
 
         // 5. Update state to accepted and resolved
@@ -278,6 +331,15 @@ export async function applySuggestion(
         console.error("Failed to apply suggestion:", err);
         return null;
     }
+}
+
+/**
+ * Returns the raw source_id (e.g. "block:843") from the first evidence entry
+ * of an issue, or null if none is present. Used to redirect highlight, preview,
+ * and apply operations to the correct child block.
+ */
+export function getIssueSourceId(issue: Issue | undefined): string | null {
+    return issue?.evidence?.[0]?.source_id ?? null;
 }
 
 export function getPreCommitmentSuggestion(issue: Issue | undefined, fallbackSuggestions: Record<string, string>, issueUniqueId: string): string | null {

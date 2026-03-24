@@ -148,6 +148,10 @@ We use **Session-based Short IDs** (e.g., `#a1b2`) for stable, concise block ref
     ```
 *   **When to use**: Prefer actions for interactive elements in dynamic lists, modals, or any component where standard `onclick` fails silently.
 
+### Svelte 5 Reactivity
+*   **Issue (Svelte 5 Modal Component Reactivity)**: When using Svelte 5 with components that are hidden/shown via `{#if}` blocks or modals, Svelte may reuse the component instance if the `uuid` or key remains the same, even if the wrapped data changes. If your component caches the "initial baseline" of a prop (e.g., to preserve a diff view), it will seamlessly ignore DB updates on subsequent opens unless explicitly programmed to watch for external text changes.
+    *   **Solution**: Always track a `lastKnownItemContent` alongside any cached baseline state, and explicitly update internal states if the prop changes externally (e.g. `if (item.content !== lastKnownItemContent)`).
+
 ## Changing infra/ai/tools
 
 When adding, removing or changing tools, increment logseq-doc-agent.tool-list-version, so an auto-documentation will be triggered when the plugin updates within Logseq.

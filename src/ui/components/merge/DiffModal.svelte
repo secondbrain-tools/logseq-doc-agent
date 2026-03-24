@@ -313,7 +313,9 @@
     .lda-diff-container {
         display: flex;
         flex-direction: column;
-        max-height: 100%; /* Allow shrinking, but don't overflow parent */
+        height: 100%;
+        flex: 1;
+        min-height: 0;
         overflow: hidden;
     }
 
@@ -322,13 +324,16 @@
         overflow: hidden;
         position: relative;
         min-height: 0;
+        display: flex;
+        flex-direction: column;
     }
 
     .tree-diff-container {
+        flex: 1;
         display: flex;
         flex-direction: column;
         gap: 0;
-        height: 100%;
+        min-height: 0;
         overflow-y: auto;
         border-top: 1px solid var(--ls-border-color);
     }

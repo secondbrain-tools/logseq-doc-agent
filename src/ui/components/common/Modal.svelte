@@ -233,6 +233,7 @@
 
     .lda-modal-body {
         flex: 1;
+        min-height: 0;
         overflow: hidden; /* Important: Contain children */
         display: flex;
         flex-direction: column;

@@ -172,3 +172,48 @@ Both directories are `.gitignore`'d.
 | Tests hang on Electron launch | Increase `timeout` in config; ensure no other Logseq instance is running |
 | `test:e2e:ui` shows no tests | Make sure specs are in `tests/e2e/` and end with `.spec.ts` |
 | Trace not recorded | Traces are only captured on first retry; set `trace: "on"` temporarily to always record |
+
+---
+
+## MCP Integration (AI-Assisted Testing)
+
+You can allow AI assistants (like Claude, Copilot, or Antigravity) to directly interact with the `logseq-sim` environment to write Playwright E2E tests for you using the Model Context Protocol (MCP).
+
+### 1. Requirements
+
+Since the MCP server acts against the simulator, you must first have the dev server running:
+
+```bash
+npm run dev
+```
+
+### 2. Add the MCP Server to your AI Client
+
+Depending on your client, you need to configure the `test:mcp` script as a tool server. 
+
+For example, if your AI assistant supports a `.vscode/mcp.json` or a global configuration file, you would define the server like this:
+
+```json
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npm",
+      "args": ["run", "test:mcp"],
+      "env": {
+        // Any required env vars
+      }
+    }
+  }
+}
+```
+
+*Note: The command `npm run test:mcp` launches the `@playwright/mcp` command-line tool, automatically pointing it to the local logseq-sim url (`http://localhost:9000/tests/logseq-sim.html`).*
+
+### 3. Usage
+
+Once configured, simply talk to your AI agent:
+
+- *"Please explore the Logseq simulation and write a Playwright test that verifies the merge functionality."*
+- *"Can you navigate to the Logseq Simulator and generate an E2E test for the chat sidebar?"*
+
+The AI will output Playwright code which you can directly drop into the `tests/e2e/sim/` suite!

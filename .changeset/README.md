@@ -22,17 +22,23 @@ You should create a changeset for **every pull request** or **significant change
 
 ## Automated Release Process
 
-The project is configured with two GitHub Actions:
-1.  **Version Packages** (`version-packages.yml`): Automatically creates/updates a Pull Request with the version bump and `CHANGELOG.md` updates whenever changesets are found on **master**.
-2.  **Release** (`release.yml`): Triggers when the "Version Packages" PR is merged (which creates a `v*` tag) to build and publish the release.
+The project is configured with a local script and a GitHub Action:
+1.  **Local Release Script**: `npm run release` - Use this to version, tag, and push in one go.
+2.  **GitHub Release Action** (`release.yml`): Triggers automatically when you push stable tags starting with `v*`.
 
 ### Workflow:
 
 1.  **Develop**: Run `npx changeset` and commit the fragments.
-2.  **Versioning**: Merge your changes to **master**. A "Version Packages" PR will be automatically opened/updated by GitHub Actions.
-3.  **Release**: When you are ready to release, **merge the "Version Packages" PR**. 
-    - The action will automatically create the `vX.Y.Z` tag.
-    - The `release.yml` will then build the project, create a ZIP, and publish a GitHub Release.
+2.  **Release**: When you are ready to publish, run:
+    ```bash
+    npm run release
+    ```
+    This script will:
+    - Update `package.json` and `CHANGELOG.md` (via `changeset version`).
+    - Commit the changes.
+    - Create a local `vX.Y.Z` tag.
+    - **Push** everything to GitHub.
+3.  **Action**: The GitHub Action will detect the new tag, build the project, and create the GitHub Release.
 
 ## History
 

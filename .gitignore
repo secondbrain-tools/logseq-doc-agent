@@ -24,3 +24,10 @@ GEMINI.md
 *.njsproj
 *.sln
 *.sw?
+
+.tmp
+.cache
+blog-report
+playwright-report
+test-results
+blob-report

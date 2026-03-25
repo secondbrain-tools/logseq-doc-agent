@@ -40,12 +40,8 @@ export const setupPlugin = async () => {
         logseq.beforeunload(async () => {
             doc.getElementById(linkId)?.remove();
 
-            // Clean up sidebar instances to prevent dangling elements
-            Services.instance.sidebarInjector.dispose();
-
-            // Clean up injected ratings and merge icons
-            Services.instance.injectEvaluationsUseCase.dispose();
-            Services.instance.injectMergesUseCase.dispose();
+            // Clean up all services properly
+            Services.instance.dispose();
         });
     }
 

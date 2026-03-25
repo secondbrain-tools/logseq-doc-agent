@@ -35,6 +35,7 @@ export class Services {
     public chatlogService: ChatlogService;
     public agentRepository: LogseqAgentRepository;
     public promptTemplateService: PromptTemplateService;
+    public aiAdapter: VercelAIAdapter;
 
     // Use Cases
     public injectEvaluationsUseCase: InjectEvaluationsUseCase;
@@ -54,9 +55,9 @@ export class Services {
         this.sidebarInjector = new FrontendSidebarInjector();
         this.toolbarInjector = new FrontendToolbarInjector();
         const settingsAdapter = new LogseqSettingsAdapter();
-        const aiAdapter = new VercelAIAdapter(settingsAdapter);
+        this.aiAdapter = new VercelAIAdapter(settingsAdapter);
         this.promptRepo = new LogseqPromptRepository(this.logseqApi);
-        this.miniModelRunner = new MiniModelRunner(aiAdapter, settingsAdapter);
+        this.miniModelRunner = new MiniModelRunner(this.aiAdapter, settingsAdapter);
 
         // Storage root getter used by repositories
         const getStorageRoot = () => ((window as any).logseq?.settings?.storageRoot as string) || 'logseq-doc-agent';
@@ -95,14 +96,14 @@ export class Services {
 
         this.chatUseCase = new ChatSidebarUseCase(
             this.sidebarInjector,
-            aiAdapter,
+            this.aiAdapter,
             this.chatlogService,
             this.agentRepository,
             this.promptTemplateService
         );
 
         this.evaluationReviewService = new EvaluationReviewService(this.logseqApi);
-        this.issueReplyService = new IssueReplyService(aiAdapter, this.logseqApi, this.evaluationReviewService, settingsAdapter);
+        this.issueReplyService = new IssueReplyService(this.aiAdapter, this.logseqApi, this.evaluationReviewService, settingsAdapter);
         this.evidenceHighlightService = new EvidenceHighlightService(textHighlighter);
 
         // Initialize Globals
@@ -142,6 +143,19 @@ export class Services {
     // Allow setting ID from outside if needed (e.g. from main)
     public setPluginId(id: string) {
         this.pluginID = id;
+    }
+
+    /**
+     * Clean up all services
+     */
+    public dispose() {
+        console.log('[Services] Disposing all services...');
+        
+        this.sidebarInjector.dispose();
+        this.injectEvaluationsUseCase.dispose();
+        this.injectMergesUseCase.dispose();
+        this.chatUseCase.dispose();
+        this.aiAdapter.dispose();
     }
 }
 

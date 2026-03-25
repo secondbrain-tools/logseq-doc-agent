@@ -530,4 +530,8 @@ export class ChatSidebarUseCase {
             }, 2000);
         }
     }
+
+    dispose() {
+        this.stopGeneration();
+    }
 }

@@ -39,7 +39,14 @@ export function normalizeAiErrorMessage(error: unknown): string {
             }
         }
 
-        return `Request failed with status ${statusCode}${urlHint}. ${hint}`;
+        const hasDetailedMessage = rawMessage && 
+                                   !rawMessage.toLowerCase().includes(`status ${statusCode}`) &&
+                                   rawMessage !== String(statusCode) &&
+                                   rawMessage.toLowerCase() !== 'bad request';
+        
+        const details = hasDetailedMessage ? ` Details: ${rawMessage}` : '';
+
+        return `Request failed with status ${statusCode}${urlHint}. ${hint}${details}`;
     }
 
     return rawMessage || 'An unknown error occurred.';

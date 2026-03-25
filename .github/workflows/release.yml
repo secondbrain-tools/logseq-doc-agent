@@ -39,3 +39,5 @@ jobs:
         with:
           files: ${{ env.ZIP_NAME }}
           generate_release_notes: true
+          body_path: CHANGELOG.md
+          append_body: true

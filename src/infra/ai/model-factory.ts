@@ -13,17 +13,8 @@ export interface ModelConfig {
 }
 
 export class ModelFactory {
-    private models: Map<string, LanguageModel> = new Map();
-
     public getModel(modelId: string, providerId: string): LanguageModel {
-        const key = `${providerId}:${modelId}`;
-        if (this.models.has(key)) {
-            return this.models.get(key)!;
-        }
-
-        const model = this.createModel(modelId, providerId);
-        this.models.set(key, model);
-        return model;
+        return this.createModel(modelId, providerId);
     }
 
     private createModel(modelId: string, providerId: string): LanguageModel {

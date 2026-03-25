@@ -13,6 +13,7 @@
     "test:run": "vitest run"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.30.0",
     "@sveltejs/vite-plugin-svelte": "6.2.4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/svelte": "^5.3.1",

@@ -1,7 +1,7 @@
 {
   "name": "logseq-doc-agent",
   "private": true,
-  "version": "0.1.3",
+  "version": "0.1.4",
   "type": "module",
   "scripts": {
     "dev": "concurrently \"vite build --watch\" \"http-server -c-1 -p 9000 .\"",

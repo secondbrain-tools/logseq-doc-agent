@@ -129,7 +129,7 @@ export class VercelAIAdapter implements IAIService {
         return runner.run();
     }
 
-    async generateText(messages: Message[], modelId: string, providerId: string): Promise<string> {
+    async generateText(messages: Message[], modelId: string, providerId: string, signal?: AbortSignal): Promise<string> {
         console.log('[VercelAIAdapter] generateText called', { modelId, providerId });
 
         const model = this.modelFactory.getModel(modelId, providerId);
@@ -138,12 +138,13 @@ export class VercelAIAdapter implements IAIService {
         const result = await generateText({
             model,
             messages: coreMessages,
+            abortSignal: signal
         });
 
         return result.text;
     }
 
-    async generateObject<T>(messages: Message[], schema: any, modelId: string, providerId: string): Promise<T> {
+    async generateObject<T>(messages: Message[], schema: any, modelId: string, providerId: string, signal?: AbortSignal): Promise<T> {
         console.log('[VercelAIAdapter] generateObject called', { modelId, providerId });
 
         const model = this.modelFactory.getModel(modelId, providerId);
@@ -153,9 +154,14 @@ export class VercelAIAdapter implements IAIService {
             model,
             schema,
             messages: coreMessages,
+            abortSignal: signal
         });
 
         return result.object as T;
+    }
+
+    dispose() {
+        // No persistent resources currently, but added for consistency
     }
 }
 

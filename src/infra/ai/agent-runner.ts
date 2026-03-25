@@ -254,7 +254,10 @@ export class AgentRunner {
                     }
 
                     console.log(`[AgentRunner] Executing tool ${toolName} with args:`, JSON.stringify(args));
-                    const result = await toolDef.execute(args, { messages: currentMessages }); // Pass context if needed
+                    const result = await toolDef.execute(args, { 
+                        messages: currentMessages,
+                        abortSignal: this.options.abortSignal
+                    }); // Pass context including signal
                     resultString = typeof result === 'string' ? result : JSON.stringify(result);
                 } catch (err: any) {
                     console.error(`[AgentRunner] Tool ${toolName} execution error:`, err);

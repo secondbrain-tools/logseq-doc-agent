@@ -356,20 +356,21 @@
     }
 
     onMount(() => {
-        const unsub = setupAutoContext();
-        // Since setupAutoContext is async but returns a sync unsub function wrapper primarily,
-        // actually `onCurrentPageChange` returns the unsub.
-        // We need to handle the promise for the initial fetch?
-        // `setupAutoContext` is async.
-        // Let's refactor slightly to be clean.
         let cleanup: (() => void) | undefined;
-        setupAutoContext().then((un) => (cleanup = un));
+        let isUnmounted = false;
+
+        setupAutoContext().then((un) => {
+            if (isUnmounted) {
+                un();
+            } else {
+                cleanup = un;
+            }
+        });
 
         // Load Prompts
         refreshPrompts();
 
-        // Intercept Ctrl/Cmd+C in capture phase so Logseq's own handlers don't swallow the
-        // copy when text is selected inside a message bubble.
+        // Intercept Ctrl/Cmd+C etc...
         const handleCopyKey = (e: KeyboardEvent) => {
             if (!(e.ctrlKey || e.metaKey) || e.key !== "c") return;
             if (!messageContainer) return;
@@ -395,6 +396,7 @@
         doc.addEventListener("keydown", handleCopyKey, true);
 
         return () => {
+            isUnmounted = true;
             if (cleanup) cleanup();
             doc.removeEventListener("keydown", handleCopyKey, true);
         };

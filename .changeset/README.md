@@ -23,13 +23,13 @@ You should create a changeset for **every pull request** or **significant change
 ## Automated Release Process
 
 The project is configured with two GitHub Actions:
-1.  **Version Packages** (`version-packages.yml`): Automatically creates/updates a Pull Request with the version bump and `CHANGELOG.md` updates whenever changesets are found on `main`.
+1.  **Version Packages** (`version-packages.yml`): Automatically creates/updates a Pull Request with the version bump and `CHANGELOG.md` updates whenever changesets are found on **master**.
 2.  **Release** (`release.yml`): Triggers when the "Version Packages" PR is merged (which creates a `v*` tag) to build and publish the release.
 
 ### Workflow:
 
 1.  **Develop**: Run `npx changeset` and commit the fragments.
-2.  **Versioning**: Merge your changes to `main`. A "Version Packages" PR will be automatically opened/updated by GitHub Actions.
+2.  **Versioning**: Merge your changes to **master**. A "Version Packages" PR will be automatically opened/updated by GitHub Actions.
 3.  **Release**: When you are ready to release, **merge the "Version Packages" PR**. 
     - The action will automatically create the `vX.Y.Z` tag.
     - The `release.yml` will then build the project, create a ZIP, and publish a GitHub Release.

@@ -4,6 +4,7 @@ import fs from "node:fs";
 import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import extract from "extract-zip";
@@ -40,7 +41,7 @@ function parseArgs(argv: string[]): ParsedArgs {
   }
 
   let configPath = "./logseq-versions.json";
-  let cacheDir = "./.cache/logseq";
+  let cacheDir = "./.logseq/app";
 
   for (let i = 0; i < rest.length; i += 1) {
     const arg = rest[i];
@@ -248,8 +249,7 @@ async function ensureExecutable(input: {
   return { executablePath, assetName, strategy, installDir };
 }
 
-export async function main(): Promise<void> {
-  const args = parseArgs(process.argv.slice(2));
+export async function ensureLogseq(args: ParsedArgs): Promise<any> {
   const target = detectTarget();
   const config = await loadConfig(args.configPath);
   const channelCfg = config[args.channel];
@@ -268,25 +268,29 @@ export async function main(): Promise<void> {
     key: target.key,
   });
 
-  process.stdout.write(
-    JSON.stringify(
-      {
-        channel: args.channel,
-        tag: channelCfg.tag,
-        platform: target.platform,
-        arch: target.arch,
-        installDir: result.installDir,
-        executablePath: result.executablePath,
-        strategy: result.strategy,
-        assetName: result.assetName,
-      },
-      null,
-      2
-    ) + "\n"
-  );
+  return {
+    channel: args.channel,
+    tag: channelCfg.tag,
+    platform: target.platform,
+    arch: target.arch,
+    installDir: result.installDir,
+    executablePath: result.executablePath,
+    strategy: result.strategy,
+    assetName: result.assetName,
+  };
 }
 
-main().catch((error) => {
-  console.error(`[setup-logseq] ${error instanceof Error ? error.stack : String(error)}`);
-  process.exit(1);
-});
+export async function main(): Promise<void> {
+  const args = parseArgs(process.argv.slice(2));
+  const result = await ensureLogseq(args);
+  process.stdout.write(JSON.stringify(result, null, 2) + "\n");
+}
+
+const isMain = process.argv[1] && fileURLToPath(import.meta.url) === fs.realpathSync(process.argv[1]);
+
+if (isMain) {
+  main().catch((error) => {
+    console.error(`[setup-logseq] ${error instanceof Error ? error.stack : String(error)}`);
+    process.exit(1);
+  });
+}

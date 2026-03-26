@@ -2,8 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 export default async function globalSetup() {
-
-  const runtimeDir = path.resolve(".tmp");
+  const runtimeDir = path.resolve(".logseq");
   const graphDir = path.join(runtimeDir, "graph");
   const homeDir = path.join(runtimeDir, "home");
   const xdgDir = path.join(runtimeDir, "xdg");

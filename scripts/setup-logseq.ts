@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import path from "node:path";
-import { main as ensureLogseq, type ChannelName } from "./logseq/ensure-logseq";
+import { ensureLogseq, type ChannelName } from "./logseq/ensure-logseq";
 
 interface ParsedArgs {
   channel: ChannelName;
@@ -48,7 +48,11 @@ function parseArgs(argv: string[]): ParsedArgs {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  const result = await ensureLogseq(args);
+  const result = await ensureLogseq({
+    channel: args.channel,
+    configPath: args.configPath || "./logseq-versions.json",
+    cacheDir: args.cacheDir || "./.logseq/app"
+  });
   process.stdout.write(JSON.stringify(result, null, 2) + "\n");
 }
 

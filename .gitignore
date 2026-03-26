@@ -12,8 +12,8 @@ dist-ssr
 *.local
 
 ## playwrite
-.tmp
-.cache
+
+.logseq
 blob-report
 playwright-report
 test-results 
@@ -34,6 +34,7 @@ GEMINI.md
 
 .tmp
 .cache
+.logseq
 blog-report
 playwright-report
 test-results

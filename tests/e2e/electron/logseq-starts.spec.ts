@@ -3,7 +3,7 @@ import path from "node:path";
 import { test, expect, _electron as electron } from "@playwright/test";
 
 function loadRuntimeConfig() {
-  const runtimePath = path.resolve(".tmp/runtime.json");
+  const runtimePath = path.resolve(".logseq/runtime.json");
 
   if (!fs.existsSync(runtimePath)) {
     throw new Error(
@@ -19,6 +19,7 @@ function loadRuntimeConfig() {
 test("Logseq starts", async () => {
   const runtime = loadRuntimeConfig();
 
+  console.log("Launching Logseq Electron app...");
   const app = await electron.launch({
     executablePath: runtime.executablePath,
     args: [runtime.graphDir],
@@ -30,9 +31,19 @@ test("Logseq starts", async () => {
   });
 
   try {
+    console.log("Waiting for first window...");
     const window = await app.firstWindow();
-    await window.waitForLoadState("domcontentloaded");
+    
+    console.log("Waiting for main UI element (#app or .cp__header)...");
+    // Wait for the main app container or header to be visible
+    await window.waitForSelector("#app, .cp__header", { state: "visible", timeout: 45000 });
+    
+    console.log("Verifying body visibility...");
     await expect(window.locator("body")).toBeVisible();
+    console.log("Logseq started successfully!");
+  } catch (err: any) {
+    console.error("Test failed:", err.message);
+    throw err;
   } finally {
     await app.close();
   }

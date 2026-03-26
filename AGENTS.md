@@ -28,6 +28,7 @@ Project Structure
 ├ services.ts                    # DI Container & Global Services Registry
 ├ tests/                           # Integration tests & Simulation environment
 │ ├ logseq-sim*                   # Logseq UI simulator with a mock Logseq API implementation
+│ └ graph/                         # Test graphs for E2E tests
 ├ public/                            # Public assets
 ├ svelte.config.js                   # experimental.remoteFunctions + compiler experimental.async
 ├ package.json
@@ -79,7 +80,8 @@ The `tests` directory facilitates rapid UI development and testing outside of th
 
 ### Logseq Simulation (`logseq-sim`)
 
-The user should have `npm run dev` running on port 9000. If not ask the user to start the server. reach it under http://localhost:9000/tests/logseq-sim.html
+The user should have `npm run dev` running on port 9000. If not ask the user to start the server.
+Reach it under http://localhost:9000/tests/logseq-sim.html
 
 `tests/logseq-sim.html` is a standalone simulation page that:
 
@@ -88,6 +90,7 @@ The user should have `npm run dev` running on port 9000. If not ask the user to 
 3.  **Isolates State**: Provides a clean environment to verify parser logic (`logseq-sim-lib.js`) and interaction flows without the overhead of reloading Logseq.
 
 Use this environment to iterate on component designs and verify interactions before integrating them into the main plugin.
+
 
 
 # Automated Testing

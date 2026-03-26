@@ -11,21 +11,8 @@ export default defineConfig({
   },
   projects: [
     {
-      name: "sim",
-      testDir: "./tests/e2e/sim",
-      use: {
-        baseURL: "http://localhost:9000",
-      },
-    },
-    {
       name: "electron",
       testDir: "./tests/e2e/electron",
     },
   ],
-  webServer: {
-    command: "npm run dev",
-    url: "http://localhost:9000",
-    reuseExistingServer: true,
-    timeout: 30_000,
-  },
 });

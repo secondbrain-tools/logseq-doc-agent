@@ -18,8 +18,12 @@ blob-report
 playwright-report
 test-results 
 
-# create a symlink to the AGENTS.md file
+
+
+
+# create a symlink to the AGENTS.md file / other agent configs
 GEMINI.md
+.agent/
 
 # Editor directories and files
 .vscode/*
@@ -32,10 +36,7 @@ GEMINI.md
 *.sln
 *.sw?
 
-.tmp
-.cache
-.logseq
-blog-report
-playwright-report
-test-results
-blob-report
+
+
+## test graph
+tests/graph

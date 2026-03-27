@@ -20,6 +20,31 @@ describe('subtree-parser', () => {
             expect(result.children).toHaveLength(0);
         });
 
+        it('should not split blocks on empty lines without list markers', () => {
+            const input = 'Line one\n\nLine two\n\n\nLine three';
+            const result = parseSubtree(input);
+
+            expect(result.content).toBe('Line one\n\nLine two\n\n\nLine three');
+            expect(result.children).toHaveLength(0);
+        });
+
+        it('should treat a heading on the very first line as block content, not a child block', () => {
+            const input = '## Heading\n\nParagraph text';
+            const result = parseSubtree(input);
+
+            expect(result.content).toBe('## Heading\n\nParagraph text');
+            expect(result.children).toHaveLength(0);
+        });
+
+        it('should split on a heading if it is not the first line of the block', () => {
+            const input = 'Intro text\n## Heading\nParagraph text';
+            const result = parseSubtree(input);
+
+            expect(result.content).toBe('Intro text');
+            expect(result.children).toHaveLength(1);
+            expect(result.children[0].content).toBe('## Heading\nParagraph text');
+        });
+
         it('should parse single-level list', () => {
             const input = '- Item 1\n- Item 2\n- Item 3';
             const result = parseSubtree(input);

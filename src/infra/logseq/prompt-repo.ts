@@ -2,7 +2,7 @@ import type { Prompt, FeedbackPrompt } from '../../domain/logseq';
 import type { ChatPrompt } from '../../domain/chat/prompt';
 import type { PromptRepository } from '../../application/ports/prompt-repo';
 import type { LogseqApi } from '../../application/ports/logseq-ports';
-import { LDA_PROMPT_NAME_PROPERTY, LDA_PROMPT_NAME_PROPERTY_CAMEL } from '../../domain/logseq/properties';
+import { LDA_PROMPT_NAME_PROPERTY, LDA_PROMPT_NAME_PROPERTY_CAMEL, LOGSEQ_PROPERTY_REGEX } from '../../domain/logseq/properties';
 
 export class LogseqPromptRepository implements PromptRepository {
     constructor(private logseqApi: LogseqApi) { }
@@ -123,7 +123,7 @@ export class LogseqPromptRepository implements PromptRepository {
             // Strip markdown heading lines used as block title (e.g. ## Prompt Name)
             if (/^#+\s/.test(trimmed)) return false;
             // Strip all logseq-doc-agent.* and logseqDocAgent.* property lines
-            const propMatch = trimmed.match(/^([^:]+)::\s*.+$/);
+            const propMatch = trimmed.match(LOGSEQ_PROPERTY_REGEX);
             if (propMatch) {
                 const key = propMatch[1].trim();
                 if (key.startsWith('logseq-doc-agent.') || key.startsWith('logseqDocAgent.')) {

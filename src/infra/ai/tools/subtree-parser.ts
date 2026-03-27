@@ -1,9 +1,10 @@
 /**
  * Subtree Parser for addBlock tool
  * 
- * Parses markdown-style nested lists into a tree structure
- * that can be recursively inserted into Logseq.
+ * ParsedBlock tree structure that can be recursively inserted into Logseq.
  */
+
+import { LOGSEQ_PROPERTY_START_REGEX, LOGSEQ_PROPERTY_REGEX } from '../../../domain/logseq/properties';
 
 export interface ParsedBlock {
     content: string;
@@ -64,7 +65,7 @@ function isAnyListItem(line: string): boolean {
  * Checks if a line is a property definition (key:: value)
  */
 function isProperty(line: string): boolean {
-    return /^\s*[\w-]+::\s*/.test(line);
+    return LOGSEQ_PROPERTY_START_REGEX.test(line);
 }
 
 /**
@@ -85,7 +86,7 @@ function extractOrderedListContent(line: string): string {
  * Parses a property line into key-value pair
  */
 function parseProperty(line: string): { key: string; value: string } | null {
-    const match = line.match(/^\s*([\w-]+)::\s*(.*)$/);
+    const match = line.match(LOGSEQ_PROPERTY_REGEX);
     if (match) {
         return { key: match[1], value: match[2].trim() };
     }
@@ -132,7 +133,13 @@ export function parseSubtree(input: string): ParsedBlock {
     }));
 
     // Find where the list starts (first line with "- " or "N. ")
-    const firstListIndex = lineInfos.findIndex(info => info.isAnyItem);
+    const firstListIndex = lineInfos.findIndex((info, index) => {
+        // A heading on the first line of the input does not start a list break
+        if (index === 0 && info.isHeaderItem && !info.isListItem && !info.isOrderedItem) {
+            return false;
+        }
+        return info.isAnyItem;
+    });
 
     // Everything before the first list item is the root content
     let rootContent = '';
@@ -151,7 +158,8 @@ export function parseSubtree(input: string): ParsedBlock {
 
     // Parse the list portion
     const listLines = lineInfos.slice(firstListIndex);
-    const children = parseListItems(listLines, 0);
+    const firstIndent = listLines.length > 0 ? listLines[0].indentLevel : 0;
+    const children = parseListItems(listLines, firstIndent);
 
     return {
         content: rootContent,
@@ -214,8 +222,8 @@ function parseListItems(lines: LineInfo[], baseIndent: number): ParsedBlock[] {
                 }
 
                 if (nextLine.indentLevel === baseIndent) {
-                    if (nextLine.isAnyItem || pendingEmptyLines > 0 || hasSeenChild) {
-                        // We hit a sibling block or a new paragraph, stop collecting for this block
+                    if (nextLine.isAnyItem || hasSeenChild) {
+                        // We hit a sibling block or a child, stop collecting for this block
                         break;
                     }
                 }

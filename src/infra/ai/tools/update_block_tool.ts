@@ -7,7 +7,7 @@ import { parseSubtree } from './subtree-parser';
 import { insertSubtreeRecursive } from './block-operations';
 import { applyMergeLogicToTree, formatBlockTree } from './get_logseq_document_tool';
 import type { LogseqBlock } from './types';
-import { extractExistingMergeData, splitContentAttributes, LDA_MERGE_PROPERTY } from '../../../domain/logseq/properties';
+import { extractExistingMergeData, splitContentAttributes, LDA_MERGE_PROPERTY, LOGSEQ_PROPERTY_START_REGEX } from '../../../domain/logseq/properties';
 
 // Access the global logseq object
 const getLogseq = () => (window as any).logseq;
@@ -83,7 +83,7 @@ Returns the updated block and its full subtree in markdown tree format.`,
 
                 // Reuse existing logic logic
                 const lines = currentContent.split('\n');
-                const bodyLines = lines.filter((l: string) => !l.match(/^.+::/));
+                const bodyLines = lines.filter((l: string) => !l.match(LOGSEQ_PROPERTY_START_REGEX));
 
                 // Let's use the explicit logic from before to be safe
                 const { body: currentBody, properties: existingPropsStr } = splitContentAttributes(currentContent);
@@ -158,7 +158,7 @@ function extractProperties(content: string): string[] {
     const lines = content.split('\n');
     const props = [];
     for (const line of lines) {
-        if (/^.+::/.test(line) && !line.startsWith(`${LDA_MERGE_PROPERTY}::`)) {
+        if (LOGSEQ_PROPERTY_START_REGEX.test(line) && !line.startsWith(`${LDA_MERGE_PROPERTY}::`)) {
             props.push(line);
         } else {
             break; // Standard Logseq properties are at the top

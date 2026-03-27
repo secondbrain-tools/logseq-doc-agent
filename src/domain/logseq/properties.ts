@@ -13,6 +13,18 @@ export const LDA_MERGE_PROPERTY_CAMEL = 'logseqDocAgent.merge';
 export const LDA_EVALUATION_PROPERTY = 'logseq-doc-agent.evaluation';
 export const LDA_EVALUATION_PROPERTY_CAMEL = 'logseqDocAgent.evaluation';
 
+/**
+ * Regular expression to match any valid Logseq property line.
+ * A logseq property key cannot contain spaces or colons.
+ * Group 1 is the key, Group 2 is the value.
+ */
+export const LOGSEQ_PROPERTY_REGEX = /^\s*([^\s:]+)::\s*(.*)$/;
+
+/**
+ * Regular expression to check if a line starts with a property key.
+ */
+export const LOGSEQ_PROPERTY_START_REGEX = /^\s*[^\s:]+::/;
+
 export function filterProperties(
     content: string,
     patterns: string[],
@@ -24,7 +36,7 @@ export function filterProperties(
     const bodyLines: string[] = [];
 
     // Simple regex for property check: many-keys:: value
-    const propRegex = /^([^:]+)::\s*(.*)$/;
+    const propRegex = LOGSEQ_PROPERTY_REGEX;
 
     // Helper for glob matching
     const matchPattern = (key: string, pattern: string) => {
@@ -111,7 +123,7 @@ export function filterPropertyLinesFromContent(content: string): string {
         }
 
         // Strip lines that are a filtered LDA property
-        const propMatch = trimmed.match(/^([^:]+)::\s*.+$/);
+        const propMatch = trimmed.match(LOGSEQ_PROPERTY_REGEX);
         if (propMatch) {
             const key = propMatch[1].trim();
             if ((LDA_PROPERTIES_FILTERED_FROM_CONTENT as readonly string[]).includes(key)) {
@@ -133,7 +145,7 @@ export function parseProperties(header: string): Record<string, string> {
     if (!header) return props;
 
     const lines = header.split('\n');
-    const propRegex = /^([^:]+)::\s*(.*)$/;
+    const propRegex = LOGSEQ_PROPERTY_REGEX;
 
     for (const line of lines) {
         const stripped = line.trim();
@@ -164,7 +176,7 @@ export function splitContentAttributes(content: string) {
     let inProps = true;
 
     // Regex for property key:: value
-    const propRegex = /^.+::/;
+    const propRegex = LOGSEQ_PROPERTY_START_REGEX;
 
     for (const line of lines) {
         if (inProps) {

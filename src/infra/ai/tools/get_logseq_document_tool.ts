@@ -6,8 +6,7 @@ import {
     type LogseqPage,
     isLogseqBlockEntity
 } from './types';
-import { filterPropertyLinesFromContent, LOGSEQ_INTERNAL_CONTENT_PROPERTIES } from '../../../domain/logseq/properties';
-
+import { filterPropertyLinesFromContent, LOGSEQ_INTERNAL_CONTENT_PROPERTIES, LOGSEQ_PROPERTY_REGEX } from '../../../domain/logseq/properties';
 
 // Access the global logseq object
 const getLogseq = () => (window as any).logseq;
@@ -233,7 +232,7 @@ export function cleanBlockContent(content?: string | null) {
         .split('\n')
         .filter((line) => {
             const trimmed = line.trim();
-            const propMatch = trimmed.match(/^([^:]+)::\s*.+$/);
+            const propMatch = trimmed.match(LOGSEQ_PROPERTY_REGEX);
             if (!propMatch) return true;
             const key = propMatch[1].trim();
             return !(LOGSEQ_INTERNAL_CONTENT_PROPERTIES as readonly string[]).includes(key);

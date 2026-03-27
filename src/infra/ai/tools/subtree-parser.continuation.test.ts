@@ -16,15 +16,14 @@ Please evaluate the current page using submitBlockEvaluation tool. Here are the 
         expect(h1.content).toBe('## [Prompt Name]\n\`logseq- doc - agent.prompt:: [Prompt Name]\`\nPlease evaluate the current page using submitBlockEvaluation tool. Here are the necessary information.');
     });
 
-    it('should create new blocks for unbulleted lines after a blank line', () => {
+    it('should NOT create new blocks for unbulleted lines after a blank line (treat as continuation)', () => {
         const input = `- List item 1
 
 If context is missing, ask the user for further information.`;
         const result = parseSubtree(input);
 
         expect(result.content).toBe('');
-        expect(result.children.length).toBe(2);
-        expect(result.children[0].content).toBe('List item 1');
-        expect(result.children[1].content).toBe('If context is missing, ask the user for further information.');
+        expect(result.children.length).toBe(1);
+        expect(result.children[0].content).toBe('List item 1\n\nIf context is missing, ask the user for further information.');
     });
 });

@@ -4,6 +4,7 @@
 
 import type { BlockEntity } from '@logseq/libs/dist/LSPlugin.user';
 import type { LogseqApi, IAsyncStorage } from '../../application/ports/logseq-ports';
+import { LOGSEQ_PROPERTY_START_REGEX } from '../../domain/logseq/properties';
 import '@logseq/libs';
 
 /**
@@ -267,7 +268,7 @@ export class LogseqApiImpl implements LogseqApi {
           return false;
         }
         // Skip property lines (key:: value pattern)
-        if (/^[^:]+::\s*.+$/.test(trimmedLine)) {
+        if (LOGSEQ_PROPERTY_START_REGEX.test(trimmedLine)) {
           return false;
         }
         return true;

@@ -3,6 +3,7 @@ import type { LogseqApi } from '../../application/ports/logseq-ports';
 import type { Message } from '../../domain/chat/types';
 import type { ChatlogMetadata, ChatlogEntry } from '../../domain/chatlog/types';
 import { CHATLOG_PROPERTIES } from '../../domain/chatlog/types';
+import { LOGSEQ_PROPERTY_START_REGEX } from '../../domain/logseq/properties';
 import type { BlockEntity } from '@logseq/libs/dist/LSPlugin.user';
 
 /**
@@ -430,7 +431,7 @@ export class LogseqChatlogRepository implements IChatlogRepository {
         const lines = blockContent.split('\n');
         const contentLines = lines.filter(line => {
             const trimmed = line.trim();
-            return trimmed && !trimmed.match(/^[^:]+::\s*.+$/);
+            return trimmed && !LOGSEQ_PROPERTY_START_REGEX.test(trimmed);
         });
         return contentLines.join('\n');
     }

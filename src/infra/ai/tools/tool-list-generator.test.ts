@@ -9,10 +9,10 @@ beforeEach(() => {
 
 describe('tool-list-generator', () => {
     // Helper: the ## title is treated as a header list item by parseSubtree, so
-    // parsed.children[0] is the root block (title + version property as content).
+    // parsed is the root block (title + version property as content).
     function getRootNode(version?: number) {
         const parsed = parseSubtree(generateToolListString(version));
-        const root = parsed.children[0];
+        const root = parsed;
         expect(root).toBeDefined();
         return root;
     }

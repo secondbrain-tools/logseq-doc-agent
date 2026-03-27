@@ -329,7 +329,7 @@ export const logseq = {
                 .split('\n')
                 .filter(line => {
                     const t = line.trim();
-                    return t !== '' && !/^[^:]+::\s*.+$/.test(t);
+                    return t !== '' && !/^[^\s:]+::\s*.+$/.test(t);
                 })
                 .join('\n');
         },

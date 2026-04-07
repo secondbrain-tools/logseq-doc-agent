@@ -1,46 +1,54 @@
 // scripts/run-e2e.ts
-import { execSync, spawn } from "node:child_process";
+import { spawn } from "node:child_process";
 import path from "node:path";
+import { ensureLogseq, type ChannelName } from "./logseq/ensure-logseq";
 
-// Step 1: run the existing setup script (legacy mode)
-console.log("Running Logseq setup (legacy)...");
-let setupOutput: string;
-try {
-  setupOutput = execSync("npx tsx scripts/setup-logseq.ts legacy", { encoding: "utf-8" });
-} catch (err: any) {
-  console.error("Error during Logseq setup:", err.stderr || err.message);
-  process.exit(1);
-}
+const rootDir = process.cwd();
 
-// The setup script may output multiple JSON objects; find the first JSON block
-let executablePath = "";
-const jsonMatches = setupOutput.match(/\{[^}]*\}/g);
-if (jsonMatches) {
-  for (const jsonStr of jsonMatches) {
-    try {
-      const parsed = JSON.parse(jsonStr);
-      if (parsed && parsed.executablePath) {
-        executablePath = parsed.executablePath;
-        break;
-      }
-    } catch {}
+async function main() {
+  const args = process.argv.slice(2);
+  let channel: ChannelName = "legacy";
+
+  // Check if first argument is a channel
+  if (args[0] === "legacy" || args[0] === "db") {
+    channel = args.shift() as ChannelName;
   }
+
+  console.log(`[run-e2e] Setting up Logseq (${channel})...`);
+
+  // Resolve the executable path
+  const result = await ensureLogseq({
+    channel,
+    configPath: path.resolve(rootDir, "logseq-versions.json"),
+    cacheDir: path.resolve(rootDir, ".logseq/app")
+  });
+
+  const executablePath = result.executablePath;
+  console.log(`[run-e2e] Resolved Logseq executable to: ${executablePath}`);
+  
+  // Set environment variable for Playwright's global setup
+  process.env.LOGSEQ_EXECUTABLE = executablePath;
+
+  // Remaining arguments are passed to Playwright
+  console.log(`[run-e2e] Launching Playwright with arguments: ${args.join(" ")}`);
+  
+  const playwright = spawn("npx", ["playwright", "test", ...args], {
+    stdio: "inherit",
+    env: process.env,
+    cwd: rootDir
+  });
+
+  playwright.on("close", (code) => {
+    process.exit(code ?? 0);
+  });
+
+  playwright.on("error", (err) => {
+    console.error("[run-e2e] Failed to start Playwright:", err);
+    process.exit(1);
+  });
 }
-if (!executablePath) {
-  console.error("Could not determine LOGSEQ_EXECUTABLE from setup output.");
+
+main().catch((err) => {
+  console.error("[run-e2e] Error:", err);
   process.exit(1);
-}
-console.log(`LOGSEQ_EXECUTABLE resolved to: ${executablePath}`);
-process.env.LOGSEQ_EXECUTABLE = executablePath;
-
-// Step 2: run the Playwright e2e tests
-console.log("Launching Playwright e2e tests...");
-const playwright = spawn("npm", ["run", "test:e2e"], {
-  stdio: "inherit",
-  env: process.env,
-  cwd: process.cwd()
-});
-
-playwright.on("close", (code) => {
-  process.exit(code ?? 0);
 });

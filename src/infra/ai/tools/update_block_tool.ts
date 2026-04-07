@@ -128,10 +128,13 @@ Returns the updated block and its full subtree in markdown tree format.`,
 
             // 3. Return the full subtree
             // Fetch updated block with children
-            const updatedBlock = await logseq.Editor.getBlock(uuid, { includeChildren: true });
-            if (!updatedBlock) {
+            const rawBlock = await logseq.Editor.getBlock(uuid, { includeChildren: true });
+            if (!rawBlock) {
                 return `Successfully updated block ${id}, but failed to retrieve it for display.`;
             }
+
+            // FORCE CLEAN JSON to avoid Transit/Bean issues
+            const updatedBlock = JSON.parse(JSON.stringify(rawBlock));
 
             // Format as tree
             let blocks: LogseqBlock[] = [updatedBlock];

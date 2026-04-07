@@ -7,6 +7,7 @@ import { mapMessages } from './message-mapper';
 import { ModelFactory } from './model-factory';
 import { AgentRunner } from './agent-runner';
 import { getCognitiveForcingPrompt } from '../../domain/evaluation/cognitive-forcing.prompt';
+import { ChatlogReplayAIService } from './chatlog-replay-ai';
 
 import type { ISettingsPort } from '../../application/ports/settings-port';
 
@@ -28,6 +29,19 @@ export class VercelAIAdapter implements IAIService {
         agentContext?: AgentContext,
         signal?: AbortSignal
     ): Promise<ReadableStream<any>> {
+        // E2E TEST REPLAY: If a pre-scripted chatlog was injected, delegate to the replay service
+        const win = (window as any);
+        if (win.__LDA_REPLAY_CHATLOG__) {
+            console.log('[VercelAIAdapter] Replay chatlog detected — delegating to ChatlogReplayAIService');
+            const mergeDefault = this.settingsAdapter.get<boolean>('get_merged_content_default', true);
+            const mergeBoth = this.settingsAdapter.get<boolean>('get_merged_content_both', false);
+            const tools = createTools({ merge, mergeDefault, mergeBoth });
+            const replayService = new ChatlogReplayAIService(win.__LDA_REPLAY_CHATLOG__, tools);
+            // Consume the chatlog so subsequent calls don't replay again
+            delete win.__LDA_REPLAY_CHATLOG__;
+            return replayService.streamAgent(messages, modelId, providerId, merge, reasoningEffort, agentContext, signal);
+        }
+
         console.log('[VercelAIAdapter] streamAgent called', {
             modelId,
             providerId,
@@ -35,39 +49,6 @@ export class VercelAIAdapter implements IAIService {
             reasoningEffort,
             agentName: agentContext?.agentName
         });
-
-        // VERIFICATION MOCK: Trigger tool call for specific prompt
-        const lastMsg = messages[messages.length - 1];
-        if (lastMsg && lastMsg.content.includes('test tool')) {
-            console.log('[VercelAIAdapter] Returning MOCK TOOL STREAM');
-            return new ReadableStream({
-                start(controller) {
-                    controller.enqueue({ type: 'text-delta', textDelta: 'I will now run the test tool.\n' });
-
-                    const toolCallId = 'call_' + Date.now();
-                    const toolCall = {
-                        type: 'tool-call',
-                        toolCallId: toolCallId,
-                        toolName: 'test-tool',
-                        args: { query: 'verification' }
-                    };
-                    controller.enqueue(toolCall);
-
-                    // Simulate async tool execution
-                    setTimeout(() => {
-                        controller.enqueue({
-                            type: 'tool-result',
-                            toolCallId: toolCallId,
-                            toolName: 'test-tool',
-                            result: 'Success: Tool executed verification.'
-                        });
-
-                        controller.enqueue({ type: 'text-delta', textDelta: '\nTool execution finished.' });
-                        controller.close();
-                    }, 500);
-                }
-            });
-        }
 
         const disableStreaming = this.modelFactory.isStreamingDisabled(modelId, providerId);
 

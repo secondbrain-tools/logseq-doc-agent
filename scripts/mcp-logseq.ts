@@ -11,7 +11,14 @@ const rootDir = path.resolve(__dirname, "..");
 const logseqDir = path.join(rootDir, ".logseq");
 const homeDir = path.join(logseqDir, "home");
 const xdgDir = path.join(logseqDir, "xdg");
-const graphDir = path.resolve(rootDir, "tests/testgraph");
+const graphTemplateDir = path.resolve(rootDir, "tests/graph-template");
+const graphDir = path.resolve(rootDir, "tests/graph");
+
+// Always start from a clean template
+console.error(`[mcp-logseq] Copying graph-template → ${graphDir}...`);
+fs.rmSync(graphDir, { recursive: true, force: true });
+fs.mkdirSync(graphDir, { recursive: true });
+fs.cpSync(graphTemplateDir, graphDir, { recursive: true });
 
 fs.mkdirSync(homeDir, { recursive: true });
 fs.mkdirSync(xdgDir, { recursive: true });

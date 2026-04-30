@@ -1,8 +1,11 @@
 {
   "mcpServers": {
     "logseq_electron": {
-      "command": "npm",
+      "command": "env",
       "args": [
+        "-u",
+        "NODE_OPTIONS",
+        "npm",
         "run",
         "start:mcp:legacy"
       ],

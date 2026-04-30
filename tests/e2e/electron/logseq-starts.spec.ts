@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { ensureGraphOpen } from "../../../scripts/logseq/graph-bootstrap";
 import { test, expect, _electron as electron } from "@playwright/test";
 
 function loadRuntimeConfig() {
@@ -34,11 +35,13 @@ test("Logseq starts", async () => {
     console.log("Waiting for first window...");
     const window = await app.firstWindow();
     
+    console.log("Waiting for Logseq shell...");
+    await window.waitForSelector("#app, .cp__header, .add-graph-btn", { state: "visible", timeout: 45000 });
+
+    await ensureGraphOpen(window, runtime.graphDir);
+
     console.log("Waiting for main UI element (#app or .cp__header)...");
-    // Wait for the main app container or header to be visible
     await window.waitForSelector("#app, .cp__header", { state: "visible", timeout: 45000 });
-    
-    console.log("Verifying body visibility...");
     await expect(window.locator("body")).toBeVisible();
     console.log("Logseq started successfully!");
   } catch (err: any) {

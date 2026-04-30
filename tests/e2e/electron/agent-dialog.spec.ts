@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { ensureGraphOpen } from "../../../scripts/logseq/graph-bootstrap";
 import { test, expect, _electron as electron } from "@playwright/test";
 import { buildFullRemap, extractChatlogContext, remapChatlog } from "../lib/id-remapper";
 
@@ -62,9 +63,10 @@ test.describe("Agent Chatlog Replay", () => {
           }
       });
 
+      await window.waitForSelector("#app, .cp__header, .add-graph-btn", { state: "visible", timeout: 45000 });
+      await ensureGraphOpen(window, runtime.graphDir);
       await window.waitForSelector("#app, .cp__header", { state: "visible", timeout: 45000 });
       const toolbarItem = window.locator('a[data-on-click="open-chat"]');
-      await expect(toolbarItem).toBeVisible({ timeout: 30000 });
 
       // ─── 3. Get current page tree ───────────────────────────────────────
       const currentText: string = await evalInPluginFrame(

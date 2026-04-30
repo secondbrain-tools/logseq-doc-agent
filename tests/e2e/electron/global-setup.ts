@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { primeGraphSelection } from "../../../scripts/logseq/graph-bootstrap";
 
 export default async function globalSetup() {
   const runtimeDir = path.resolve(".logseq/e2e");
@@ -27,6 +28,13 @@ export default async function globalSetup() {
     );
     return;
   }
+
+  await primeGraphSelection({
+    executablePath,
+    graphDir,
+    homeDir,
+    xdgDir,
+  });
 
   await fs.writeFile(
     path.join(runtimeDir, "runtime.json"),

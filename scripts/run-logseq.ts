@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import fs from "node:fs";
 import { ensureLogseq } from "./logseq/ensure-logseq";
+import { primeGraphSelection } from "./logseq/graph-bootstrap";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
@@ -44,6 +45,13 @@ APPIMAGE_EXTRACT_AND_RUN=1 exec ${JSON.stringify(executablePath)} --no-sandbox -
     { mode: 0o755 }
   );
   const launchPath = launchWrapperPath;
+
+  await primeGraphSelection({
+    executablePath,
+    graphDir,
+    homeDir,
+    xdgDir,
+  });
   console.log(`[run-logseq] Launching Logseq...`);
 
   const logseqProcess = spawn(launchPath, [graphDir], {

@@ -3,6 +3,7 @@ import { execSync, spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import fs from "node:fs";
+// import { primeGraphSelection } from "./logseq/graph-bootstrap"; // temporarily disabled
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
@@ -105,6 +106,8 @@ if (!hasGraphs) {
     }, null, 2));
   }
 }
+
+// Bootstrap disabled temporarily: do not pre-launch Logseq to prime graph selection.
 
 console.error(`[mcp-logseq] Launching electron-playwright-mcp server...`);
 

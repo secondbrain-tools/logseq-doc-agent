@@ -8,11 +8,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
 
 // Setup isolated directories in .logseq
-const logseqDir = path.join(rootDir, ".logseq");
+const logseqDir = path.join(rootDir, ".logseq", "mcp");
 const homeDir = path.join(logseqDir, "home");
 const xdgDir = path.join(logseqDir, "xdg");
 const graphTemplateDir = path.resolve(rootDir, "tests/graph-template");
-const graphDir = path.resolve(rootDir, "tests/graph");
+const graphDir = path.resolve(rootDir, ".logseq/mcp/graph");
 
 // Always start from a clean template
 console.error(`[mcp-logseq] Copying graph-template → ${graphDir}...`);
@@ -66,16 +66,44 @@ const executablePath = path.isAbsolute(config.executablePath)
 
 console.error(`[mcp-logseq] Resolved Logseq executable to: ${executablePath}`);
 
+const launchWrapperPath = path.join(logseqDir, "launch-logseq.sh");
+fs.writeFileSync(
+  launchWrapperPath,
+  `#!/usr/bin/env bash
+set -euo pipefail
+APPIMAGE_EXTRACT_AND_RUN=1 exec ${JSON.stringify(executablePath)} --no-sandbox --disable-gpu --disable-software-rasterizer "$@"
+`,
+  { mode: 0o755 }
+);
+const launchPath = launchWrapperPath;
+
 // Check if graph is initialized in isolated home
 const logseqConfigGraphsDir = path.join(homeDir, ".logseq", "graphs");
-const hasGraphs = fs.existsSync(logseqConfigGraphsDir) && fs.readdirSync(logseqConfigGraphsDir).length > 0;
+fs.mkdirSync(logseqConfigGraphsDir, { recursive: true });
+
+const hasGraphs = fs.readdirSync(logseqConfigGraphsDir).length > 0;
 
 if (!hasGraphs) {
-  console.error(`\n[mcp-logseq] ERROR: No graphs found in isolated environment.`);
-  console.error(`[mcp-logseq] Please run "npm run start:${channel}" first and select or create a graph in:`);
-  console.error(`            ${graphDir}`);
-  console.error(`[mcp-logseq] This will initialize the Logseq configuration required for the MCP server.\n`);
-  process.exit(1);
+  console.error(`[mcp-logseq] No graphs found. Automatically initializing graph configuration for: ${graphDir}`);
+  // Create a dummy transit file to tell Logseq this graph exists.
+  // The filename format is: logseq_local_++<escaped-path>.transit
+  const escapedPath = graphDir.replace(/\//g, "++");
+  const configFileName = `logseq_local_++${escapedPath}.transit`;
+  const configFilePath = path.join(logseqConfigGraphsDir, configFileName);
+  
+  // A minimal valid-ish transit file content for a local graph
+  // We'll just write an empty-ish Datascript DB structure
+  const minimalTransit = '["~#datascript/DB",["^ ","~:schema",["^ "],"~:datoms",["~#list",[]]]]';
+  fs.writeFileSync(configFilePath, minimalTransit);
+
+  // Also seed preferences to include the current plugin
+  const logseqConfigDir = path.join(homeDir, ".logseq");
+  const prefsPath = path.join(logseqConfigDir, "preferences.json");
+  if (!fs.existsSync(prefsPath)) {
+    fs.writeFileSync(prefsPath, JSON.stringify({
+      externals: [rootDir]
+    }, null, 2));
+  }
 }
 
 console.error(`[mcp-logseq] Launching electron-playwright-mcp server...`);
@@ -84,13 +112,13 @@ const mcpServerPath = path.resolve(rootDir, "node_modules/electron-playwright-mc
 
 const mcpServer = spawn("node", [
   mcpServerPath,
-  executablePath,
+  launchPath,
   graphDir // Pass graphDir as an argument to Electron if supported
 ], {
   stdio: "inherit",
   env: {
     ...process.env,
-    ELECTRON_APP_PATH: executablePath,
+    ELECTRON_APP_PATH: launchPath,
     HOME: homeDir,
     XDG_CONFIG_HOME: xdgDir,
   },

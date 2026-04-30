@@ -120,6 +120,32 @@ We use **Session-based Short IDs** (e.g., `#a1b2`) for stable, concise block ref
 *   IDs are ephemeral (session-only), 4-char alphanumeric, and lazily mapped 1:1 to UUIDs.
 *   Tools like `get_logseq_document` append these IDs (e.g., `[1.2 #a1b2]`) for the Agent to use in subsequent operations.
 
+# MCP-Enhanced Development & E2E Testing
+
+The `logseq_electron` MCP server provides a live bridge to a running Logseq instance. Use it to verify UI injections, debug runtime state, and prototype E2E tests.
+
+### 1. Live Investigation
+*   **Inspect UI Injections**: Use `mcp_logseq_electron_browser_snapshot` to see the accessibility tree and DOM structure of injected Svelte components. This is critical for verifying `ui_block_injection-mechanism.md` implementations.
+*   **Verify Styles**: Take screenshots with `mcp_logseq_electron_browser_take_screenshot` to check `.lda-` prefixed styles and theme compatibility (Light/Dark mode).
+*   **Query Runtime State**: Use `mcp_logseq_electron_browser_evaluate` to interact with `window.logseq.api`. Example:
+    ```javascript
+    // Check if the plugin is registered and has settings
+    const settings = await window.logseq.settings;
+    return settings;
+    ```
+
+### 2. E2E Test Creation Workflow
+Before writing a Playwright test in `tests/e2e/`, use MCP to:
+1.  **Navigate**: `mcp_logseq_electron_browser_navigate` to a specific page or block.
+2.  **Interact**: `mcp_logseq_electron_browser_click` or `mcp_logseq_electron_browser_type` to simulate user flow.
+3.  **Observe**: Check `mcp_logseq_electron_browser_console_messages` for errors during the flow.
+4.  **Codify**: Translate the successful MCP steps into a Playwright script.
+
+### 3. Debugging Failures
+If an E2E test fails:
+1.  Use `mcp_logseq_electron_browser_snapshot` to find if a selector has changed or if an element is hidden.
+2.  Use `mcp_logseq_electron_browser_network_requests` to verify that AI service calls (Vercel AI SDK) are being made correctly.
+
 # Known Nuances
 
 ### Svelte 5 Event Binding in Logseq

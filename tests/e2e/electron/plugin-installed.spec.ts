@@ -3,7 +3,7 @@ import path from "node:path";
 import { test, expect, _electron as electron } from "@playwright/test";
 
 function loadRuntimeConfig() {
-  const runtimePath = path.resolve(".logseq/runtime.json");
+  const runtimePath = path.resolve(".logseq/e2e/runtime.json");
 
   if (!fs.existsSync(runtimePath)) {
     throw new Error(

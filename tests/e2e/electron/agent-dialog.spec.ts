@@ -4,7 +4,7 @@ import { test, expect, _electron as electron } from "@playwright/test";
 import { buildFullRemap, extractChatlogContext, remapChatlog } from "../lib/id-remapper";
 
 function loadRuntimeConfig() {
-  const runtimePath = path.resolve(".logseq/runtime.json");
+  const runtimePath = path.resolve(".logseq/e2e/runtime.json");
   if (!fs.existsSync(runtimePath)) {
     throw new Error(`Runtime config not found at ${runtimePath}.`);
   }
@@ -146,6 +146,79 @@ test.describe("Agent Chatlog Replay", () => {
       }
       
       expect(result.updatedCount).toBeGreaterThanOrEqual(10);
+
+      // ─── 11. Test Merge UI Interactions ──────────────────────────────────
+      console.log("Testing Merge UI injected into DOM...");
+
+      // 1. Verify Block-Level Controls
+      const mergeControls = window.locator('.lda-merge-controls').first();
+      await expect(mergeControls).toBeVisible({ timeout: 10000 });
+      
+      const acceptBtn = mergeControls.locator('.lda-merge-accept');
+      const diffBtn = mergeControls.locator('.lda-merge-diff');
+      const revertBtn = mergeControls.locator('.lda-merge-revert');
+      
+      await expect(acceptBtn).toBeVisible();
+      await expect(diffBtn).toBeVisible();
+      await expect(revertBtn).toBeVisible();
+
+      // 2. Test Block-Level Diff View
+      console.log("Opening Block Diff View...");
+      await diffBtn.click();
+      const diffModal = window.locator('.lda-diff-container').first();
+      await expect(diffModal).toBeVisible({ timeout: 5000 });
+      
+      // Close diff modal (by clicking Cancel)
+      const diffCancelBtn = window.locator('.lda-diff-actions .lda-btn-secondary').first();
+      await diffCancelBtn.click();
+      await expect(diffModal).toBeHidden({ timeout: 5000 });
+
+      // 3. Test Block-Level Accept/Deny
+      console.log("Testing Block-Level Accept and Revert...");
+      // Revert the first merge control
+      await revertBtn.click();
+      await window.waitForTimeout(1000); 
+      
+      // Accept another block (now the first one since the previous was reverted)
+      const secondMergeControls = window.locator('.lda-merge-controls').first();
+      await expect(secondMergeControls).toBeVisible();
+      const secondAcceptBtn = secondMergeControls.locator('.lda-merge-accept');
+      await secondAcceptBtn.click();
+      await window.waitForTimeout(1000);
+
+      // 4. Test Page-Level Merge Menu
+      console.log("Testing Page-Level Merge Menu...");
+      const pageToolbar = window.locator('.lda-page-merge-toolbar').first();
+      await expect(pageToolbar).toBeVisible({ timeout: 5000 });
+      
+      // Click the badge to open the popover
+      const badgeBtn = pageToolbar.locator('.lda-badge').first();
+      await badgeBtn.click();
+      
+      const pagePopover = window.locator('.lda-page-merge-toolbar-popover').first();
+      await expect(pagePopover).toBeVisible({ timeout: 5000 });
+      
+      // Test page-level diff (Review All button)
+      const reviewAllBtn = pagePopover.locator('.merge-all').first();
+      await reviewAllBtn.click();
+      await expect(diffModal).toBeVisible({ timeout: 5000 });
+      
+      // Close modal again
+      const diffCancelBtnGlobal = window.locator('.lda-diff-actions .lda-btn-secondary').first();
+      await diffCancelBtnGlobal.click();
+      await expect(diffModal).toBeHidden({ timeout: 5000 });
+      
+      // Re-open popover to click Accept All
+      await badgeBtn.click();
+      await expect(pagePopover).toBeVisible({ timeout: 5000 });
+      
+      const acceptAllBtn = pagePopover.locator('.accept-all').first();
+      await acceptAllBtn.click();
+      
+      // Wait for all merges to clear
+      console.log("Waiting for all merges to clear...");
+      await expect(window.locator('.lda-merge-controls')).toHaveCount(0, { timeout: 15000 });
+      await expect(pageToolbar).toBeHidden({ timeout: 10000 });
 
     } finally {
       await app.close();

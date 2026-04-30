@@ -2,8 +2,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 export default async function globalSetup() {
-  const runtimeDir = path.resolve(".logseq");
-  const graphDir = path.resolve("tests/graph");
+  const runtimeDir = path.resolve(".logseq/e2e");
+  const graphDir = path.resolve(".logseq/e2e/graph");
   const graphTemplateDir = path.resolve("tests/graph-template");
   const homeDir = path.join(runtimeDir, "home");
   const xdgDir = path.join(runtimeDir, "xdg");
@@ -15,6 +15,7 @@ export default async function globalSetup() {
   await fs.cp(graphTemplateDir, graphDir, { recursive: true });
 
   // Ensure other runtime directories
+  await fs.mkdir(runtimeDir, { recursive: true });
   await fs.mkdir(homeDir, { recursive: true });
   await fs.mkdir(xdgDir, { recursive: true });
 

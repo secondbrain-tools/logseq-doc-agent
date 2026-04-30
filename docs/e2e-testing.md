@@ -104,7 +104,7 @@ import path from "node:path";
 import { test, expect, _electron as electron } from "@playwright/test";
 
 function loadRuntimeConfig() {
-  const runtimePath = path.resolve(".logseq/runtime.json");
+  const runtimePath = path.resolve(".logseq/e2e/runtime.json");
   if (!fs.existsSync(runtimePath)) {
     throw new Error(`Runtime config not found at ${runtimePath}.`);
   }
@@ -168,7 +168,7 @@ Both directories are `.gitignore`'d.
 | Problem | Solution |
 |---------|----------|
 | `LOGSEQ_EXECUTABLE is not set` | Run `npm run test:e2e:auto` or export the var manually |
-| `Runtime config not found` | Global setup failed — check `.logseq/runtime.json` exists |
+| `Runtime config not found` | Global setup failed — check `.logseq/e2e/runtime.json` exists |
 | Tests hang on Electron launch | Increase `timeout` in config; ensure no other Logseq instance is running |
 | `test:e2e:ui` shows no tests | Make sure specs are in `tests/e2e/` and end with `.spec.ts` |
 | Trace not recorded | Traces are only captured on first retry; set `trace: "on"` temporarily to always record |

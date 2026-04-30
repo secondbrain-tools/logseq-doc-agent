@@ -8,17 +8,19 @@ import { ensureLogseq } from "./logseq/ensure-logseq";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
 
+const channel = (process.argv[2] as any) || "legacy";
+const mode = process.argv.includes("--mcp") ? "mcp" : "dev";
+
 // Setup isolated directories in .logseq
-const logseqDir = path.join(rootDir, ".logseq");
+const logseqDir = path.join(rootDir, ".logseq", mode);
 const homeDir = path.join(logseqDir, "home");
 const xdgDir = path.join(logseqDir, "xdg");
-const graphDir = path.resolve(rootDir, "tests/testgraph");
+const graphDir = path.resolve(rootDir, mode === "mcp" ? ".logseq/mcp/graph" : "tests/devgraph");
 
 fs.mkdirSync(homeDir, { recursive: true });
 fs.mkdirSync(xdgDir, { recursive: true });
 fs.mkdirSync(graphDir, { recursive: true });
 
-const channel = (process.argv[2] as any) || "legacy";
 
 async function main() {
   console.log(`[run-logseq] Setting up Logseq (${channel}) with isolated data in ${logseqDir}...`);
@@ -31,9 +33,20 @@ async function main() {
 
   const executablePath = result.executablePath;
   console.log(`[run-logseq] Resolved Logseq executable to: ${executablePath}`);
+
+  const launchWrapperPath = path.join(logseqDir, "launch-logseq.sh");
+  fs.writeFileSync(
+    launchWrapperPath,
+    `#!/usr/bin/env bash
+set -euo pipefail
+APPIMAGE_EXTRACT_AND_RUN=1 exec ${JSON.stringify(executablePath)} --no-sandbox --disable-gpu --disable-software-rasterizer "$@"
+`,
+    { mode: 0o755 }
+  );
+  const launchPath = launchWrapperPath;
   console.log(`[run-logseq] Launching Logseq...`);
 
-  const logseqProcess = spawn(executablePath, [graphDir], {
+  const logseqProcess = spawn(launchPath, [graphDir], {
     stdio: "inherit",
     env: {
       ...process.env,

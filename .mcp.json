@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "logseq_electron": {
+      "command": "npm",
+      "args": [
+        "run",
+        "start:mcp:legacy"
+      ],
+      "directTools": true
+    }
+  }
+}

@@ -2,6 +2,7 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { ensureLogseq, type ChannelName } from "./logseq/ensure-logseq";
+import { getRuntimePaths, isRuntimeGraphInitialized } from "./logseq/runtime-profile";
 
 const rootDir = process.cwd();
 
@@ -28,6 +29,15 @@ async function main() {
   
   // Set environment variable for Playwright's global setup
   process.env.LOGSEQ_EXECUTABLE = executablePath;
+  process.env.LOGSEQ_CHANNEL = channel;
+
+  const { homeDir, graphDir } = getRuntimePaths(rootDir, "e2e");
+  if (!isRuntimeGraphInitialized(homeDir, graphDir)) {
+    console.error(
+      `[run-e2e] Graph initialization required. Run: npm run start:e2e:init:${channel}\nThen manually select this graph directory once in Logseq:\n${graphDir}`
+    );
+    process.exit(1);
+  }
 
   // Remaining arguments are passed to Playwright
   console.log(`[run-e2e] Launching Playwright with arguments: ${args.join(" ")}`);

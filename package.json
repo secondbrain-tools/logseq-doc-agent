@@ -22,6 +22,8 @@
     "start:mcp:legacy": "tsx scripts/mcp-logseq.ts legacy",
     "start:mcp:init:legacy": "tsx scripts/run-logseq.ts legacy --mcp",
     "start:mcp:init:db": "tsx scripts/run-logseq.ts db --mcp",
+    "start:e2e:init:legacy": "tsx scripts/run-logseq.ts legacy --e2e",
+    "start:e2e:init:db": "tsx scripts/run-logseq.ts db --e2e",
     "start:legacy": "tsx scripts/run-logseq.ts legacy",
     "start:db": "tsx scripts/run-logseq.ts db"
   },

@@ -1,13 +1,10 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { primeGraphSelection } from "../../../scripts/logseq/graph-bootstrap";
+import { getRuntimePaths, isRuntimeGraphInitialized, writeRuntimeInfo } from "../../../scripts/logseq/runtime-profile";
 
 export default async function globalSetup() {
-  const runtimeDir = path.resolve(".logseq/e2e");
-  const graphDir = path.resolve(".logseq/e2e/graph");
+  const { runtimeDir, graphDir, homeDir, xdgDir, runtimeInfoPath } = getRuntimePaths(path.resolve("."), "e2e");
   const graphTemplateDir = path.resolve("tests/graph-template");
-  const homeDir = path.join(runtimeDir, "home");
-  const xdgDir = path.join(runtimeDir, "xdg");
 
   // Step 1: clear and copy graph from template
   console.log(`Setting up test graph: clearing ${graphDir} and copying from ${graphTemplateDir}...`);
@@ -29,24 +26,18 @@ export default async function globalSetup() {
     return;
   }
 
-  await primeGraphSelection({
+  if (!isRuntimeGraphInitialized(homeDir, graphDir)) {
+    const channel = process.env.LOGSEQ_CHANNEL || "legacy";
+    throw new Error(
+      `[e2e global setup] Graph initialization required. Run: npm run start:e2e:init:${channel}\nThen manually select this graph directory once in Logseq:\n${graphDir}`
+    );
+  }
+
+  writeRuntimeInfo(runtimeInfoPath, {
     executablePath,
     graphDir,
     homeDir,
     xdgDir,
+    initializedAt: new Date().toISOString(),
   });
-
-  await fs.writeFile(
-    path.join(runtimeDir, "runtime.json"),
-    JSON.stringify(
-      {
-        executablePath,
-        graphDir,
-        homeDir,
-        xdgDir,
-      },
-      null,
-      2
-    )
-  );
 }

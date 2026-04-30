@@ -5,18 +5,27 @@ import { fileURLToPath } from "node:url";
 import fs from "node:fs";
 import { ensureLogseq } from "./logseq/ensure-logseq";
 import { primeGraphSelection } from "./logseq/graph-bootstrap";
+import { getRuntimePaths, isRuntimeGraphInitialized, writeRuntimeInfo, type RuntimeMode } from "./logseq/runtime-profile";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
 
 const channel = (process.argv[2] as any) || "legacy";
-const mode = process.argv.includes("--mcp") ? "mcp" : "dev";
+const mode: "dev" | RuntimeMode = process.argv.includes("--mcp")
+  ? "mcp"
+  : process.argv.includes("--e2e")
+    ? "e2e"
+    : "dev";
+
+const runtimePaths = mode === "dev"
+  ? null
+  : getRuntimePaths(rootDir, mode);
 
 // Setup isolated directories in .logseq
-const logseqDir = path.join(rootDir, ".logseq", mode);
-const homeDir = path.join(logseqDir, "home");
-const xdgDir = path.join(logseqDir, "xdg");
-const graphDir = path.resolve(rootDir, mode === "mcp" ? ".logseq/mcp/graph" : "tests/devgraph");
+const logseqDir = runtimePaths?.runtimeDir ?? path.join(rootDir, ".logseq", "dev");
+const homeDir = runtimePaths?.homeDir ?? path.join(logseqDir, "home");
+const xdgDir = runtimePaths?.xdgDir ?? path.join(logseqDir, "xdg");
+const graphDir = runtimePaths?.graphDir ?? path.resolve(rootDir, "tests/devgraph");
 
 fs.mkdirSync(homeDir, { recursive: true });
 fs.mkdirSync(xdgDir, { recursive: true });
@@ -40,18 +49,22 @@ async function main() {
     launchWrapperPath,
     `#!/usr/bin/env bash
 set -euo pipefail
-APPIMAGE_EXTRACT_AND_RUN=1 exec ${JSON.stringify(executablePath)} --no-sandbox --disable-gpu --disable-software-rasterizer "$@"
+APPIMAGE_EXTRACT_AND_RUN=1 exec ${JSON.stringify(executablePath)} ${JSON.stringify(graphDir)} --no-sandbox --disable-gpu --disable-software-rasterizer "$@"
 `,
     { mode: 0o755 }
   );
   const launchPath = launchWrapperPath;
 
-  await primeGraphSelection({
-    executablePath,
-    graphDir,
-    homeDir,
-    xdgDir,
-  });
+  if (mode === "dev") {
+    await primeGraphSelection({
+      executablePath,
+      graphDir,
+      homeDir,
+      xdgDir,
+    });
+  } else {
+    console.log(`[run-logseq] Manual initialization mode (${mode}). Please select the graph directory if prompted: ${graphDir}`);
+  }
   console.log(`[run-logseq] Launching Logseq...`);
 
   const logseqProcess = spawn(launchPath, [graphDir], {
@@ -65,6 +78,18 @@ APPIMAGE_EXTRACT_AND_RUN=1 exec ${JSON.stringify(executablePath)} --no-sandbox -
   });
 
   logseqProcess.on("close", (code) => {
+    if (runtimePaths && isRuntimeGraphInitialized(homeDir, graphDir)) {
+      writeRuntimeInfo(runtimePaths.runtimeInfoPath, {
+        executablePath,
+        graphDir,
+        homeDir,
+        xdgDir,
+        initializedAt: new Date().toISOString(),
+      });
+      console.log(`[run-logseq] ${mode} graph initialization detected and saved.`);
+    } else if (runtimePaths) {
+      console.warn(`[run-logseq] ${mode} graph initialization was not detected. Re-run this command and select the graph directory: ${graphDir}`);
+    }
     console.log(`[run-logseq] Logseq exited with code ${code}`);
     process.exit(code ?? 0);
   });

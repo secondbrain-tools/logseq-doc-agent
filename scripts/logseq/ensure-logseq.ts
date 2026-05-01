@@ -4,10 +4,13 @@ import fs from "node:fs";
 import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
+import { spawn } from "node:child_process";
 import extract from "extract-zip";
+import { LOGSEQ_ENVIRONMENTS_DIRNAME } from "./runtime-profile";
 
 export type ChannelName = "legacy" | "db";
 type SupportedPlatform = "linux" | "darwin";
@@ -61,6 +64,8 @@ interface ParsedArgs {
   cacheDir: string;
 }
 
+const DEFAULT_CONFIG_PATH = "./logseq-versions.jsonc";
+
 function parseArgs(argv: string[]): ParsedArgs {
   const [channelArg, ...rest] = argv;
 
@@ -70,8 +75,8 @@ function parseArgs(argv: string[]): ParsedArgs {
     );
   }
 
-  let configPath = "./logseq-versions.json";
-  let cacheDir = "./.logseq/app";
+  let configPath = DEFAULT_CONFIG_PATH;
+  let cacheDir = `./${LOGSEQ_ENVIRONMENTS_DIRNAME}/app`;
 
   for (let i = 0; i < rest.length; i += 1) {
     const arg = rest[i];
@@ -130,7 +135,77 @@ function detectTarget(): {
 
 async function loadConfig(configPath: string): Promise<SetupConfig> {
   const raw = await fsp.readFile(configPath, "utf8");
-  return JSON.parse(raw) as SetupConfig;
+  return JSON.parse(stripJsonComments(raw)) as SetupConfig;
+}
+
+function stripJsonComments(input: string): string {
+  let result = "";
+  let inString = false;
+  let stringDelimiter = "";
+  let escaping = false;
+  let inLineComment = false;
+  let inBlockComment = false;
+
+  for (let i = 0; i < input.length; i += 1) {
+    const char = input[i];
+    const next = input[i + 1];
+
+    if (inLineComment) {
+      if (char === "\n") {
+        inLineComment = false;
+        result += char;
+      }
+      continue;
+    }
+
+    if (inBlockComment) {
+      if (char === "*" && next === "/") {
+        inBlockComment = false;
+        i += 1;
+      }
+      continue;
+    }
+
+    if (inString) {
+      result += char;
+      if (escaping) {
+        escaping = false;
+        continue;
+      }
+      if (char === "\\") {
+        escaping = true;
+        continue;
+      }
+      if (char === stringDelimiter) {
+        inString = false;
+        stringDelimiter = "";
+      }
+      continue;
+    }
+
+    if ((char === '"' || char === "'")) {
+      inString = true;
+      stringDelimiter = char;
+      result += char;
+      continue;
+    }
+
+    if (char === "/" && next === "/") {
+      inLineComment = true;
+      i += 1;
+      continue;
+    }
+
+    if (char === "/" && next === "*") {
+      inBlockComment = true;
+      i += 1;
+      continue;
+    }
+
+    result += char;
+  }
+
+  return result;
 }
 
 function defaultStrategy(platform: SupportedPlatform): Strategy {
@@ -202,6 +277,33 @@ async function downloadFile(url: string, destination: string): Promise<void> {
 
   const nodeStream = Readable.fromWeb(response.body as globalThis.ReadableStream);
   await pipeline(nodeStream, fs.createWriteStream(destination));
+}
+
+async function sha256File(filePath: string): Promise<string> {
+  const hash = crypto.createHash("sha256");
+  await pipeline(fs.createReadStream(filePath), hash);
+  return hash.digest("hex");
+}
+
+async function runAppImageExtract(appImagePath: string, targetDir: string): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const proc = spawn(appImagePath, ["--appimage-extract"], {
+      cwd: targetDir,
+      stdio: "inherit",
+      env: {
+        ...process.env,
+      },
+    });
+
+    proc.on("error", reject);
+    proc.on("close", (code) => {
+      if (code === 0) {
+        resolve();
+        return;
+      }
+      reject(new Error(`AppImage extraction failed for ${appImagePath} with exit code ${code ?? "unknown"}`));
+    });
+  });
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -370,6 +472,50 @@ async function extractZipArchivesUntilExecutable(input: {
   return null;
 }
 
+async function materializeAppImageExecutable(input: {
+  appImagePath: string;
+  cacheDir: string;
+  channel: ChannelName;
+  key: PlatformKey;
+}): Promise<string> {
+  const { appImagePath, cacheDir, channel, key } = input;
+  const digest = await sha256File(appImagePath);
+  const baseName = path.basename(appImagePath, ".AppImage");
+  const extractionRoot = path.join(cacheDir, channel, "appimage", key, `${baseName}-${digest.slice(0, 16)}`);
+  const metadataPath = path.join(extractionRoot, ".appimage-source.json");
+  const appRunPath = path.join(extractionRoot, "squashfs-root", "AppRun");
+
+  if (await fileExists(appRunPath) && await fileExists(metadataPath)) {
+    return appRunPath;
+  }
+
+  await fsp.rm(extractionRoot, { recursive: true, force: true });
+  await fsp.mkdir(extractionRoot, { recursive: true });
+
+  console.error(`[setup-logseq] extracting AppImage ${path.basename(appImagePath)} -> ${extractionRoot}`);
+  await runAppImageExtract(appImagePath, extractionRoot);
+
+  if (!(await fileExists(appRunPath))) {
+    throw new Error(`Expected AppRun not found after extracting ${appImagePath} into ${extractionRoot}`);
+  }
+
+  await fsp.chmod(appRunPath, 0o755).catch(() => {});
+  await fsp.writeFile(
+    metadataPath,
+    JSON.stringify(
+      {
+        appImagePath,
+        sha256: digest,
+        extractedAt: new Date().toISOString(),
+      },
+      null,
+      2
+    )
+  );
+
+  return appRunPath;
+}
+
 async function fetchLatestWorkflowRun(repo: string, workflow: string): Promise<WorkflowRunSummary> {
   const runs = await fetchJson<{ workflow_runs: WorkflowRunSummary[] }>(
     `https://api.github.com/repos/${repo}/actions/workflows/${encodeURIComponent(workflow)}/runs?status=success&per_page=20`
@@ -418,7 +564,9 @@ function chooseWorkflowArtifact(input: {
 
 async function ensureExecutable(input: {
   installDir: string;
+  cacheDir: string;
   platform: SupportedPlatform;
+  arch: SupportedArch;
   channel: ChannelName;
   cfg: SharedChannelConfig & { tag: string };
   key: PlatformKey;
@@ -428,7 +576,7 @@ async function ensureExecutable(input: {
   strategy: Strategy;
   installDir: string;
 }> {
-  const { installDir, platform, channel, cfg, key } = input;
+  const { installDir, cacheDir, platform, arch, channel, cfg, key } = input;
 
   const strategy = cfg.strategyOverrides?.[key] ?? defaultStrategy(platform);
   const assetName =
@@ -451,7 +599,16 @@ async function ensureExecutable(input: {
   const executablePath = path.join(installDir, binaryRelativePath);
 
   if (await fileExists(executablePath)) {
-    return { executablePath, assetName, strategy, installDir };
+    const resolvedExecutablePath =
+      strategy === "appimage"
+        ? await materializeAppImageExecutable({
+            appImagePath: executablePath,
+            cacheDir,
+            channel,
+            key,
+          })
+        : executablePath;
+    return { executablePath: resolvedExecutablePath, assetName, strategy, installDir };
   }
 
   await fsp.mkdir(installDir, { recursive: true });
@@ -488,7 +645,17 @@ async function ensureExecutable(input: {
     await fsp.chmod(executablePath, 0o755).catch(() => {});
   }
 
-  return { executablePath, assetName, strategy, installDir };
+  const resolvedExecutablePath =
+    strategy === "appimage"
+      ? await materializeAppImageExecutable({
+          appImagePath: executablePath,
+          cacheDir,
+          channel,
+          key,
+        })
+      : executablePath;
+
+  return { executablePath: resolvedExecutablePath, assetName, strategy, installDir };
 }
 
 async function ensureWorkflowExecutable(input: {
@@ -525,8 +692,17 @@ async function ensureWorkflowExecutable(input: {
   });
 
   if (cachedExecutablePath && await fileExists(metadataPath)) {
+    const resolvedExecutablePath =
+      strategy === "appimage" && cachedExecutablePath.endsWith(".AppImage")
+        ? await materializeAppImageExecutable({
+            appImagePath: cachedExecutablePath,
+            cacheDir,
+            channel,
+            key,
+          })
+        : cachedExecutablePath;
     return {
-      executablePath: cachedExecutablePath,
+      executablePath: resolvedExecutablePath,
       strategy,
       installDir,
       workflow: cfg.workflow,
@@ -586,6 +762,15 @@ async function ensureWorkflowExecutable(input: {
 
   if (platform === "linux" || executablePath.endsWith(path.join("MacOS", "Logseq"))) {
     await fsp.chmod(executablePath, 0o755).catch(() => {});
+  }
+
+  if (strategy === "appimage" && executablePath.endsWith(".AppImage")) {
+    executablePath = await materializeAppImageExecutable({
+      appImagePath: executablePath,
+      cacheDir,
+      channel,
+      key,
+    });
   }
 
   await fsp.writeFile(
@@ -664,11 +849,20 @@ async function ensureLocalExecutable(input: {
   });
 
   if (directExecutablePath) {
+    let resolvedExecutablePath = directExecutablePath;
     if (platform === "linux" || directExecutablePath.endsWith(path.join("MacOS", "Logseq"))) {
       await fsp.chmod(directExecutablePath, 0o755).catch(() => {});
     }
+    if (strategy === "appimage" && directExecutablePath.endsWith(".AppImage")) {
+      resolvedExecutablePath = await materializeAppImageExecutable({
+        appImagePath: directExecutablePath,
+        cacheDir,
+        channel,
+        key,
+      });
+    }
     return {
-      executablePath: directExecutablePath,
+      executablePath: resolvedExecutablePath,
       strategy,
       installDir,
       sourceDirectory,
@@ -694,11 +888,20 @@ async function ensureLocalExecutable(input: {
   });
 
   if (extractedExecutablePath) {
+    let resolvedExecutablePath = extractedExecutablePath;
     if (platform === "linux" || extractedExecutablePath.endsWith(path.join("MacOS", "Logseq"))) {
       await fsp.chmod(extractedExecutablePath, 0o755).catch(() => {});
     }
+    if (strategy === "appimage" && extractedExecutablePath.endsWith(".AppImage")) {
+      resolvedExecutablePath = await materializeAppImageExecutable({
+        appImagePath: extractedExecutablePath,
+        cacheDir,
+        channel,
+        key,
+      });
+    }
     return {
-      executablePath: extractedExecutablePath,
+      executablePath: resolvedExecutablePath,
       strategy,
       installDir,
       sourceDirectory,
@@ -775,7 +978,9 @@ export async function ensureLogseq(args: ParsedArgs): Promise<any> {
 
   const result = await ensureExecutable({
     installDir,
+    cacheDir: args.cacheDir,
     platform: target.platform,
+    arch: target.arch,
     channel: args.channel,
     cfg: channelCfg,
     key: target.key,

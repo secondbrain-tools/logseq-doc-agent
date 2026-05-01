@@ -2,13 +2,14 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { ensureLogseq, type ChannelName } from "./logseq/ensure-logseq";
-import { getRuntimePaths, isRuntimeGraphInitialized } from "./logseq/runtime-profile";
+import { getLogseqEnvironmentsRoot, getRuntimePaths, isRuntimeGraphInitialized } from "./logseq/runtime-profile";
 
 const rootDir = process.cwd();
 
 async function main() {
   const args = process.argv.slice(2);
   let channel: ChannelName = "legacy";
+  const environmentsRoot = getLogseqEnvironmentsRoot(rootDir);
 
   // Check if first argument is a channel
   if (args[0] === "legacy" || args[0] === "db") {
@@ -20,8 +21,8 @@ async function main() {
   // Resolve the executable path
   const result = await ensureLogseq({
     channel,
-    configPath: path.resolve(rootDir, "logseq-versions.json"),
-    cacheDir: path.resolve(rootDir, ".logseq/app")
+    configPath: path.resolve(rootDir, "logseq-versions.jsonc"),
+    cacheDir: path.resolve(environmentsRoot, "app")
   });
 
   const executablePath = result.executablePath;

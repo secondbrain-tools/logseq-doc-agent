@@ -5,7 +5,13 @@ import { fileURLToPath } from "node:url";
 import fs from "node:fs";
 import { ensureLogseq, type ChannelName } from "./logseq/ensure-logseq";
 import { primeGraphSelection } from "./logseq/graph-bootstrap";
-import { getRuntimePaths, isRuntimeGraphInitialized, writeRuntimeInfo, type RuntimeMode } from "./logseq/runtime-profile";
+import {
+  getLogseqEnvironmentsRoot,
+  getRuntimePaths,
+  isRuntimeGraphInitialized,
+  writeRuntimeInfo,
+  type RuntimeMode,
+} from "./logseq/runtime-profile";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
@@ -21,8 +27,8 @@ const runtimePaths = mode === "dev"
   ? null
   : getRuntimePaths(rootDir, mode, channel);
 
-// Setup isolated directories in .logseq
-const logseqDir = runtimePaths?.runtimeDir ?? path.join(rootDir, ".logseq", "dev");
+const environmentsRoot = getLogseqEnvironmentsRoot(rootDir);
+const logseqDir = runtimePaths?.runtimeDir ?? path.join(environmentsRoot, "dev");
 const homeDir = runtimePaths?.homeDir ?? path.join(logseqDir, "home");
 const xdgDir = runtimePaths?.xdgDir ?? path.join(logseqDir, "xdg");
 const graphDir = runtimePaths?.graphDir ?? path.resolve(rootDir, "tests/devgraph");
@@ -37,11 +43,14 @@ async function main() {
 
   const result = await ensureLogseq({
     channel,
-    configPath: path.resolve(rootDir, "logseq-versions.json"),
-    cacheDir: path.resolve(rootDir, ".logseq/app")
+    configPath: path.resolve(rootDir, "logseq-versions.jsonc"),
+    cacheDir: path.resolve(environmentsRoot, "app")
   });
 
   const executablePath = result.executablePath;
+  const appDir = path.basename(executablePath) === "AppRun"
+    ? path.dirname(executablePath)
+    : null;
   console.log(`[run-logseq] Resolved Logseq executable to: ${executablePath}`);
 
   const launchWrapperPath = path.join(logseqDir, "launch-logseq.sh");
@@ -49,7 +58,7 @@ async function main() {
     launchWrapperPath,
     `#!/usr/bin/env bash
 set -euo pipefail
-APPIMAGE_EXTRACT_AND_RUN=1 exec ${JSON.stringify(executablePath)} ${JSON.stringify(graphDir)} --no-sandbox --disable-gpu --disable-software-rasterizer "$@"
+exec ${JSON.stringify(executablePath)} ${JSON.stringify(graphDir)} --no-sandbox --disable-gpu --disable-software-rasterizer "$@"
 `,
     { mode: 0o755 }
   );
@@ -71,6 +80,7 @@ APPIMAGE_EXTRACT_AND_RUN=1 exec ${JSON.stringify(executablePath)} ${JSON.stringi
     stdio: "inherit",
     env: {
       ...process.env,
+      ...(appDir ? { APPDIR: appDir } : {}),
       HOME: homeDir,
       XDG_CONFIG_HOME: xdgDir,
     },

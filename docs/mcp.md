@@ -7,7 +7,7 @@ This project provides two MCP servers to enable AI agents to interact with Logse
 Allows AI agents to control a real Logseq Electron instance. This is useful for high-fidelity automation, graph manipulation, and testing real-world scenarios.
 
 ### Setup
-The Electron MCP server uses an isolated environment in `.logseq/mcp/` to avoid polluting your main Logseq configuration.
+The Electron MCP server uses an isolated environment in `logseq-environments/mcp/` to avoid polluting your main Logseq configuration.
 
 1.  **Initialize the MCP profile once**:
     ```bash
@@ -15,7 +15,7 @@ The Electron MCP server uses an isolated environment in `.logseq/mcp/` to avoid 
     ```
     When Logseq opens, manually select this graph directory:
     ```text
-    .logseq/mcp/graph
+    logseq-environments/mcp/legacy/graph
     ```
     Then close Logseq again.
 
@@ -29,7 +29,11 @@ For the DB channel, use:
 npm run start:mcp:init:db
 npm run start:mcp:db
 ```
-The default `db` channel is configured in [logseq-versions.json](/home/st6ka8/Code/logseq-doc-agent/logseq-versions.json) to use a local binary directory at `.logseq/app/db/beta`. Put the OS-specific beta build there, for example `Logseq-linux-x86_64-*.AppImage`.
+The default `db` channel is configured in [logseq-versions.jsonc](/home/st6ka8/Code/logseq-doc-agent/logseq-versions.jsonc) to use a local binary directory at `logseq-environments/app/db/beta`. Put the OS-specific beta build there, for example `Logseq-linux-x86_64-*.AppImage`.
+The DB runtime graph is seeded into the built-in demo graph location:
+```text
+logseq-environments/mcp/db/home/logseq/graphs/Demo
+```
 
 3.  **Reconnect your MCP client if needed**:
     Some harnesses cache the server definition but require a manual reconnect after restart.
@@ -40,11 +44,12 @@ If the MCP profile was not initialized, `start:mcp:legacy` fails fast with an in
 ### Technical Details
 - **Init Script**: `scripts/run-logseq.ts legacy --mcp`
 - **Server Script**: `scripts/mcp-logseq.ts`
-- **Isolated Runtime Dir**: `.logseq/mcp/<channel>/`
-- **Isolated Home**: `.logseq/mcp/<channel>/home`
-- **Isolated Config**: `.logseq/mcp/<channel>/xdg`
-- **Graph Dir**: `.logseq/mcp/<channel>/graph`
-- **Logseq Binary**: Cached in `.logseq/app`
+- **Isolated Runtime Dir**: `logseq-environments/mcp/<channel>/`
+- **Isolated Home**: `logseq-environments/mcp/<channel>/home`
+- **Isolated Config**: `logseq-environments/mcp/<channel>/xdg`
+- **Graph Dir**: `logseq-environments/mcp/<channel>/graph`
+- **DB Graph Dir**: `logseq-environments/mcp/db/home/logseq/graphs/Demo`
+- **Logseq Binary**: Cached in `logseq-environments/app`
 - **Protocol**: Standard Input/Output (stdio)
 - **Behavior**: Manual one-time graph bootstrap, then strict preflight validation
 ---
@@ -72,7 +77,7 @@ Allows AI agents to interact with the Logseq UI simulator (`tests/logseq-sim.htm
 
 ## 3. Electron E2E Runtime (Manual Bootstrap)
 
-The Electron Playwright tests use a separate isolated environment in `.logseq/e2e/`.
+The Electron Playwright tests use a separate isolated environment in `logseq-environments/e2e/`.
 
 ### Setup
 1.  **Initialize the E2E profile once**:
@@ -81,7 +86,7 @@ The Electron Playwright tests use a separate isolated environment in `.logseq/e2
     ```
     When Logseq opens, manually select this graph directory:
     ```text
-    .logseq/e2e/graph
+    logseq-environments/e2e/legacy/graph
     ```
     Then close Logseq again.
 
@@ -97,6 +102,10 @@ For the DB channel, initialize and run:
 ```bash
 npm run start:e2e:init:db
 npm run test:e2e:db
+```
+For DB, the seeded graph lives at:
+```text
+logseq-environments/e2e/db/home/logseq/graphs/Demo
 ```
 
 ### Why this approach
@@ -136,4 +145,4 @@ To use these servers with an AI client (like Claude Desktop or Antigravity), add
 ```
 
 > [!IMPORTANT]
-> Always ensure you have run the initialization step (`npm run start:legacy`) for the Electron MCP server, otherwise it will exit with an error.
+> Always ensure you have run the initialization step (`npm run start:mcp:init:legacy`) for the Electron MCP server, otherwise it will exit with an error.

@@ -106,3 +106,73 @@ The page `logseq-doc-agent`in graph acts as entrypoint for logseq.
    logseq-doc-agent.merge:: {"type":"update","base":"Das evaluation tool hat potenzial ein wichtiges feedback-werkzeug zu werden. Kleine Ungereimtheiten müssen noch überarbeitet werden. Aktuell ist nicht sichtbar, ob Vorschläge direkt anwendbar, oder an den Anwender gerichtet sind. Die Lesbarkeit ist noch nicht optimal. \nEventuell wäre ein \"Highlight all findings\"-mode im Dokument nützlich."}
       
    A “highlight all findings” mode within the document could also be useful.
+
+## Development
+
+### MCP Setup
+
+The Electron MCP server runs Logseq in an isolated runtime under `logseq-environments/mcp`.
+
+For the file-based channel:
+
+```bash
+npm run start:mcp:init:legacy
+npm run start:mcp:legacy
+```
+
+During the one-time init step, select:
+
+```text
+logseq-environments/mcp/legacy/graph
+```
+
+For the DB/beta channel:
+
+```bash
+npm run start:mcp:init:db
+npm run start:mcp:db
+```
+
+Place the DB beta binary under:
+
+```text
+logseq-environments/app/db/beta
+```
+
+For DB, test data is deployed into Logseq's built-in demo graph path:
+
+```text
+logseq-environments/mcp/db/home/logseq/graphs/Demo
+```
+
+### E2E Setup
+
+The Electron E2E runtime also uses isolated profiles under `logseq-environments/e2e`.
+
+For the file-based channel:
+
+```bash
+npm run start:e2e:init:legacy
+npm run test:e2e:legacy
+```
+
+During the one-time init step, select:
+
+```text
+logseq-environments/e2e/legacy/graph
+```
+
+For the DB/beta channel:
+
+```bash
+npm run start:e2e:init:db
+npm run test:e2e:db
+```
+
+For DB, the seeded test graph lives here:
+
+```text
+logseq-environments/e2e/db/home/logseq/graphs/Demo
+```
+
+The test template is copied from `tests/graph-template` into the active runtime graph before MCP/E2E runs.

@@ -9,7 +9,6 @@ import { getRuntimePaths, isRuntimeGraphInitialized } from "./logseq/runtime-pro
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
 
-// Setup isolated directories in .logseq
 const graphTemplateDir = path.resolve(rootDir, "tests/graph-template");
 const channel: ChannelName = (process.argv[2] as ChannelName) || "legacy";
 const runtimePaths = getRuntimePaths(rootDir, "mcp", channel);
@@ -74,6 +73,9 @@ if (!config || !config.executablePath) {
 const executablePath = path.isAbsolute(config.executablePath) 
   ? config.executablePath 
   : path.resolve(rootDir, config.executablePath);
+const appDir = path.basename(executablePath) === "AppRun"
+  ? path.dirname(executablePath)
+  : null;
 
 logStartup(`Resolved Logseq executable to: ${executablePath}`);
 
@@ -82,7 +84,7 @@ fs.writeFileSync(
   launchWrapperPath,
   `#!/usr/bin/env bash
 set -euo pipefail
-APPIMAGE_EXTRACT_AND_RUN=1 exec ${JSON.stringify(executablePath)} ${JSON.stringify(graphDir)} --no-sandbox --disable-gpu --disable-software-rasterizer "$@"
+exec ${JSON.stringify(executablePath)} ${JSON.stringify(graphDir)} --no-sandbox --disable-gpu --disable-software-rasterizer "$@"
 `,
   { mode: 0o755 }
 );
@@ -118,6 +120,7 @@ const mcpServer = spawn("node", [
   stdio: "inherit",
   env: {
     ...process.env,
+    ...(appDir ? { APPDIR: appDir } : {}),
     ELECTRON_APP_PATH: launchPath,
     HOME: homeDir,
     XDG_CONFIG_HOME: xdgDir,

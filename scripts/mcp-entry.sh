@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="/home/st6ka8/Code/logseq-doc-agent"
-LOG_DIR="$ROOT/.logseq/mcp"
+LOG_DIR="$ROOT/logseq-environments/mcp"
 LOG_FILE="$LOG_DIR/harness-entry.log"
 mkdir -p "$LOG_DIR"
 

@@ -124,11 +124,15 @@ export async function primeGraphSelection(args: {
   xdgDir: string;
   launchArgs?: string[];
 }): Promise<void> {
+  const appDir = path.basename(args.executablePath) === "AppRun"
+    ? path.dirname(args.executablePath)
+    : undefined;
   const app = await electron.launch({
     executablePath: args.executablePath,
     args: args.launchArgs ?? [args.graphDir],
     env: {
       ...process.env,
+      ...(appDir ? { APPDIR: appDir } : {}),
       HOME: args.homeDir,
       XDG_CONFIG_HOME: args.xdgDir,
     },

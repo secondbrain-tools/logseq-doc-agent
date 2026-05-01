@@ -1,6 +1,6 @@
 import { ensureGraphOpen } from "../../../scripts/logseq/graph-bootstrap";
 import { test, expect, _electron as electron } from "@playwright/test";
-import { loadRuntimeConfig } from "./runtime";
+import { getLogseqLaunchEnv, loadRuntimeConfig } from "./runtime";
 
 test.describe("Plugin Installation Verification", () => {
   test("Doc Agent plugin should be loaded and visible in toolbar", async () => {
@@ -12,11 +12,7 @@ test.describe("Plugin Installation Verification", () => {
     const app = await electron.launch({
       executablePath: runtime.executablePath,
       args: [runtime.graphDir],
-      env: {
-        ...process.env,
-        HOME: runtime.homeDir,
-        XDG_CONFIG_HOME: runtime.xdgDir,
-      },
+      env: getLogseqLaunchEnv(runtime),
     });
 
     try {

@@ -1,10 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
+import type { ChannelName } from "./ensure-logseq";
 
 export type RuntimeMode = "mcp" | "e2e";
 
-export function getRuntimePaths(rootDir: string, mode: RuntimeMode) {
-  const runtimeDir = path.join(rootDir, ".logseq", mode);
+export function getRuntimePaths(rootDir: string, mode: RuntimeMode, channel: ChannelName) {
+  const runtimeDir = path.join(rootDir, ".logseq", mode, channel);
   const homeDir = path.join(runtimeDir, "home");
   const xdgDir = path.join(runtimeDir, "xdg");
   const graphDir = path.join(runtimeDir, "graph");

@@ -3,14 +3,7 @@ import path from "node:path";
 import { ensureGraphOpen } from "../../../scripts/logseq/graph-bootstrap";
 import { test, expect, _electron as electron } from "@playwright/test";
 import { buildFullRemap, extractChatlogContext, remapChatlog } from "../lib/id-remapper";
-
-function loadRuntimeConfig() {
-  const runtimePath = path.resolve(".logseq/e2e/runtime.json");
-  if (!fs.existsSync(runtimePath)) {
-    throw new Error(`Runtime config not found at ${runtimePath}.`);
-  }
-  return JSON.parse(fs.readFileSync(runtimePath, "utf8"));
-}
+import { loadRuntimeConfig } from "./runtime";
 
 async function evalInPluginFrame(mainWindow: any, fn: string): Promise<any> {
   return mainWindow.evaluate(

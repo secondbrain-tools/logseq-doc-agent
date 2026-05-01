@@ -1,20 +1,6 @@
-import fs from "node:fs";
-import path from "node:path";
 import { ensureGraphOpen } from "../../../scripts/logseq/graph-bootstrap";
 import { test, expect, _electron as electron } from "@playwright/test";
-
-function loadRuntimeConfig() {
-  const runtimePath = path.resolve(".logseq/e2e/runtime.json");
-
-  if (!fs.existsSync(runtimePath)) {
-    throw new Error(
-      `Runtime config not found at ${runtimePath}. ` +
-      "Ensure globalSetup ran successfully or LOGSEQ_EXECUTABLE is set."
-    );
-  }
-
-  return JSON.parse(fs.readFileSync(runtimePath, "utf8"));
-}
+import { loadRuntimeConfig } from "./runtime";
 
 test.describe("Plugin Installation Verification", () => {
   test("Doc Agent plugin should be loaded and visible in toolbar", async () => {

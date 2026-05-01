@@ -3,18 +3,20 @@ import { execSync, spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import fs from "node:fs";
+import type { ChannelName } from "./logseq/ensure-logseq";
 import { getRuntimePaths, isRuntimeGraphInitialized } from "./logseq/runtime-profile";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
 
 // Setup isolated directories in .logseq
-const logseqDir = path.join(rootDir, ".logseq", "mcp");
-const homeDir = path.join(logseqDir, "home");
-const xdgDir = path.join(logseqDir, "xdg");
 const graphTemplateDir = path.resolve(rootDir, "tests/graph-template");
-const graphDir = path.resolve(rootDir, ".logseq/mcp/graph");
-const runtimePaths = getRuntimePaths(rootDir, "mcp");
+const channel: ChannelName = (process.argv[2] as ChannelName) || "legacy";
+const runtimePaths = getRuntimePaths(rootDir, "mcp", channel);
+const logseqDir = runtimePaths.runtimeDir;
+const homeDir = runtimePaths.homeDir;
+const xdgDir = runtimePaths.xdgDir;
+const graphDir = runtimePaths.graphDir;
 const startupLogPath = path.join(logseqDir, "startup.log");
 function logStartup(message: string, extra?: unknown) {
   const line = `[${new Date().toISOString()}] ${message}${extra === undefined ? "" : ` ${typeof extra === "string" ? extra : JSON.stringify(extra)}`}\n`;
@@ -35,8 +37,6 @@ fs.mkdirSync(graphDir, { recursive: true });
 fs.mkdirSync(path.join(graphDir, "journals"), { recursive: true });
 fs.mkdirSync(path.join(graphDir, "logseq"), { recursive: true });
 fs.writeFileSync(path.join(graphDir, "logseq", "config.edn"), "{}\n");
-
-const channel = process.argv[2] || "legacy";
 
 logStartup(`Setting up Logseq (${channel}) with isolated data in ${logseqDir}...`, { cwd: rootDir, nodeOptions: process.env.NODE_OPTIONS ?? null, argv: process.argv });
 

@@ -31,7 +31,7 @@ async function main() {
   process.env.LOGSEQ_EXECUTABLE = executablePath;
   process.env.LOGSEQ_CHANNEL = channel;
 
-  const { homeDir, graphDir } = getRuntimePaths(rootDir, "e2e");
+  const { homeDir, graphDir } = getRuntimePaths(rootDir, "e2e", channel);
   if (!isRuntimeGraphInitialized(homeDir, graphDir)) {
     console.error(
       `[run-e2e] Graph initialization required. Run: npm run start:e2e:init:${channel}\nThen manually select this graph directory once in Logseq:\n${graphDir}`

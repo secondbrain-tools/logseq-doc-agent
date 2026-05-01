@@ -3,14 +3,14 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import fs from "node:fs";
-import { ensureLogseq } from "./logseq/ensure-logseq";
+import { ensureLogseq, type ChannelName } from "./logseq/ensure-logseq";
 import { primeGraphSelection } from "./logseq/graph-bootstrap";
 import { getRuntimePaths, isRuntimeGraphInitialized, writeRuntimeInfo, type RuntimeMode } from "./logseq/runtime-profile";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
 
-const channel = (process.argv[2] as any) || "legacy";
+const channel: ChannelName = (process.argv[2] as ChannelName) || "legacy";
 const mode: "dev" | RuntimeMode = process.argv.includes("--mcp")
   ? "mcp"
   : process.argv.includes("--e2e")
@@ -19,7 +19,7 @@ const mode: "dev" | RuntimeMode = process.argv.includes("--mcp")
 
 const runtimePaths = mode === "dev"
   ? null
-  : getRuntimePaths(rootDir, mode);
+  : getRuntimePaths(rootDir, mode, channel);
 
 // Setup isolated directories in .logseq
 const logseqDir = runtimePaths?.runtimeDir ?? path.join(rootDir, ".logseq", "dev");

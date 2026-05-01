@@ -24,6 +24,13 @@ The Electron MCP server uses an isolated environment in `.logseq/mcp/` to avoid 
     npm run start:mcp:legacy
     ```
 
+For the DB channel, use:
+```bash
+npm run start:mcp:init:db
+npm run start:mcp:db
+```
+The default `db` channel is configured in [logseq-versions.json](/home/st6ka8/Code/logseq-doc-agent/logseq-versions.json) to use a local binary directory at `.logseq/app/db/beta`. Put the OS-specific beta build there, for example `Logseq-linux-x86_64-*.AppImage`.
+
 3.  **Reconnect your MCP client if needed**:
     Some harnesses cache the server definition but require a manual reconnect after restart.
 
@@ -33,10 +40,10 @@ If the MCP profile was not initialized, `start:mcp:legacy` fails fast with an in
 ### Technical Details
 - **Init Script**: `scripts/run-logseq.ts legacy --mcp`
 - **Server Script**: `scripts/mcp-logseq.ts`
-- **Isolated Runtime Dir**: `.logseq/mcp/`
-- **Isolated Home**: `.logseq/mcp/home`
-- **Isolated Config**: `.logseq/mcp/xdg`
-- **Graph Dir**: `.logseq/mcp/graph`
+- **Isolated Runtime Dir**: `.logseq/mcp/<channel>/`
+- **Isolated Home**: `.logseq/mcp/<channel>/home`
+- **Isolated Config**: `.logseq/mcp/<channel>/xdg`
+- **Graph Dir**: `.logseq/mcp/<channel>/graph`
 - **Logseq Binary**: Cached in `.logseq/app`
 - **Protocol**: Standard Input/Output (stdio)
 - **Behavior**: Manual one-time graph bootstrap, then strict preflight validation
@@ -86,6 +93,12 @@ The Electron Playwright tests use a separate isolated environment in `.logseq/e2
 ### Failure mode
 If the E2E profile was not initialized, the test runner fails immediately with instructions to run `npm run start:e2e:init:legacy`.
 
+For the DB channel, initialize and run:
+```bash
+npm run start:e2e:init:db
+npm run test:e2e:db
+```
+
 ### Why this approach
 - avoids flaky native folder-dialog automation
 - keeps MCP and E2E deterministic
@@ -106,6 +119,11 @@ To use these servers with an AI client (like Claude Desktop or Antigravity), add
     "logseq-electron": {
       "command": "npm",
       "args": ["run", "start:mcp:legacy"],
+      "cwd": "/path/to/logseq-doc-agent"
+    },
+    "logseq-electron-db": {
+      "command": "npm",
+      "args": ["run", "start:mcp:db"],
       "cwd": "/path/to/logseq-doc-agent"
     },
     "logseq-sim": {

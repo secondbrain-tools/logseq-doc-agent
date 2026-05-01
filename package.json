@@ -20,6 +20,7 @@
     "test:e2e:db": "tsx scripts/run-e2e.ts db",
     "test:mcp": "npx @playwright/mcp@latest",
     "start:mcp:legacy": "tsx scripts/mcp-logseq.ts legacy",
+    "start:mcp:db": "tsx scripts/mcp-logseq.ts db",
     "start:mcp:init:legacy": "tsx scripts/run-logseq.ts legacy --mcp",
     "start:mcp:init:db": "tsx scripts/run-logseq.ts db --mcp",
     "start:e2e:init:legacy": "tsx scripts/run-logseq.ts legacy --e2e",

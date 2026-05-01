@@ -11,12 +11,11 @@ dist
 dist-ssr
 *.local
 
-## playwrite
-
-.logseq
+## playwrite (e2e and mcp)
+logseq-environments
 blob-report
 playwright-report
-test-results 
+test-results
 
 
 

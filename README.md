@@ -127,6 +127,10 @@ Notes:
 - `start:legacy` and `start:db` are dev launchers, not the dedicated MCP/E2E test environments.
 - `dev` is currently not split into `dev/legacy` and `dev/db`; both commands share the same isolated `home` and `xdg` directories.
 
+### Logseq versions used for testing
+
+`logseq-versions.jsonc` defines how the Logseq binaries are resolved for the dev, MCP, and E2E environments. The `legacy` channel is configured via a release tag, so the setup scripts resolve the matching binary from the Logseq GitHub releases. The `db` channel is currently configured as a local binary directory. Since there is no official DB release configured here, the current workflow is to manually download a suitable build from [nightly](https://github.com/logseq/logseq/releases/tag/nightly) and place it in `logseq-environments/app/db/beta`.
+
 ### MCP Setup
 
 The Electron MCP server runs Logseq in an isolated runtime under `logseq-environments/mcp`.

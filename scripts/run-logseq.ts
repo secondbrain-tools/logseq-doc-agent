@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import fs from "node:fs";
 import { ensureLogseq, type ChannelName } from "./logseq/ensure-logseq";
+import { ensureExternalPluginDir } from "./logseq/preferences";
 import {
   getLogseqEnvironmentsRoot,
   getRuntimePaths,
@@ -62,6 +63,7 @@ exec ${JSON.stringify(executablePath)} ${JSON.stringify(graphDir)} --no-sandbox 
     { mode: 0o755 }
   );
   const launchPath = launchWrapperPath;
+  ensureExternalPluginDir(homeDir, rootDir);
 
   if (mode !== "dev") {
     console.log(`[run-logseq] Manual initialization mode (${mode}). Please select the graph directory if prompted: ${graphDir}`);

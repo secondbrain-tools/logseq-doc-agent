@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import fs from "node:fs";
 import type { ChannelName } from "./logseq/ensure-logseq";
+import { ensureExternalPluginDir } from "./logseq/preferences";
 import { getRuntimePaths, isRuntimeGraphInitialized } from "./logseq/runtime-profile";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -100,13 +101,7 @@ if (!isRuntimeGraphInitialized(homeDir, graphDir)) {
   process.exit(1);
 }
 
-const logseqConfigDir = path.join(homeDir, ".logseq");
-const prefsPath = path.join(logseqConfigDir, "preferences.json");
-if (!fs.existsSync(prefsPath)) {
-  fs.writeFileSync(prefsPath, JSON.stringify({
-    externals: [rootDir]
-  }, null, 2));
-}
+ensureExternalPluginDir(homeDir, rootDir);
 
 // Bootstrap disabled again: native file dialogs block MCP startup.
 

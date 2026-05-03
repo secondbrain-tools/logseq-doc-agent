@@ -4,7 +4,6 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import fs from "node:fs";
 import { ensureLogseq, type ChannelName } from "./logseq/ensure-logseq";
-import { primeGraphSelection } from "./logseq/graph-bootstrap";
 import {
   getLogseqEnvironmentsRoot,
   getRuntimePaths,
@@ -64,14 +63,7 @@ exec ${JSON.stringify(executablePath)} ${JSON.stringify(graphDir)} --no-sandbox 
   );
   const launchPath = launchWrapperPath;
 
-  if (mode === "dev") {
-    await primeGraphSelection({
-      executablePath,
-      graphDir,
-      homeDir,
-      xdgDir,
-    });
-  } else {
+  if (mode !== "dev") {
     console.log(`[run-logseq] Manual initialization mode (${mode}). Please select the graph directory if prompted: ${graphDir}`);
   }
   console.log(`[run-logseq] Launching Logseq...`);

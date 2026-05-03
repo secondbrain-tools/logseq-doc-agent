@@ -109,6 +109,24 @@ The page `logseq-doc-agent`in graph acts as entrypoint for logseq.
 
 ## Development
 
+### Environment Matrix
+
+The project currently uses three isolated Logseq runtime contexts:
+
+| Purpose | Channel | Primary command(s) | Runtime root | Home/config isolation | Graph location | Notes |
+|---------|---------|--------------------|--------------|-----------------------|----------------|-------|
+| Dev | `legacy` | `npm run start:legacy` | `logseq-environments/dev` | Shared `home` and `xdg` under `logseq-environments/dev` | `tests/devgraph` | Uses the file-based legacy channel. |
+| Dev | `db` | `npm run start:db` | `logseq-environments/dev` | Shared `home` and `xdg` under `logseq-environments/dev` | `tests/devgraph` | Uses the DB/beta binary, but currently reuses the same `dev` profile as `legacy`. |
+| MCP | `legacy` | `npm run start:mcp:init:legacy` then `npm run start:mcp:legacy` | `logseq-environments/mcp/legacy` | Isolated per channel | `logseq-environments/mcp/legacy/graph` | Manual one-time graph selection during `init`. |
+| MCP | `db` | `npm run start:mcp:init:db` then `npm run start:mcp:db` | `logseq-environments/mcp/db` | Isolated per channel | `logseq-environments/mcp/db/home/logseq/graphs/Demo` | Uses Logseq's built-in demo graph location. |
+| E2E | `legacy` | `npm run start:e2e:init:legacy` then `npm run test:e2e:legacy` | `logseq-environments/e2e/legacy` | Isolated per channel | `logseq-environments/e2e/legacy/graph` | Manual one-time graph selection during `init`. |
+| E2E | `db` | `npm run start:e2e:init:db` then `npm run test:e2e:db` | `logseq-environments/e2e/db` | Isolated per channel | `logseq-environments/e2e/db/home/logseq/graphs/Demo` | Uses Logseq's built-in demo graph location. |
+
+Notes:
+- `init` means "open once and manually select the graph", then close Logseq so the runtime profile is recorded.
+- `start:legacy` and `start:db` are dev launchers, not the dedicated MCP/E2E test environments.
+- `dev` is currently not split into `dev/legacy` and `dev/db`; both commands share the same isolated `home` and `xdg` directories.
+
 ### MCP Setup
 
 The Electron MCP server runs Logseq in an isolated runtime under `logseq-environments/mcp`.

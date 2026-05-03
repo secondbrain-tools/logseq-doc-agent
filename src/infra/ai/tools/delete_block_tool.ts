@@ -5,6 +5,7 @@ import type { MergeEntity } from '../../../domain/merge/entity';
 
 import { sanitizeBlockId } from './tool-utils';
 import { LDA_MERGE_PROPERTY } from '../../../domain/logseq/properties';
+import { getCurrentLogseqApi } from '../../logseq';
 
 /**
  * Creates the deleteBlock tool with injected context.
@@ -16,10 +17,11 @@ export const createDeleteBlockTool = (context: { merge: boolean }) => tool({
     }),
     execute: async ({ id }: { id: number | string }) => {
         try {
+            const logseq = getCurrentLogseqApi();
             // Sanitize ID: handle '#123' format from prompt or stringified numbers
             const cleanId = sanitizeBlockId(id);
 
-            const block = await logseq.Editor.getBlock(cleanId);
+            const block = await logseq.getBlock(cleanId);
             if (!block || !block.uuid) {
                 return `Error: Block not found for ID ${id}`;
             }
@@ -31,7 +33,7 @@ export const createDeleteBlockTool = (context: { merge: boolean }) => tool({
                 // We do NOT change content significantly, maybe just append the merge prop.
 
                 // Fetch fresh block to get content
-                const freshBlock = await logseq.Editor.getBlock(uuid);
+                const freshBlock = await logseq.getBlock(uuid);
                 const currentContent = freshBlock?.content || "";
 
                 // We need to parse existing properties to inject ours cleanly, 
@@ -46,16 +48,16 @@ export const createDeleteBlockTool = (context: { merge: boolean }) => tool({
                     // originalContent removed as per user request (tag is sufficient)
                 };
 
-                await logseq.Editor.upsertBlockProperty(uuid, LDA_MERGE_PROPERTY, JSON.stringify(mergeData));
+                await logseq.upsertBlockProperty(uuid, LDA_MERGE_PROPERTY, JSON.stringify(mergeData));
                 return `Marked block ${id} for deletion "${currentContent.substring(0, 50)}..."`;
 
             } else {
                 // Hard delete
                 // Fetch content before deleting for the result summary
-                const freshBlock = await logseq.Editor.getBlock(uuid);
+                const freshBlock = await logseq.getBlock(uuid);
                 const currentContent = freshBlock?.content || "";
 
-                await logseq.Editor.removeBlock(uuid);
+                await logseq.deleteBlock(uuid);
                 return `Deleted block ${id} "${currentContent.substring(0, 50)}..."`;
             }
 

@@ -1,9 +1,8 @@
 import { buildDocumentResponse } from '../ai/tools/get_logseq_document_tool';
 import type { ContextItem } from '../../domain/chat/types';
+import { getCurrentLogseqApi } from './runtime-context';
 
 export type { ContextItem };
-
-const getLogseq = () => (window as any).logseq;
 
 /**
  * Datascript returns UUIDs as `{ $uuid$: '...' }` objects instead of plain strings.
@@ -20,10 +19,8 @@ function resolveUuid(raw: unknown): string {
  * Captures the current active page as a context item (identity snapshot).
  */
 export async function getCurrentPageContext(): Promise<ContextItem | null> {
-    const logseq = getLogseq();
-    if (!logseq) return null;
-
-    const currentPage = await logseq.Editor.getCurrentPage();
+    const logseq = getCurrentLogseqApi();
+    const currentPage = await logseq.getCurrentPage();
     if (!currentPage || !currentPage.uuid) return null;
 
     const name = currentPage.originalName || currentPage.name || 'Untitled Page';
@@ -36,10 +33,8 @@ export async function getCurrentPageContext(): Promise<ContextItem | null> {
  * Returns an unsubscribe function.
  */
 export function onCurrentPageChange(callback: (context: ContextItem | null) => void): () => void {
-    const logseq = getLogseq();
-    if (!logseq) return () => { };
-
-    const off = logseq.App.onRouteChanged(async () => {
+    const logseq = getCurrentLogseqApi();
+    const off = logseq.onRouteChanged(async () => {
         const context = await getCurrentPageContext();
         callback(context);
     });
@@ -53,20 +48,19 @@ export function onCurrentPageChange(callback: (context: ContextItem | null) => v
  * pipeline so the AI receives consistently formatted, ID-annotated output.
  */
 export async function getContextContent(context: ContextItem): Promise<string> {
-    const logseq = getLogseq();
-    if (!logseq) return '';
+    const logseq = getCurrentLogseqApi();
 
     if (context.type === 'block') {
-        const block = await logseq.Editor.getBlock(context.id, { includeChildren: true });
+        const block = await logseq.getBlock(context.id, { includeChildren: true });
         if (!block) return `[Context Error: Block ${context.id} not found]`;
         return buildDocumentResponse(block, block.children || []);
     }
 
     // Page context
-    const page = await logseq.Editor.getPage(context.id);
+    const page = await logseq.getPage(context.id);
     if (!page) return `[Context Error: Page "${context.name}" not found]`;
 
-    const pageBlocksTree = await logseq.Editor.getPageBlocksTree(context.id);
+    const pageBlocksTree = await logseq.getPageBlocksTree(context.id);
     return buildDocumentResponse(page, pageBlocksTree);
 }
 
@@ -75,11 +69,10 @@ export async function getContextContent(context: ContextItem): Promise<string> {
  * ranked so prefix matches come first.
  */
 export async function searchPages(query: string): Promise<{ name: string; uuid: string }[]> {
-    const logseq = getLogseq();
-    if (!logseq) return [];
+    const logseq = getCurrentLogseqApi();
 
     try {
-        const allPages = await logseq.Editor.getAllPages();
+        const allPages = await logseq.getAllPages();
         if (!allPages) return [];
 
         const lowerQuery = query.toLowerCase();
@@ -107,8 +100,8 @@ export async function searchPages(query: string): Promise<{ name: string; uuid: 
  * Returns up to 10 results.
  */
 export async function searchBlocks(query: string): Promise<{ uuid: string; content: string }[]> {
-    const logseq = getLogseq();
-    if (!logseq || !query || query.length < 2) return [];
+    const logseq = getCurrentLogseqApi();
+    if (!query || query.length < 2) return [];
 
     try {
         const escapedQuery = query.toLowerCase().replace(/"/g, '\\"');
@@ -121,7 +114,7 @@ export async function searchBlocks(query: string): Promise<{ uuid: string; conte
             ]
         `;
 
-        const results = await logseq.DB.datascriptQuery(datalogQuery);
+        const results = await logseq.datascriptQuery(datalogQuery);
         if (!results || !Array.isArray(results)) return [];
 
         return results

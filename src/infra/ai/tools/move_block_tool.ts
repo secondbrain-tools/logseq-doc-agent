@@ -5,6 +5,7 @@ import type { MergeEntity } from '../../../domain/merge/entity';
 
 import { sanitizeBlockId } from './tool-utils';
 import { LDA_MERGE_PROPERTY } from '../../../domain/logseq/properties';
+import { getCurrentLogseqApi } from '../../logseq';
 
 /**
  * Creates the moveBlock tool with injected context.
@@ -18,11 +19,12 @@ export const createMoveBlockTool = (context: { merge: boolean }) => tool({
     }),
     execute: async ({ id, targetId, anchor = 'parent' }: { id: number | string, targetId: number | string, anchor?: 'parent' | 'before' | 'after' }) => {
         try {
+            const logseq = getCurrentLogseqApi();
             const cleanId = sanitizeBlockId(id);
             const cleanTargetId = sanitizeBlockId(targetId);
 
-            const block = await logseq.Editor.getBlock(cleanId);
-            const targetBlock = await logseq.Editor.getBlock(cleanTargetId);
+            const block = await logseq.getBlock(cleanId);
+            const targetBlock = await logseq.getBlock(cleanTargetId);
 
             if (!block || !block.uuid) return `Error: Could not find block ${id}`;
             if (!targetBlock || !targetBlock.uuid) return `Error: Could not find target ${targetId}`;
@@ -36,12 +38,12 @@ export const createMoveBlockTool = (context: { merge: boolean }) => tool({
             if (context.merge) {
                 // Capture state BEFORE move
                 if (block.parent && block.parent.id) {
-                    const parentDetails = await logseq.Editor.getBlock(block.parent.id);
+                    const parentDetails = await logseq.getBlock(block.parent.id);
                     originalParentUuid = parentDetails?.uuid;
                 }
 
                 if (block.left && block.left.id) {
-                    const leftDetails = await logseq.Editor.getBlock(block.left.id);
+                    const leftDetails = await logseq.getBlock(block.left.id);
                     originalPriorSiblingUuid = leftDetails?.uuid;
                 }
             }
@@ -59,7 +61,7 @@ export const createMoveBlockTool = (context: { merge: boolean }) => tool({
                 options.before = false;
             }
 
-            await logseq.Editor.moveBlock(uuid, targetUuid, options);
+            await logseq.moveBlock(uuid, targetUuid, options);
 
             if (context.merge) {
                 // Post-move: Update block with history
@@ -71,11 +73,11 @@ export const createMoveBlockTool = (context: { merge: boolean }) => tool({
                     originalPriorSiblingUuid
                 };
 
-                await logseq.Editor.upsertBlockProperty(uuid, LDA_MERGE_PROPERTY, JSON.stringify(mergeData));
+                await logseq.upsertBlockProperty(uuid, LDA_MERGE_PROPERTY, JSON.stringify(mergeData));
             }
 
             // Fetch block content for summary
-            const movedBlock = await logseq.Editor.getBlock(uuid);
+            const movedBlock = await logseq.getBlock(uuid);
             const content = movedBlock?.content || "";
 
             return `Moved block ${id} "${content.substring(0, 50)}..." ${anchor} ${targetId}.`;

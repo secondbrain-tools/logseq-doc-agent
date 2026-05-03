@@ -3,9 +3,7 @@ import { type ParsedBlock, type InsertedNode } from './subtree-parser';
 import type { LogseqBlock } from './types';
 import type { MergeEntity } from '../../../domain/merge/entity';
 import { LDA_MERGE_PROPERTY } from '../../../domain/logseq/properties';
-
-// Access the global logseq object
-const getLogseq = () => (window as any).logseq;
+import { getCurrentLogseqApi } from '../../logseq';
 
 /**
  * Removes all children of a given block.
@@ -13,17 +11,16 @@ const getLogseq = () => (window as any).logseq;
  * @param blockUuid The UUID of the parent block
  */
 export async function removeAllChildren(blockUuid: string): Promise<void> {
-    const logseq = getLogseq();
-    if (!logseq) return;
+    const logseq = getCurrentLogseqApi();
 
     try {
-        const block = await logseq.Editor.getBlock(blockUuid, { includeChildren: true });
+        const block = await logseq.getBlock(blockUuid, { includeChildren: true });
         if (block && block.children && block.children.length > 0) {
             // Delete text children in reverse order to avoid index shifting issues (though UUIDs should be safe)
             // Note: Logseq API removeBlock takes UUID
             for (const child of [...block.children].reverse()) {
-                if (child.uuid) {
-                    await logseq.Editor.removeBlock(child.uuid);
+                if (typeof child === 'object' && child !== null && 'uuid' in child && child.uuid) {
+                    await logseq.deleteBlock(child.uuid as string);
                 }
             }
         }
@@ -48,18 +45,13 @@ export async function insertSubtreeRecursive(
     options: any,
     merge: boolean
 ): Promise<InsertedNode> {
-    const logseq = getLogseq();
+    const logseq = getCurrentLogseqApi();
 
     const result: InsertedNode = {
         id: 'unknown',
         content: node.content,
         children: []
     };
-
-    if (!logseq) {
-        result.error = 'Logseq API not available';
-        return result;
-    }
 
     try {
         // Build insert options including properties
@@ -69,7 +61,7 @@ export async function insertSubtreeRecursive(
         }
 
         // Insert the block
-        const newBlock = await logseq.Editor.insertBlock(parentUuid, node.content, insertOptions);
+        const newBlock = await logseq.insertBlock(parentUuid, node.content, insertOptions);
 
         if (!newBlock) {
             result.error = 'Failed to insert block';
@@ -79,18 +71,18 @@ export async function insertSubtreeRecursive(
         // Get the block ID
         let blockId: number | undefined = newBlock.id;
         if (blockId === undefined && newBlock.uuid) {
-            const fetchedBlock = await logseq.Editor.getBlock(newBlock.uuid);
+            const fetchedBlock = await logseq.getBlock(newBlock.uuid);
             blockId = fetchedBlock?.id;
         }
         result.id = blockId !== undefined ? blockId : 'unknown';
 
         if (node.ordered && newBlock.uuid) {
-            await logseq.Editor.upsertBlockProperty(newBlock.uuid, 'logseq.order-list-type', 'number');
+            await logseq.upsertBlockProperty(newBlock.uuid, 'logseq.order-list-type', 'number');
         }
 
         if (merge && newBlock.uuid) {
             const mergeData: MergeEntity = { type: 'add' };
-            await logseq.Editor.upsertBlockProperty(newBlock.uuid, LDA_MERGE_PROPERTY, JSON.stringify(mergeData));
+            await logseq.upsertBlockProperty(newBlock.uuid, LDA_MERGE_PROPERTY, JSON.stringify(mergeData));
         }
 
         // Recursively insert children (children don't use the anchor options)

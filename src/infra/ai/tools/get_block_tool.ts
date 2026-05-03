@@ -9,9 +9,7 @@ import {
 } from './get_logseq_document_tool';
 import type { LogseqSelection } from './types';
 import { sanitizeBlockId } from './tool-utils';
-
-// Access the global logseq object
-const getLogseq = () => (window as any).logseq;
+import { getCurrentLogseqApi } from '../../logseq';
 
 export const createGetBlockTool = (context: {
     mergeDefault: boolean,
@@ -23,10 +21,7 @@ export const createGetBlockTool = (context: {
         subtree: z.boolean().optional().default(true).describe('Whether to include children blocks (subtree). Defaults to true.')
     }),
     execute: async ({ blockId, subtree = true }: { blockId: string | number, subtree?: boolean }) => {
-        const logseq = getLogseq();
-        if (!logseq) {
-            return 'Error: Logseq API not available.';
-        }
+        const logseq = getCurrentLogseqApi();
 
         if (!blockId) {
             return 'Error: blockId is required.';
@@ -37,7 +32,7 @@ export const createGetBlockTool = (context: {
 
             // Get block with children if subtree is requested
             // logseq.Editor.getBlock supports both UUID string and integer ID
-            const block = await logseq.Editor.getBlock(cleanId, { includeChildren: subtree });
+            const block = await logseq.getBlock(cleanId, { includeChildren: subtree });
 
             if (!block) {
                 return `Error: Block with ID/UUID ${blockId} not found.`;

@@ -8,9 +8,7 @@ import { insertSubtreeRecursive } from './block-operations';
 import { applyMergeLogicToTree, formatBlockTree } from './get_logseq_document_tool';
 import type { LogseqBlock } from './types';
 import { extractExistingMergeData, splitContentAttributes, LDA_MERGE_PROPERTY } from '../../../domain/logseq/properties';
-
-// Access the global logseq object
-const getLogseq = () => (window as any).logseq;
+import { getCurrentLogseqApi } from '../../logseq';
 
 /**
  * Creates the updateBlock tool with injected context.
@@ -50,12 +48,11 @@ Returns the updated block and its full subtree in markdown tree format.`,
         ordered?: boolean,
     }) => {
         try {
-            const logseq = getLogseq();
-            if (!logseq) return 'Error: Logseq API not available';
+            const logseq = getCurrentLogseqApi();
 
             // Sanitize ID
             const cleanId = sanitizeBlockId(id);
-            const block = await logseq.Editor.getBlock(cleanId);
+            const block = await logseq.getBlock(cleanId);
 
             if (!block || !block.uuid) {
                 return `Error: Block not found for ID ${id}`;
@@ -103,19 +100,19 @@ Returns the updated block and its full subtree in markdown tree format.`,
                     newBlockContent = parentContent;
                 }
 
-                await logseq.Editor.updateBlock(uuid, newBlockContent);
-                await logseq.Editor.upsertBlockProperty(uuid, LDA_MERGE_PROPERTY, JSON.stringify(mergeData));
+                await logseq.updateBlock(uuid, newBlockContent);
+                await logseq.upsertBlockProperty(uuid, LDA_MERGE_PROPERTY, JSON.stringify(mergeData));
 
             } else {
                 // Overwrite
-                await logseq.Editor.updateBlock(uuid, parentContent);
+                await logseq.updateBlock(uuid, parentContent);
             }
 
             // Handle ordered list mode change
             if (ordered === true) {
-                await logseq.Editor.upsertBlockProperty(uuid, 'logseq.order-list-type', 'number');
+                await logseq.upsertBlockProperty(uuid, 'logseq.order-list-type', 'number');
             } else if (ordered === false) {
-                await logseq.Editor.removeBlockProperty(uuid, 'logseq.order-list-type');
+                await logseq.removeBlockProperty(uuid, 'logseq.order-list-type');
             }
 
             // 2. Handle Children (Subtrees)
@@ -128,7 +125,7 @@ Returns the updated block and its full subtree in markdown tree format.`,
 
             // 3. Return the full subtree
             // Fetch updated block with children
-            const rawBlock = await logseq.Editor.getBlock(uuid, { includeChildren: true });
+            const rawBlock = await logseq.getBlock(uuid, { includeChildren: true });
             if (!rawBlock) {
                 return `Successfully updated block ${id}, but failed to retrieve it for display.`;
             }

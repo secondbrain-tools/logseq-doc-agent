@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { LogseqApiImpl } from './logseq-api';
+import { LegacyLogseqApi, detectLogseqRuntime } from './logseq-runtime';
 
 // Mock the global window.logseq object
 const mockGetBlock = vi.fn();
@@ -11,12 +11,12 @@ const mockLogseq = {
 };
 
 describe('LogseqApiImpl', () => {
-    let api: LogseqApiImpl;
+    let api: LegacyLogseqApi;
 
     beforeEach(() => {
         // Setup global mock
         (window as any).logseq = mockLogseq;
-        api = new LogseqApiImpl();
+        api = new LegacyLogseqApi();
         mockGetBlock.mockReset();
     });
 
@@ -62,5 +62,10 @@ describe('LogseqApiImpl', () => {
             const result = await api.Editor.getBlockText('uuid-4');
             expect(result).toBe('Just plain text');
         });
+    });
+
+    it('detects legacy runtime by default', async () => {
+        const runtime = await detectLogseqRuntime();
+        expect(runtime.mode).toBe('legacy');
     });
 });

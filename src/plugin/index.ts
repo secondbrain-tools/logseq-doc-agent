@@ -46,7 +46,7 @@ export const setupPlugin = async () => {
     }
 
     // Initialize/Get Services
-    const services = Services.instance;
+    const services = await Services.initialize();
 
     // Instantiate InitDataService locally
     const settingsAdapter = new LogseqSettingsAdapter();
@@ -124,7 +124,7 @@ export const setupPlugin = async () => {
         }
     }, async () => {
         console.log('[Command] focus-merge-controls triggered');
-        const block = await logseq.Editor.getCurrentBlock();
+        const block = await services.logseqApi.getCurrentBlock();
         if (block) {
             console.log('[Command] Current block:', block.uuid);
             // Dispatch event to the block element
@@ -201,7 +201,7 @@ export const setupPlugin = async () => {
     };
 
     // 1. Route Changed Listener
-    logseq.App.onRouteChanged(() => {
+    services.logseqApi.onRouteChanged(() => {
         console.log('[src/plugin/index.ts] Route changed, triggering injection...');
         injectComponents();
     });
@@ -213,7 +213,7 @@ export const setupPlugin = async () => {
         injectComponents();
     }, 500);
 
-    logseq.DB.onChanged((e) => {
+    services.logseqApi.onGraphChanged((e) => {
         // Optional: Filter events if needed, but for now we just debounce everything
         debouncedOnDbChanged();
     });

@@ -33,7 +33,7 @@ export class InjectEvaluationsUseCase extends BaseBlockInjector<BlockEvaluation>
   public registerPagebarItem() {
     if (this.pageToolbarRegistered) return;
 
-    logseq.App.registerUIItem('toolbar', {
+    this.logseqApi.registerUIItem('toolbar', {
       key: 'lda-eval-toolbar',
       template: `<div id="${TOOLBAR_CONTAINER_ID}" style="display: inline-flex; align-items: center;"></div>`,
     });

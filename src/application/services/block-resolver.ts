@@ -1,4 +1,5 @@
 const LOG_PREFIX = '[BlockResolver]';
+import { getCurrentLogseqApi } from '../../infra/logseq';
 
 const uuidCache = new Map<string, string | null>();
 
@@ -26,12 +27,6 @@ export async function resolveSourceIdToUuid(sourceId: string | null | undefined)
         return cached;
     }
 
-    const logseq = (window as any).logseq;
-    if (!logseq) {
-        console.warn(`${LOG_PREFIX} Logseq API not available, cannot resolve "${sourceId}"`);
-        return null;
-    }
-
     // Parse "block:843", "id:843", or bare "843"
     let numericId: number | null = null;
     const prefixed = sourceId.match(/^(?:block|id):(\d+)$/);
@@ -48,7 +43,7 @@ export async function resolveSourceIdToUuid(sourceId: string | null | undefined)
     }
 
     try {
-        const block = await logseq.Editor.getBlock(numericId);
+        const block = await getCurrentLogseqApi().getBlock(numericId);
         const uuid = block?.uuid ?? null;
         console.log(`${LOG_PREFIX} resolved "${sourceId}" (id=${numericId}) => uuid=${uuid}`);
         uuidCache.set(sourceId, uuid);

@@ -1,4 +1,5 @@
 import { filterProperties, LDA_MERGE_PROPERTY, LDA_MERGE_PROPERTY_CAMEL } from '../../domain/logseq/properties';
+import { getCurrentLogseqApi } from '../../infra/logseq';
 
 export class MergeActionService {
 
@@ -6,11 +7,12 @@ export class MergeActionService {
      * Accepts a merge for a single block, preserving properties via live fetch.
      */
     async acceptMerge(uuid: string, content: string, filterPatterns: string[]): Promise<void> {
+        const logseqApi = getCurrentLogseqApi();
         let finalContent = content;
 
         // Live Preservation: Fetch block to get ignored properties
         try {
-            const currentBlock = await logseq.Editor.getBlock(uuid);
+            const currentBlock = await logseqApi.getBlock(uuid);
 
             if (currentBlock && currentBlock.content) {
                 const [_, header] = filterProperties(
@@ -35,10 +37,10 @@ export class MergeActionService {
         }
 
         // Update block with manually constructed content (properties at top)
-        await logseq.Editor.updateBlock(uuid, finalContent);
+        await logseqApi.updateBlock(uuid, finalContent);
 
         // Also remove merge property
-        await logseq.Editor.removeBlockProperty(
+        await logseqApi.removeBlockProperty(
             uuid,
             LDA_MERGE_PROPERTY,
         );
@@ -62,6 +64,7 @@ export class MergeActionService {
      * Reverts a merge.
      */
     async revertMerge(uuids: string[]): Promise<void> {
+        const logseqApi = getCurrentLogseqApi();
         console.log(`[MergeActionService] Reverting for ${uuids.length} blocks.`);
 
         for (const uuid of uuids) {
@@ -70,17 +73,17 @@ export class MergeActionService {
 
                 if (mergeData) {
                     if (mergeData.type === 'add') {
-                        await logseq.Editor.removeBlock(uuid);
+                        await logseqApi.deleteBlock(uuid);
                         continue;
                     } else if (mergeData.type === 'update' && mergeData.base !== undefined) {
-                        await logseq.Editor.updateBlock(uuid, mergeData.base);
+                        await logseqApi.updateBlock(uuid, mergeData.base);
                     }
                 }
 
-                await logseq.Editor.removeBlockProperty(uuid, LDA_MERGE_PROPERTY);
+                await logseqApi.removeBlockProperty(uuid, LDA_MERGE_PROPERTY);
             } catch (e) {
                 console.warn(`[MergeActionService] Error reverting block ${uuid}:`, e);
-                await logseq.Editor.removeBlockProperty(uuid, LDA_MERGE_PROPERTY);
+                await logseqApi.removeBlockProperty(uuid, LDA_MERGE_PROPERTY);
             }
         }
     }
@@ -89,21 +92,22 @@ export class MergeActionService {
      * Quick accept: removes merge property from current block, keeping content as-is.
      */
     async quickAccept(uuid: string): Promise<void> {
-        await logseq.Editor.removeBlockProperty(uuid, LDA_MERGE_PROPERTY);
+        await getCurrentLogseqApi().removeBlockProperty(uuid, LDA_MERGE_PROPERTY);
     }
 
     /**
      * Accepts a delete merge by removing the block.
      */
     async acceptDelete(uuid: string): Promise<void> {
-        await logseq.Editor.removeBlock(uuid);
+        await getCurrentLogseqApi().deleteBlock(uuid);
     }
 
     /**
      * Quick accept with children: removes merge property from block and all descendants.
      */
     async quickAcceptWithChildren(uuid: string): Promise<void> {
-        const block = await logseq.Editor.getBlock(uuid, { includeChildren: true });
+        const logseqApi = getCurrentLogseqApi();
+        const block = await logseqApi.getBlock(uuid, { includeChildren: true });
         if (!block) {
             console.warn(`[MergeActionService] Block not found: ${uuid}`);
             return;
@@ -111,7 +115,7 @@ export class MergeActionService {
 
         const uuids = this.getDescendantUuids(block);
         for (const u of uuids) {
-            await logseq.Editor.removeBlockProperty(u, LDA_MERGE_PROPERTY);
+            await logseqApi.removeBlockProperty(u, LDA_MERGE_PROPERTY);
         }
     }
 
@@ -119,7 +123,7 @@ export class MergeActionService {
      * Reverts merge for a block and all its descendants.
      */
     async revertMergeWithChildren(uuid: string): Promise<void> {
-        const block = await logseq.Editor.getBlock(uuid, { includeChildren: true });
+        const block = await getCurrentLogseqApi().getBlock(uuid, { includeChildren: true });
         if (!block) {
             console.warn(`[MergeActionService] Block not found: ${uuid}`);
             return;
@@ -146,7 +150,7 @@ export class MergeActionService {
     }
 
     private async extractMergeData(uuid: string): Promise<any> {
-        const block = await logseq.Editor.getBlock(uuid);
+        const block = await getCurrentLogseqApi().getBlock(uuid);
         if (!block) {
             console.warn(`[MergeActionService] Block ${uuid} could not be fetched.`);
             return null;

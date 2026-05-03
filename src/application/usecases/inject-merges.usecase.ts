@@ -48,7 +48,7 @@ export class InjectMergesUseCase {
         if (this.pageToolbarRegistered) return;
 
         // Register a placeholder for the merge toolbar in the global toolbar
-        logseq.App.registerUIItem('toolbar', {
+        this.logseqApi.registerUIItem('toolbar', {
             key: 'lda-merge-toolbar',
             template: `<div id="${TOOLBAR_CONTAINER_ID}" style="display: inline-flex; align-items: center;"></div>`,
         });

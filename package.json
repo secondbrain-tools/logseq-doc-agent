@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.1.4",
   "type": "module",
+  "main": "index.html",
   "scripts": {
     "dev": "concurrently \"vite build --watch\" \"http-server -c-1 -p 9000 .\"",
     "build": "vite build",

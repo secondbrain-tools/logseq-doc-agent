@@ -1,6 +1,7 @@
 import type { BlockEntity } from '@logseq/libs/dist/LSPlugin.user';
 import type { MergeEntity } from '../../domain/merge/entity';
 import { LDA_MERGE_PROPERTY, LDA_MERGE_PROPERTY_CAMEL } from '../../domain/logseq/properties';
+import { getCurrentLogseqApi } from '../../infra/logseq';
 
 export interface MergeTreeItem {
     uuid: string;
@@ -12,7 +13,7 @@ export interface MergeTreeItem {
 
 export class MergeTreeService {
     async getMergeTree(rootUuid: string): Promise<MergeTreeItem[]> {
-        const rootBlock = await logseq.Editor.getBlock(rootUuid, {
+        const rootBlock = await getCurrentLogseqApi().getBlock(rootUuid, {
             includeChildren: true,
         });
 
@@ -26,7 +27,7 @@ export class MergeTreeService {
     }
 
     async getPageMergeTree(pageUuid: string): Promise<MergeTreeItem[]> {
-        const blocks = await logseq.Editor.getPageBlocksTree(pageUuid);
+        const blocks = await getCurrentLogseqApi().getPageBlocksTree(pageUuid);
         const items: MergeTreeItem[] = [];
 
         // Page blocks are an array of root blocks

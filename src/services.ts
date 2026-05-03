@@ -2,7 +2,8 @@
 import { InjectEvaluationsUseCase } from './application/usecases/inject-evaluations.usecase';
 import { InjectMergesUseCase } from './application/usecases/inject-merges.usecase';
 import { FrontendComponentInjector, FrontendStyleInjector } from './infra/frontend';
-import { LogseqApiImpl } from './infra/logseq';
+import { createLogseqApi, setCurrentLogseqApi } from './infra/logseq';
+import type { LogseqApi } from './application/ports/logseq-ports';
 import { ChatSidebarUseCase } from './application/usecases/chat-sidebar.usecase';
 import { FrontendSidebarInjector } from './infra/frontend/sidebar-injector';
 import { FrontendToolbarInjector } from './infra/frontend/toolbar-injector';
@@ -28,7 +29,7 @@ export class Services {
     private static _instance: Services;
 
     // Services
-    public logseqApi: LogseqApiImpl;
+    public logseqApi: LogseqApi;
     public sidebarInjector: FrontendSidebarInjector;
     public toolbarInjector: FrontendToolbarInjector;
     public promptRepo: LogseqPromptRepository;
@@ -49,9 +50,10 @@ export class Services {
     public pluginID: string;
     private miniModelRunner: MiniModelRunner;
 
-    private constructor() {
+    private constructor(logseqApi: LogseqApi) {
         // Initialize Core Services
-        this.logseqApi = new LogseqApiImpl();
+        this.logseqApi = logseqApi;
+        setCurrentLogseqApi(logseqApi);
         this.sidebarInjector = new FrontendSidebarInjector();
         this.toolbarInjector = new FrontendToolbarInjector();
         const settingsAdapter = new LogseqSettingsAdapter();
@@ -115,8 +117,14 @@ export class Services {
     }
 
     public static get instance(): Services {
+        throw new Error('Services not initialized');
+    }
+
+    public static async initialize(): Promise<Services> {
         if (!Services._instance) {
-            Services._instance = new Services();
+            const { api, runtime } = await createLogseqApi();
+            console.log('[Services] Selected Logseq runtime:', runtime.mode, runtime.reasons);
+            Services._instance = new Services(api);
         }
         return Services._instance;
     }
@@ -158,4 +166,3 @@ export class Services {
         this.aiAdapter.dispose();
     }
 }
-

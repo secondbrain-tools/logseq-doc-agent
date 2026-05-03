@@ -6,6 +6,7 @@ import type { MergeEntity } from '../../../domain/merge/entity';
 import { sanitizeBlockId, sanitizeContent } from './tool-utils';
 import { parseSubtree, formatResultTree, type ParsedBlock, type InsertedNode } from './subtree-parser';
 import { insertSubtreeRecursive } from './block-operations';
+import { getCurrentLogseqApi } from '../../logseq';
 
 /**
  * Creates the addBlock tool with injected context.
@@ -65,12 +66,13 @@ On partial failure, returns tree built so far + error.`,
         ordered?: boolean,
     }) => {
         try {
+            const logseq = getCurrentLogseqApi();
             let cleanTargetId = sanitizeBlockId(targetId);
 
-            let targetBlock = await logseq.Editor.getBlock(cleanTargetId);
+            let targetBlock = await logseq.getBlock(cleanTargetId);
             if (!targetBlock) {
                 // Fallback: Check if it's a page
-                const page = await logseq.Editor.getPage(cleanTargetId);
+                const page = await logseq.getPage(cleanTargetId as any);
                 if (page) {
                     targetBlock = page as any; // Treating page as block for uuid access
                 }
@@ -95,27 +97,27 @@ On partial failure, returns tree built so far + error.`,
             // If parse_subtrees is false, use the old behavior
             if (!parse_subtrees) {
                 const finalContent = sanitizeContent(content);
-                const newBlock = await logseq.Editor.insertBlock(targetUuid, finalContent, rootOptions);
+                const newBlock = await logseq.insertBlock(targetUuid, finalContent, rootOptions);
 
             if (!newBlock) {
                 return `Error: Failed to insert block at ${targetId}`;
             }
 
             if (ordered && newBlock.uuid) {
-                await logseq.Editor.upsertBlockProperty(newBlock.uuid, 'logseq.order-list-type', 'number');
+                await logseq.upsertBlockProperty(newBlock.uuid, 'logseq.order-list-type', 'number');
             }
 
             if (newBlock && context.merge) {
                 const blockUuid = newBlock.uuid;
                 if (blockUuid) {
                     const mergeData: MergeEntity = { type: 'add' };
-                    await logseq.Editor.upsertBlockProperty(blockUuid, 'logseq-doc-agent.merge', JSON.stringify(mergeData));
+                    await logseq.upsertBlockProperty(blockUuid, 'logseq-doc-agent.merge', JSON.stringify(mergeData));
                 }
             }
 
             let blockId: number | undefined = newBlock.id;
             if (blockId === undefined && newBlock.uuid) {
-                const fetchedBlock = await logseq.Editor.getBlock(newBlock.uuid);
+                const fetchedBlock = await logseq.getBlock(newBlock.uuid);
                 blockId = fetchedBlock?.id;
             }
 

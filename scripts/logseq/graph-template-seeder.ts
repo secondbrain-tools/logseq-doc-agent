@@ -157,7 +157,6 @@ async function invokeLogseq<T>(
       args: Record<string, unknown>;
     }) => {
       try {
-
         const topWindow = window as any;
         const iframeCandidates = Array.from(document.querySelectorAll("iframe")).filter(
           (iframe) => {
@@ -187,6 +186,8 @@ async function invokeLogseq<T>(
         switch (action) {
           case "getPage":
             return await logseqApi.Editor.getPage(args.name);
+          case "getPageBlocksTree":
+            return await logseqApi.Editor.getPageBlocksTree(args.name);
           case "deletePage":
             return await logseqApi.Editor.deletePage(args.name);
           case "createPage":
@@ -197,6 +198,10 @@ async function invokeLogseq<T>(
             );
           case "appendBlockInPage":
             return await logseqApi.Editor.appendBlockInPage(args.name, args.content);
+          case "deleteBlock":
+            return await logseqApi.Editor.removeBlock(args.uuid);
+          case "removeBlockProperty":
+            return await logseqApi.Editor.removeBlockProperty(args.uuid, args.key);
           case "insertBlock":
             return await logseqApi.Editor.insertBlock(
               args.parentUuid,
@@ -248,6 +253,52 @@ async function insertChildren(
   }
 }
 
+function isTrashedPage(page: Record<string, unknown> | null | undefined) {
+  return Boolean(page?.[":logseq.property/deleted-at"]);
+}
+
+async function restorePageIfNeeded(window: Page, pageName: string) {
+  const page = await invokeLogseq<Record<string, unknown> | null>(window, "getPage", {
+    name: pageName,
+  });
+
+  if (!page || !isTrashedPage(page) || typeof page.uuid !== "string") {
+    return page;
+  }
+
+  for (const key of ["deleted-at", "recycle/original-page"]) {
+    try {
+      await invokeLogseq(window, "removeBlockProperty", {
+        uuid: page.uuid,
+        key,
+      });
+    } catch {
+      // Best effort only.
+    }
+  }
+
+  await window.waitForTimeout(250);
+  return await invokeLogseq<Record<string, unknown> | null>(window, "getPage", {
+    name: pageName,
+  });
+}
+
+async function clearPageBlocks(window: Page, pageName: string) {
+  const blocks = await invokeLogseq<Array<{ uuid?: string }>>(window, "getPageBlocksTree", {
+    name: pageName,
+  });
+
+  for (const block of [...(blocks || [])].reverse()) {
+    if (!block?.uuid) {
+      continue;
+    }
+
+    await invokeLogseq(window, "deleteBlock", {
+      uuid: block.uuid,
+    });
+  }
+}
+
 async function seedPages(window: Page, pages: TemplatePage[]) {
   if (pages.length === 0) {
     return;
@@ -256,18 +307,25 @@ async function seedPages(window: Page, pages: TemplatePage[]) {
   await waitForLogseqApiReady(window);
 
   for (const page of pages) {
+    let existing: Record<string, unknown> | null = null;
+
     try {
-      const existing = await invokeLogseq<any>(window, "getPage", {
-        name: page.name,
-      });
-      if (existing) {
-        await invokeLogseq(window, "deletePage", { name: page.name });
-      }
+      existing = await restorePageIfNeeded(window, page.name);
     } catch {
       // Ignore missing pages.
     }
 
-    await invokeLogseq(window, "createPage", { name: page.name });
+    if (existing && isTrashedPage(existing)) {
+      throw new Error(
+        `Template page '${page.name}' exists in the recycle bin and could not be restored safely.`
+      );
+    }
+
+    if (existing) {
+      await clearPageBlocks(window, page.name);
+    } else {
+      await invokeLogseq(window, "createPage", { name: page.name });
+    }
 
     if (page.tree.content) {
       const rootBlock = await invokeLogseq<any>(window, "appendBlockInPage", {

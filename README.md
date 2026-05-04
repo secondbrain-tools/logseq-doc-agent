@@ -197,4 +197,4 @@ For DB, the seeded test graph lives here:
 logseq-environments/e2e/db/home/logseq/graphs/Demo
 ```
 
-The test template is copied from `tests/graph-template` into the active runtime graph before MCP/E2E runs.
+The legacy channel copies `tests/graph-template` directly; the DB channel seeds `home/logseq/graphs/Demo` via the Logseq API after init.

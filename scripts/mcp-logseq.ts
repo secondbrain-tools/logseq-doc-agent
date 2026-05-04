@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import fs from "node:fs";
 import type { ChannelName } from "./logseq/ensure-logseq";
 import { ensureExternalPluginDir } from "./logseq/preferences";
+import { seedGraphTemplateFromPages } from "./logseq/graph-template-seeder";
 import { getRuntimePaths, isRuntimeGraphInitialized } from "./logseq/runtime-profile";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -25,18 +26,20 @@ function logStartup(message: string, extra?: unknown) {
   console.error(`[mcp-logseq] ${message}`, extra ?? "");
 }
 
-// Always start from a clean template
-logStartup(`Copying graph-template → ${graphDir}...`);
-fs.rmSync(graphDir, { recursive: true, force: true });
-fs.mkdirSync(graphDir, { recursive: true });
-fs.cpSync(graphTemplateDir, graphDir, { recursive: true });
+if (channel === "db") {
+  logStartup(`Using DB graph runtime at ${graphDir} without clearing it.`);
+} else {
+  logStartup(`Copying graph-template → ${graphDir}...`);
+  fs.rmSync(graphDir, { recursive: true, force: true });
+  fs.mkdirSync(graphDir, { recursive: true });
+  fs.cpSync(graphTemplateDir, graphDir, { recursive: true });
+  fs.mkdirSync(path.join(graphDir, "journals"), { recursive: true });
+  fs.mkdirSync(path.join(graphDir, "logseq"), { recursive: true });
+  fs.writeFileSync(path.join(graphDir, "logseq", "config.edn"), "{}\n");
+}
 
 fs.mkdirSync(homeDir, { recursive: true });
 fs.mkdirSync(xdgDir, { recursive: true });
-fs.mkdirSync(graphDir, { recursive: true });
-fs.mkdirSync(path.join(graphDir, "journals"), { recursive: true });
-fs.mkdirSync(path.join(graphDir, "logseq"), { recursive: true });
-fs.writeFileSync(path.join(graphDir, "logseq", "config.edn"), "{}\n");
 
 logStartup(`Setting up Logseq (${channel}) with isolated data in ${logseqDir}...`, { cwd: rootDir, nodeOptions: process.env.NODE_OPTIONS ?? null, argv: process.argv });
 
@@ -91,17 +94,33 @@ exec ${JSON.stringify(executablePath)} ${JSON.stringify(graphDir)} --no-sandbox 
 );
 const launchPath = launchWrapperPath;
 
-if (!isRuntimeGraphInitialized(homeDir, graphDir)) {
-  logStartup("MCP graph is not initialized for this profile.", {
+if (!isRuntimeGraphInitialized(homeDir, graphDir, channel)) {
+  logStartup(`${channel.toUpperCase()} graph is not initialized for this profile.`, {
     graphDir,
     initCommand: `npm run start:mcp:init:${channel}`,
-    transitExpectedUnder: path.join(homeDir, ".logseq", "graphs"),
+    expectedMarker:
+      channel === "db"
+        ? path.join(graphDir, "db.sqlite")
+        : path.join(homeDir, ".logseq", "graphs"),
   });
-  console.error(`\n[mcp-logseq] Graph initialization required.\nRun: npm run start:mcp:init:${channel}\nThen manually select this graph directory once in Logseq:\n${graphDir}\n`);
+  console.error(
+    `\n[mcp-logseq] Graph initialization required.\nRun: npm run start:mcp:init:${channel}\nThen close Logseq and re-run this command.\nGraph directory:\n${graphDir}\n`
+  );
   process.exit(1);
 }
 
 ensureExternalPluginDir(homeDir, rootDir);
+
+if (channel === "db") {
+  logStartup(`Seeding DB graph from template pages via the Logseq API...`);
+  await seedGraphTemplateFromPages({
+    executablePath,
+    graphDir,
+    homeDir,
+    xdgDir,
+    templateDir: graphTemplateDir,
+  });
+}
 
 // Bootstrap disabled again: native file dialogs block MCP startup.
 

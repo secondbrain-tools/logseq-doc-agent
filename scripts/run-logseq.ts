@@ -82,7 +82,7 @@ exec ${JSON.stringify(executablePath)} ${JSON.stringify(graphDir)} --no-sandbox 
   });
 
   logseqProcess.on("close", (code) => {
-    if (runtimePaths && isRuntimeGraphInitialized(homeDir, graphDir)) {
+    if (runtimePaths && isRuntimeGraphInitialized(homeDir, graphDir, channel)) {
       writeRuntimeInfo(runtimePaths.runtimeInfoPath, {
         executablePath,
         graphDir,

@@ -31,6 +31,12 @@ const GRAPH_OPEN_SELECTORS = [
   'text=Ordner auswählen',
 ];
 
+export const DEFAULT_LOGSEQ_LAUNCH_ARGS = [
+  "--no-sandbox",
+  "--disable-gpu",
+  "--disable-software-rasterizer",
+];
+
 async function collectFiles(rootDir: string): Promise<string[]> {
   const entries = await fs.readdir(rootDir, { withFileTypes: true });
   const files: string[] = [];
@@ -129,7 +135,7 @@ export async function primeGraphSelection(args: {
     : undefined;
   const app = await electron.launch({
     executablePath: args.executablePath,
-    args: args.launchArgs ?? [args.graphDir],
+    args: args.launchArgs ?? [args.graphDir, ...DEFAULT_LOGSEQ_LAUNCH_ARGS],
     env: {
       ...process.env,
       ...(appDir ? { APPDIR: appDir } : {}),

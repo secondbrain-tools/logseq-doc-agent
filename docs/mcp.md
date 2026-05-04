@@ -30,7 +30,7 @@ npm run start:mcp:init:db
 npm run start:mcp:db
 ```
 The default `db` channel is configured in [logseq-versions.jsonc](/home/st6ka8/Code/logseq-doc-agent/logseq-versions.jsonc) to use a local binary directory at `logseq-environments/app/db/beta`. Put the OS-specific beta build there, for example `Logseq-linux-x86_64-*.AppImage`.
-The DB runtime graph is seeded into the built-in demo graph location:
+The DB runtime graph is seeded via the Logseq API into the built-in demo graph location:
 ```text
 logseq-environments/mcp/db/home/logseq/graphs/Demo
 ```

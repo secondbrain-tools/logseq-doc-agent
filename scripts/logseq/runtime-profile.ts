@@ -25,7 +25,15 @@ export function getGraphTransitPath(homeDir: string, graphDir: string) {
   return path.join(homeDir, ".logseq", "graphs", `logseq_local_++${escapedPath}.transit`);
 }
 
-export function isRuntimeGraphInitialized(homeDir: string, graphDir: string) {
+export function isRuntimeGraphInitialized(
+  homeDir: string,
+  graphDir: string,
+  channel?: ChannelName
+) {
+  if (channel === "db") {
+    return fs.existsSync(path.join(graphDir, "db.sqlite"));
+  }
+
   const transitPath = getGraphTransitPath(homeDir, graphDir);
   return fs.existsSync(transitPath);
 }

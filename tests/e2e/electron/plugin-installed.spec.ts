@@ -20,7 +20,10 @@ test.describe("Plugin Installation Verification", () => {
       const window = await app.firstWindow();
 
       console.log("Waiting for Logseq shell...");
-      await window.waitForSelector("#app, .cp__header, .add-graph-btn", { state: "visible", timeout: 45000 });
+      await window.waitForSelector("#app, .cp__header, .add-graph-btn", {
+        state: "visible",
+        timeout: 45000,
+      });
 
       await ensureGraphOpen(window, runtime.graphDir);
 
@@ -37,8 +40,8 @@ test.describe("Plugin Installation Verification", () => {
       await expect(toolbarItem).toBeVisible({ timeout: 30000 });
 
       // Also verify CSS bundle is injected
-      const cssBundle = window.locator('link#logseq-doc-agent-css-bundle');
-      await expect(cssBundle).toHaveAttribute('rel', 'stylesheet');
+      const cssBundle = window.locator("link#logseq-doc-agent-css-bundle");
+      await expect(cssBundle).toHaveAttribute("rel", "stylesheet");
 
       console.log("Plugin successfully verified!");
     } finally {

@@ -1,4 +1,3 @@
-import { ensureGraphOpen } from "../../../scripts/logseq/graph-bootstrap";
 import { test, expect, _electron as electron } from "@playwright/test";
 import { getLogseqLaunchEnv, loadRuntimeConfig } from "./runtime";
 
@@ -8,18 +7,21 @@ test("Logseq starts", async () => {
   console.log("Launching Logseq Electron app...");
   const app = await electron.launch({
     executablePath: runtime.executablePath,
-    args: [runtime.graphDir],
+    args: [],
     env: getLogseqLaunchEnv(runtime),
   });
 
   try {
     console.log("Waiting for first window...");
     const window = await app.firstWindow();
-    
-    console.log("Waiting for Logseq shell...");
-    await window.waitForSelector("#app, .cp__header, .add-graph-btn", { state: "visible", timeout: 45000 });
 
-    await ensureGraphOpen(window, runtime.graphDir);
+    console.log("Waiting for Logseq shell...");
+    await window.waitForSelector("#app, .cp__header, .add-graph-btn", {
+      state: "visible",
+      timeout: 45000,
+    });
+
+    // Graph bootstrap is handled by global setup; this test only checks startup.
 
     console.log("Waiting for main UI element (#app or .cp__header)...");
     await window.waitForSelector("#app, .cp__header", { state: "visible", timeout: 45000 });

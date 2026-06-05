@@ -15,9 +15,7 @@ function parseArgs(argv: string[]): ParsedArgs {
   const [channelArg, ...rest] = argv;
 
   if (channelArg !== "legacy" && channelArg !== "db") {
-    throw new Error(
-      `First argument must be "legacy" or "db". Got: ${channelArg ?? "<missing>"}`
-    );
+    throw new Error(`First argument must be "legacy" or "db". Got: ${channelArg ?? "<missing>"}`);
   }
 
   const parsed: ParsedArgs = {
@@ -55,7 +53,7 @@ async function main() {
   const result = await ensureLogseq({
     channel: args.channel,
     configPath: args.configPath || "./logseq-versions.jsonc",
-    cacheDir: args.cacheDir || path.join(getLogseqEnvironmentsRoot(rootDir), "app")
+    cacheDir: args.cacheDir || path.join(getLogseqEnvironmentsRoot(rootDir), "app"),
   });
   process.stdout.write(JSON.stringify(result, null, 2) + "\n");
 }

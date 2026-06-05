@@ -3,7 +3,7 @@
   // Supported source modes: release (default), workflow, local.
   "legacy": {
     // File-based Logseq release tag.
-    "tag": "0.10.15"
+    "tag": "0.10.15",
   },
   "db": {
     // User-provided beta binary directory.
@@ -13,7 +13,7 @@
     // Useful for macOS app bundles or nonstandard layouts.
     "binaryRelativePathOverrides": {
       "darwin-x64": "Logseq.app/Contents/MacOS/Logseq",
-      "darwin-arm64": "Logseq.app/Contents/MacOS/Logseq"
-    }
-  }
+      "darwin-arm64": "Logseq.app/Contents/MacOS/Logseq",
+    },
+  },
 }

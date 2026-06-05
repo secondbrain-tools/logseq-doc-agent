@@ -2,10 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { _electron as electron, type Page } from "@playwright/test";
 import { ensureGraphOpen } from "./graph-bootstrap";
-import {
-  parseSubtree,
-  type ParsedBlock,
-} from "../../src/infra/ai/tools/subtree-parser";
+import { parseSubtree, type ParsedBlock } from "../../src/infra/ai/tools/subtree-parser";
 
 interface TemplatePage {
   name: string;
@@ -28,20 +25,12 @@ async function collectMarkdownFiles(rootDir: string): Promise<string[]> {
   return files.sort((a, b) => a.localeCompare(b));
 }
 
-function derivePageName(
-  templatePagesDir: string,
-  markdownPath: string
-): string {
+function derivePageName(templatePagesDir: string, markdownPath: string): string {
   const relativePath = path.relative(templatePagesDir, markdownPath);
-  return relativePath
-    .replaceAll(path.sep, "/")
-    .replace(/___/g, "/")
-    .replace(/\.md$/i, "");
+  return relativePath.replaceAll(path.sep, "/").replace(/___/g, "/").replace(/\.md$/i, "");
 }
 
-async function readTemplatePages(
-  templatePagesDir: string
-): Promise<TemplatePage[]> {
+async function readTemplatePages(templatePagesDir: string): Promise<TemplatePage[]> {
   const files = await collectMarkdownFiles(templatePagesDir);
   const pages: TemplatePage[] = [];
 
@@ -113,7 +102,7 @@ async function waitForLogseqFrame(window: Page): Promise<void> {
   }
 
   throw new Error(
-    `No plugin iframe with a Logseq API was found. Last probe: ${JSON.stringify(lastProbe)}`
+    `No plugin iframe with a Logseq API was found. Last probe: ${JSON.stringify(lastProbe)}`,
   );
 }
 
@@ -139,23 +128,17 @@ async function waitForLogseqApiReady(window: Page): Promise<void> {
   }
 
   throw new Error(
-    `Plugin iframe was found, but the Logseq Editor API never became ready. Last error: ${lastError}`
+    `Plugin iframe was found, but the Logseq Editor API never became ready. Last error: ${lastError}`,
   );
 }
 
 async function invokeLogseq<T>(
   window: Page,
   action: string,
-  args: Record<string, unknown>
+  args: Record<string, unknown>,
 ): Promise<T> {
   return window.evaluate(
-    async ({
-      action,
-      args,
-    }: {
-      action: string;
-      args: Record<string, unknown>;
-    }) => {
+    async ({ action, args }: { action: string; args: Record<string, unknown> }) => {
       try {
         const topWindow = window as any;
         const iframeCandidates = Array.from(document.querySelectorAll("iframe")).filter(
@@ -165,13 +148,13 @@ async function invokeLogseq<T>(
             } catch {
               return false;
             }
-          }
+          },
         );
 
         const preferredIframe =
           iframeCandidates.find((iframe) => iframe.id.includes("logseq-doc-agent")) ||
           iframeCandidates.find((iframe) =>
-            (iframe.getAttribute("src") || "").includes("dist/index.html")
+            (iframe.getAttribute("src") || "").includes("dist/index.html"),
           ) ||
           iframeCandidates[0];
 
@@ -194,7 +177,7 @@ async function invokeLogseq<T>(
             return await logseqApi.Editor.createPage(
               args.name,
               {},
-              { createFirstBlock: false, redirect: false }
+              { createFirstBlock: false, redirect: false },
             );
           case "appendBlockInPage":
             return await logseqApi.Editor.appendBlockInPage(args.name, args.content);
@@ -203,11 +186,7 @@ async function invokeLogseq<T>(
           case "removeBlockProperty":
             return await logseqApi.Editor.removeBlockProperty(args.uuid, args.key);
           case "insertBlock":
-            return await logseqApi.Editor.insertBlock(
-              args.parentUuid,
-              args.content,
-              args.options
-            );
+            return await logseqApi.Editor.insertBlock(args.parentUuid, args.content, args.options);
           default:
             throw new Error(`Unsupported Logseq action: ${action}`);
         }
@@ -221,14 +200,14 @@ async function invokeLogseq<T>(
         throw new Error(`Logseq action '${action}' failed: ${message}`);
       }
     },
-    { action, args }
+    { action, args },
   );
 }
 
 async function insertChildren(
   window: Page,
   parentUuid: string,
-  children: ParsedBlock[]
+  children: ParsedBlock[],
 ): Promise<void> {
   let lastUuid = parentUuid;
   let isFirst = true;
@@ -317,7 +296,7 @@ async function seedPages(window: Page, pages: TemplatePage[]) {
 
     if (existing && isTrashedPage(existing)) {
       throw new Error(
-        `Template page '${page.name}' exists in the recycle bin and could not be restored safely.`
+        `Template page '${page.name}' exists in the recycle bin and could not be restored safely.`,
       );
     }
 
@@ -333,11 +312,7 @@ async function seedPages(window: Page, pages: TemplatePage[]) {
         content: page.tree.content,
       });
 
-      if (
-        rootBlock?.uuid &&
-        page.tree.children &&
-        page.tree.children.length > 0
-      ) {
+      if (rootBlock?.uuid && page.tree.children && page.tree.children.length > 0) {
         await insertChildren(window, rootBlock.uuid, page.tree.children);
       }
     } else if (page.tree.children && page.tree.children.length > 0) {
@@ -357,10 +332,11 @@ async function seedPages(window: Page, pages: TemplatePage[]) {
 
 export async function seedGraphTemplateFromPages(args: {
   executablePath: string;
-  graphDir: string;
+  graphDir?: string;
   homeDir: string;
   xdgDir: string;
   templateDir: string;
+  openGraph?: boolean;
 }) {
   const pagesDir = path.join(args.templateDir, "pages");
   const pages = await readTemplatePages(pagesDir);
@@ -370,17 +346,16 @@ export async function seedGraphTemplateFromPages(args: {
   }
 
   const appDir =
-    path.basename(args.executablePath) === "AppRun"
-      ? path.dirname(args.executablePath)
-      : undefined;
+    path.basename(args.executablePath) === "AppRun" ? path.dirname(args.executablePath) : undefined;
+  const shouldOpenGraph = args.openGraph ?? true;
+  const launchArgs =
+    shouldOpenGraph && args.graphDir
+      ? [args.graphDir, "--no-sandbox", "--disable-gpu", "--disable-software-rasterizer"]
+      : ["--no-sandbox", "--disable-gpu", "--disable-software-rasterizer"];
+
   const app = await electron.launch({
     executablePath: args.executablePath,
-    args: [
-      args.graphDir,
-      "--no-sandbox",
-      "--disable-gpu",
-      "--disable-software-rasterizer",
-    ],
+    args: launchArgs,
     env: {
       ...process.env,
       ...(appDir ? { APPDIR: appDir } : {}),
@@ -395,11 +370,15 @@ export async function seedGraphTemplateFromPages(args: {
       state: "visible",
       timeout: 45_000,
     });
-    await ensureGraphOpen(window, args.graphDir);
-    await window.waitForSelector("#app, .cp__header", {
-      state: "visible",
-      timeout: 45_000,
-    });
+
+    if (shouldOpenGraph && args.graphDir) {
+      await ensureGraphOpen(window, args.graphDir);
+      await window.waitForSelector("#app, .cp__header", {
+        state: "visible",
+        timeout: 45_000,
+      });
+    }
+
     await seedPages(window, pages);
     await window.waitForTimeout(1_000);
   } finally {

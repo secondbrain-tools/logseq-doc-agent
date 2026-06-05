@@ -8,7 +8,7 @@ export function loadRuntimeConfig() {
   if (!fs.existsSync(runtimePath)) {
     throw new Error(
       `Runtime config not found at ${runtimePath}. ` +
-        "Ensure Playwright global setup ran successfully for the selected Logseq channel."
+        "Ensure Playwright global setup ran successfully for the selected Logseq channel.",
     );
   }
 
@@ -20,9 +20,10 @@ export function getLogseqLaunchEnv(runtime: {
   homeDir: string;
   xdgDir: string;
 }) {
-  const appDir = path.basename(runtime.executablePath) === "AppRun"
-    ? path.dirname(runtime.executablePath)
-    : undefined;
+  const appDir =
+    path.basename(runtime.executablePath) === "AppRun"
+      ? path.dirname(runtime.executablePath)
+      : undefined;
 
   return {
     ...process.env,

@@ -41,13 +41,17 @@ if (channel === "db") {
 fs.mkdirSync(homeDir, { recursive: true });
 fs.mkdirSync(xdgDir, { recursive: true });
 
-logStartup(`Setting up Logseq (${channel}) with isolated data in ${logseqDir}...`, { cwd: rootDir, nodeOptions: process.env.NODE_OPTIONS ?? null, argv: process.argv });
+logStartup(`Setting up Logseq (${channel}) with isolated data in ${logseqDir}...`, {
+  cwd: rootDir,
+  nodeOptions: process.env.NODE_OPTIONS ?? null,
+  argv: process.argv,
+});
 
 let setupOutput: string;
 try {
-  setupOutput = execSync(`npx tsx scripts/setup-logseq.ts ${channel}`, { 
+  setupOutput = execSync(`npx tsx scripts/setup-logseq.ts ${channel}`, {
     encoding: "utf-8",
-    cwd: rootDir
+    cwd: rootDir,
   });
 } catch (err: any) {
   logStartup("Error during Logseq setup:", err.stderr || err.message);
@@ -74,12 +78,10 @@ if (!config || !config.executablePath) {
 }
 
 // Ensure the executable path is absolute
-const executablePath = path.isAbsolute(config.executablePath) 
-  ? config.executablePath 
+const executablePath = path.isAbsolute(config.executablePath)
+  ? config.executablePath
   : path.resolve(rootDir, config.executablePath);
-const appDir = path.basename(executablePath) === "AppRun"
-  ? path.dirname(executablePath)
-  : null;
+const appDir = path.basename(executablePath) === "AppRun" ? path.dirname(executablePath) : null;
 
 logStartup(`Resolved Logseq executable to: ${executablePath}`);
 
@@ -90,7 +92,7 @@ fs.writeFileSync(
 set -euo pipefail
 exec ${JSON.stringify(executablePath)} ${JSON.stringify(graphDir)} --no-sandbox --disable-gpu --disable-software-rasterizer "$@"
 `,
-  { mode: 0o755 }
+  { mode: 0o755 },
 );
 const launchPath = launchWrapperPath;
 
@@ -99,12 +101,10 @@ if (!isRuntimeGraphInitialized(homeDir, graphDir, channel)) {
     graphDir,
     initCommand: `npm run start:mcp:init:${channel}`,
     expectedMarker:
-      channel === "db"
-        ? path.join(graphDir, "db.sqlite")
-        : path.join(homeDir, ".logseq", "graphs"),
+      channel === "db" ? path.join(graphDir, "db.sqlite") : path.join(homeDir, ".logseq", "graphs"),
   });
   console.error(
-    `\n[mcp-logseq] Graph initialization required.\nRun: npm run start:mcp:init:${channel}\nThen close Logseq and re-run this command.\nGraph directory:\n${graphDir}\n`
+    `\n[mcp-logseq] Graph initialization required.\nRun: npm run start:mcp:init:${channel}\nThen close Logseq and re-run this command.\nGraph directory:\n${graphDir}\n`,
   );
   process.exit(1);
 }
@@ -125,12 +125,17 @@ if (channel === "db") {
 // Bootstrap disabled again: native file dialogs block MCP startup.
 
 const mcpServerPath = path.resolve(rootDir, "node_modules/electron-playwright-mcp/dist/index.js");
-logStartup("Launching electron-playwright-mcp server...", { mcpServerPath, launchPath, graphDir, homeDir, xdgDir, wrapperInjectsGraphDir: true, runtimeInfoPath: runtimePaths.runtimeInfoPath });
-
-const mcpServer = spawn("node", [
+logStartup("Launching electron-playwright-mcp server...", {
   mcpServerPath,
-  launchPath
-], {
+  launchPath,
+  graphDir,
+  homeDir,
+  xdgDir,
+  wrapperInjectsGraphDir: true,
+  runtimeInfoPath: runtimePaths.runtimeInfoPath,
+});
+
+const mcpServer = spawn("node", [mcpServerPath, launchPath], {
   stdio: "inherit",
   env: {
     ...process.env,
@@ -139,7 +144,7 @@ const mcpServer = spawn("node", [
     HOME: homeDir,
     XDG_CONFIG_HOME: xdgDir,
   },
-  cwd: rootDir
+  cwd: rootDir,
 });
 
 mcpServer.on("close", (code) => {

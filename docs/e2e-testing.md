@@ -26,25 +26,25 @@ graph TD
 
 ### Key Components
 
-| File | Purpose |
-|------|---------|
-| `playwright.config.ts` | Configures `sim` and `electron` projects + `webServer` |
-| `tests/e2e/sim/` | Browser-based tests against the Logseq simulator |
-| `tests/e2e/electron/` | Tests that launch Logseq via Electron |
-| `tests/logseq-sim.html` | Entry point for simulation-based UI testing |
-| `tests/logseq-mock-api.js` | Mock implementation of the Logseq SDK |
-| `scripts/run-e2e.ts` | Orchestrator for full Electron test runs |
+| File                       | Purpose                                                |
+| -------------------------- | ------------------------------------------------------ |
+| `playwright.config.ts`     | Configures `sim` and `electron` projects + `webServer` |
+| `tests/e2e/sim/`           | Browser-based tests against the Logseq simulator       |
+| `tests/e2e/electron/`      | Tests that launch Logseq via Electron                  |
+| `tests/logseq-sim.html`    | Entry point for simulation-based UI testing            |
+| `tests/logseq-mock-api.js` | Mock implementation of the Logseq SDK                  |
+| `scripts/run-e2e.ts`       | Orchestrator for full Electron test runs               |
 
 ---
 
 ## NPM Scripts
 
-| Script | Command | Description |
-|--------|---------|-------------|
-| **`test:e2e:sim`** | `playwright test --project=sim` | Run fast sim tests (auto-starts dev server) |
-| `test:e2e:auto` | `tsx scripts/run-e2e.ts` | Full Electron run: setup binary + run tests |
-| `test:e2e:ui` | `playwright test --ui` | Interactive UI mode for both projects |
-| `test:e2e` | `playwright test` | Run ALL projects (requires `LOGSEQ_EXECUTABLE`) |
+| Script             | Command                         | Description                                     |
+| ------------------ | ------------------------------- | ----------------------------------------------- |
+| **`test:e2e:sim`** | `playwright test --project=sim` | Run fast sim tests (auto-starts dev server)     |
+| `test:e2e:auto`    | `tsx scripts/run-e2e.ts`        | Full Electron run: setup binary + run tests     |
+| `test:e2e:ui`      | `playwright test --ui`          | Interactive UI mode for both projects           |
+| `test:e2e`         | `playwright test`               | Run ALL projects (requires `LOGSEQ_EXECUTABLE`) |
 
 ---
 
@@ -167,13 +167,13 @@ Both directories are `.gitignore`'d.
 
 ## Troubleshooting
 
-| Problem | Solution |
-|---------|----------|
-| `LOGSEQ_EXECUTABLE is not set` | Run `npm run test:e2e:auto` or export the var manually |
-| `Runtime config not found` | Global setup failed — check `logseq-environments/e2e/<channel>/runtime.json` exists |
-| Tests hang on Electron launch | Increase `timeout` in config; ensure no other Logseq instance is running |
-| `test:e2e:ui` shows no tests | Make sure specs are in `tests/e2e/` and end with `.spec.ts` |
-| Trace not recorded | Traces are only captured on first retry; set `trace: "on"` temporarily to always record |
+| Problem                        | Solution                                                                                |
+| ------------------------------ | --------------------------------------------------------------------------------------- |
+| `LOGSEQ_EXECUTABLE is not set` | Run `npm run test:e2e:auto` or export the var manually                                  |
+| `Runtime config not found`     | Global setup failed — check `logseq-environments/e2e/<channel>/runtime.json` exists     |
+| Tests hang on Electron launch  | Increase `timeout` in config; ensure no other Logseq instance is running                |
+| `test:e2e:ui` shows no tests   | Make sure specs are in `tests/e2e/` and end with `.spec.ts`                             |
+| Trace not recorded             | Traces are only captured on first retry; set `trace: "on"` temporarily to always record |
 
 ---
 
@@ -191,7 +191,7 @@ npm run dev
 
 ### 2. Add the MCP Server to your AI Client
 
-Depending on your client, you need to configure the `test:mcp` script as a tool server. 
+Depending on your client, you need to configure the `test:mcp` script as a tool server.
 
 For example, if your AI assistant supports a `.vscode/mcp.json` or a global configuration file, you would define the server like this:
 
@@ -209,13 +209,13 @@ For example, if your AI assistant supports a `.vscode/mcp.json` or a global conf
 }
 ```
 
-*Note: The command `npm run test:mcp` launches the `@playwright/mcp` command-line tool, automatically pointing it to the local logseq-sim url (`http://localhost:9000/tests/logseq-sim.html`).*
+_Note: The command `npm run test:mcp` launches the `@playwright/mcp` command-line tool, automatically pointing it to the local logseq-sim url (`http://localhost:9000/tests/logseq-sim.html`)._
 
 ### 3. Usage
 
 Once configured, simply talk to your AI agent:
 
-- *"Please explore the Logseq simulation and write a Playwright test that verifies the merge functionality."*
-- *"Can you navigate to the Logseq Simulator and generate an E2E test for the chat sidebar?"*
+- _"Please explore the Logseq simulation and write a Playwright test that verifies the merge functionality."_
+- _"Can you navigate to the Logseq Simulator and generate an E2E test for the chat sidebar?"_
 
 The AI will output Playwright code which you can directly drop into the `tests/e2e/sim/` suite!

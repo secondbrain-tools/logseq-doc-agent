@@ -70,9 +70,7 @@ function parseArgs(argv: string[]): ParsedArgs {
   const [channelArg, ...rest] = argv;
 
   if (channelArg !== "legacy" && channelArg !== "db") {
-    throw new Error(
-      `First argument must be "legacy" or "db". Got: ${channelArg ?? "<missing>"}`
-    );
+    throw new Error(`First argument must be "legacy" or "db". Got: ${channelArg ?? "<missing>"}`);
   }
 
   let configPath = DEFAULT_CONFIG_PATH;
@@ -116,13 +114,13 @@ function detectTarget(): {
 
   if (platform !== "linux" && platform !== "darwin") {
     throw new Error(
-      `Unsupported platform: ${platform}. This script currently supports linux and darwin.`
+      `Unsupported platform: ${platform}. This script currently supports linux and darwin.`,
     );
   }
 
   if (arch !== "x64" && arch !== "arm64") {
     throw new Error(
-      `Unsupported architecture: ${arch}. This script currently supports x64 and arm64.`
+      `Unsupported architecture: ${arch}. This script currently supports x64 and arm64.`,
     );
   }
 
@@ -183,7 +181,7 @@ function stripJsonComments(input: string): string {
       continue;
     }
 
-    if ((char === '"' || char === "'")) {
+    if (char === '"' || char === "'") {
       inString = true;
       stringDelimiter = char;
       result += char;
@@ -233,7 +231,7 @@ function defaultAssetName(input: {
   }
 
   throw new Error(
-    `No default asset pattern for ${platform}/${arch}/${strategy}. Use assetNameOverrides.`
+    `No default asset pattern for ${platform}/${arch}/${strategy}. Use assetNameOverrides.`,
   );
 }
 
@@ -253,7 +251,7 @@ function defaultBinaryRelativePath(input: {
   }
 
   throw new Error(
-    `No default binary path for ${platform}/${strategy}. Use binaryRelativePathOverrides.`
+    `No default binary path for ${platform}/${strategy}. Use binaryRelativePathOverrides.`,
   );
 }
 
@@ -301,7 +299,11 @@ async function runAppImageExtract(appImagePath: string, targetDir: string): Prom
         resolve();
         return;
       }
-      reject(new Error(`AppImage extraction failed for ${appImagePath} with exit code ${code ?? "unknown"}`));
+      reject(
+        new Error(
+          `AppImage extraction failed for ${appImagePath} with exit code ${code ?? "unknown"}`,
+        ),
+      );
     });
   });
 }
@@ -317,7 +319,9 @@ async function fetchJson<T>(url: string): Promise<T> {
   });
 
   if (!response.ok) {
-    throw new Error(`GitHub API request failed: ${response.status} ${response.statusText} for ${url}`);
+    throw new Error(
+      `GitHub API request failed: ${response.status} ${response.statusText} for ${url}`,
+    );
   }
 
   return (await response.json()) as T;
@@ -330,7 +334,7 @@ async function listFilesRecursive(dir: string): Promise<string[]> {
   for (const entry of entries) {
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      files.push(...await listFilesRecursive(fullPath));
+      files.push(...(await listFilesRecursive(fullPath)));
       continue;
     }
     files.push(fullPath);
@@ -368,7 +372,10 @@ function scoreNameForTarget(name: string, platform: SupportedPlatform, arch: Sup
   return score;
 }
 
-async function findMatchingFiles(dir: string, predicate: (filePath: string) => boolean): Promise<string[]> {
+async function findMatchingFiles(
+  dir: string,
+  predicate: (filePath: string) => boolean,
+): Promise<string[]> {
   if (!(await fileExists(dir))) {
     return [];
   }
@@ -395,20 +402,22 @@ async function findExecutableCandidate(input: {
   }
 
   if (platform === "linux") {
-    const appImages = await findMatchingFiles(
-      rootDir,
-      (filePath) => filePath.endsWith(".AppImage")
+    const appImages = await findMatchingFiles(rootDir, (filePath) =>
+      filePath.endsWith(".AppImage"),
     );
     if (appImages.length > 0) {
-      appImages.sort((a, b) => scoreNameForTarget(path.basename(b), platform, arch) - scoreNameForTarget(path.basename(a), platform, arch));
+      appImages.sort(
+        (a, b) =>
+          scoreNameForTarget(path.basename(b), platform, arch) -
+          scoreNameForTarget(path.basename(a), platform, arch),
+      );
       return appImages[0];
     }
   }
 
   if (platform === "darwin") {
-    const macExecutables = await findMatchingFiles(
-      rootDir,
-      (filePath) => filePath.endsWith(path.join("Logseq.app", "Contents", "MacOS", "Logseq"))
+    const macExecutables = await findMatchingFiles(rootDir, (filePath) =>
+      filePath.endsWith(path.join("Logseq.app", "Contents", "MacOS", "Logseq")),
     );
     if (macExecutables.length > 0) {
       return macExecutables[0];
@@ -448,7 +457,11 @@ async function extractZipArchivesUntilExecutable(input: {
     return true;
   });
 
-  zipCandidates.sort((a, b) => scoreNameForTarget(path.basename(b), platform, arch) - scoreNameForTarget(path.basename(a), platform, arch));
+  zipCandidates.sort(
+    (a, b) =>
+      scoreNameForTarget(path.basename(b), platform, arch) -
+      scoreNameForTarget(path.basename(a), platform, arch),
+  );
 
   for (const zipCandidate of zipCandidates) {
     const extractDir = path.join(rootDir, "__inner__", path.basename(zipCandidate, ".zip"));
@@ -481,22 +494,32 @@ async function materializeAppImageExecutable(input: {
   const { appImagePath, cacheDir, channel, key } = input;
   const digest = await sha256File(appImagePath);
   const baseName = path.basename(appImagePath, ".AppImage");
-  const extractionRoot = path.join(cacheDir, channel, "appimage", key, `${baseName}-${digest.slice(0, 16)}`);
+  const extractionRoot = path.join(
+    cacheDir,
+    channel,
+    "appimage",
+    key,
+    `${baseName}-${digest.slice(0, 16)}`,
+  );
   const metadataPath = path.join(extractionRoot, ".appimage-source.json");
   const appRunPath = path.join(extractionRoot, "squashfs-root", "AppRun");
 
-  if (await fileExists(appRunPath) && await fileExists(metadataPath)) {
+  if ((await fileExists(appRunPath)) && (await fileExists(metadataPath))) {
     return appRunPath;
   }
 
   await fsp.rm(extractionRoot, { recursive: true, force: true });
   await fsp.mkdir(extractionRoot, { recursive: true });
 
-  console.error(`[setup-logseq] extracting AppImage ${path.basename(appImagePath)} -> ${extractionRoot}`);
+  console.error(
+    `[setup-logseq] extracting AppImage ${path.basename(appImagePath)} -> ${extractionRoot}`,
+  );
   await runAppImageExtract(appImagePath, extractionRoot);
 
   if (!(await fileExists(appRunPath))) {
-    throw new Error(`Expected AppRun not found after extracting ${appImagePath} into ${extractionRoot}`);
+    throw new Error(
+      `Expected AppRun not found after extracting ${appImagePath} into ${extractionRoot}`,
+    );
   }
 
   await fsp.chmod(appRunPath, 0o755).catch(() => {});
@@ -509,8 +532,8 @@ async function materializeAppImageExecutable(input: {
         extractedAt: new Date().toISOString(),
       },
       null,
-      2
-    )
+      2,
+    ),
   );
 
   return appRunPath;
@@ -518,7 +541,7 @@ async function materializeAppImageExecutable(input: {
 
 async function fetchLatestWorkflowRun(repo: string, workflow: string): Promise<WorkflowRunSummary> {
   const runs = await fetchJson<{ workflow_runs: WorkflowRunSummary[] }>(
-    `https://api.github.com/repos/${repo}/actions/workflows/${encodeURIComponent(workflow)}/runs?status=success&per_page=20`
+    `https://api.github.com/repos/${repo}/actions/workflows/${encodeURIComponent(workflow)}/runs?status=success&per_page=20`,
   );
 
   const run = runs.workflow_runs.find((candidate) => Boolean(candidate.id));
@@ -529,9 +552,12 @@ async function fetchLatestWorkflowRun(repo: string, workflow: string): Promise<W
   return run;
 }
 
-async function fetchWorkflowArtifacts(repo: string, runId: number): Promise<WorkflowArtifactSummary[]> {
+async function fetchWorkflowArtifacts(
+  repo: string,
+  runId: number,
+): Promise<WorkflowArtifactSummary[]> {
   const response = await fetchJson<{ artifacts: WorkflowArtifactSummary[] }>(
-    `https://api.github.com/repos/${repo}/actions/runs/${runId}/artifacts?per_page=100`
+    `https://api.github.com/repos/${repo}/actions/runs/${runId}/artifacts?per_page=100`,
   );
   return response.artifacts.filter((artifact) => !artifact.expired);
 }
@@ -553,7 +579,10 @@ function chooseWorkflowArtifact(input: {
     }
   }
 
-  const ranked = [...artifacts].sort((a, b) => scoreNameForTarget(b.name, platform, arch) - scoreNameForTarget(a.name, platform, arch));
+  const ranked = [...artifacts].sort(
+    (a, b) =>
+      scoreNameForTarget(b.name, platform, arch) - scoreNameForTarget(a.name, platform, arch),
+  );
   const best = ranked[0];
   if (!best) {
     throw new Error("Workflow run produced no downloadable artifacts.");
@@ -615,7 +644,7 @@ async function ensureExecutable(input: {
 
   const repo = cfg.repo ?? "logseq/logseq";
   const assetUrl = `https://github.com/${repo}/releases/download/${encodeURIComponent(
-    cfg.tag
+    cfg.tag,
   )}/${encodeURIComponent(assetName)}`;
 
   const downloadedAssetPath = path.join(installDir, assetName);
@@ -637,7 +666,7 @@ async function ensureExecutable(input: {
   if (!(await fileExists(executablePath))) {
     throw new Error(
       `Expected executable not found after install: ${executablePath}\n` +
-        `Set binaryRelativePathOverrides.${key} if this release layout differs.`
+        `Set binaryRelativePathOverrides.${key} if this release layout differs.`,
     );
   }
 
@@ -691,7 +720,7 @@ async function ensureWorkflowExecutable(input: {
     cfg,
   });
 
-  if (cachedExecutablePath && await fileExists(metadataPath)) {
+  if (cachedExecutablePath && (await fileExists(metadataPath))) {
     const resolvedExecutablePath =
       strategy === "appimage" && cachedExecutablePath.endsWith(".AppImage")
         ? await materializeAppImageExecutable({
@@ -726,7 +755,9 @@ async function ensureWorkflowExecutable(input: {
   });
 
   const workflowArchivePath = path.join(installDir, "_workflow-artifact.zip");
-  console.error(`[setup-logseq] downloading workflow artifact ${cfg.workflow}#${run.id} -> ${artifact.name}`);
+  console.error(
+    `[setup-logseq] downloading workflow artifact ${cfg.workflow}#${run.id} -> ${artifact.name}`,
+  );
   await downloadFile(artifact.archive_download_url, workflowArchivePath);
 
   const stageDir = path.join(installDir, "__outer__");
@@ -756,7 +787,7 @@ async function ensureWorkflowExecutable(input: {
   if (!executablePath) {
     throw new Error(
       `Could not resolve executable from workflow artifact "${artifact.name}" for ${platform}/${arch}. ` +
-      `Set workflowArtifactNameIncludesOverrides.${key}, assetNameOverrides.${key}, or binaryRelativePathOverrides.${key} if needed.`
+        `Set workflowArtifactNameIncludesOverrides.${key}, assetNameOverrides.${key}, or binaryRelativePathOverrides.${key} if needed.`,
     );
   }
 
@@ -786,8 +817,8 @@ async function ensureWorkflowExecutable(input: {
         resolvedAt: new Date().toISOString(),
       },
       null,
-      2
-    )
+      2,
+    ),
   );
 
   return {
@@ -820,9 +851,8 @@ async function ensureLocalExecutable(input: {
   const sourceDirectory = path.resolve(configDir, cfg.directory);
   const strategy = cfg.strategyOverrides?.[key] ?? defaultStrategy(platform);
   const installDir = path.join(cacheDir, channel, "local", key);
-  const platformHint = platform === "linux"
-    ? 'Logseq-linux-x86_64-*.AppImage'
-    : 'Logseq-darwin-*.zip or Logseq.app';
+  const platformHint =
+    platform === "linux" ? "Logseq-linux-x86_64-*.AppImage" : "Logseq-darwin-*.zip or Logseq.app";
 
   function buildLocalBetaHelpMessage(reason: string) {
     return (
@@ -835,7 +865,9 @@ async function ensureLocalExecutable(input: {
   if (!(await fileExists(sourceDirectory))) {
     await fsp.mkdir(sourceDirectory, { recursive: true });
     throw new Error(
-      buildLocalBetaHelpMessage(`Configured local binary directory did not exist, so it was created automatically: ${sourceDirectory}`)
+      buildLocalBetaHelpMessage(
+        `Configured local binary directory did not exist, so it was created automatically: ${sourceDirectory}`,
+      ),
     );
   }
 
@@ -872,7 +904,9 @@ async function ensureLocalExecutable(input: {
   await fsp.rm(installDir, { recursive: true, force: true });
   await fsp.mkdir(installDir, { recursive: true });
 
-  const zipCandidates = await findMatchingFiles(sourceDirectory, (filePath) => filePath.endsWith(".zip"));
+  const zipCandidates = await findMatchingFiles(sourceDirectory, (filePath) =>
+    filePath.endsWith(".zip"),
+  );
   for (const zipCandidate of zipCandidates) {
     const stagedZip = path.join(installDir, path.basename(zipCandidate));
     await fsp.copyFile(zipCandidate, stagedZip);
@@ -909,7 +943,9 @@ async function ensureLocalExecutable(input: {
   }
 
   throw new Error(
-    buildLocalBetaHelpMessage(`No compatible local Logseq binary found in ${sourceDirectory} for ${platform}/${arch}.`)
+    buildLocalBetaHelpMessage(
+      `No compatible local Logseq binary found in ${sourceDirectory} for ${platform}/${arch}.`,
+    ),
   );
 }
 
@@ -1005,7 +1041,8 @@ export async function main(): Promise<void> {
   process.stdout.write(JSON.stringify(result, null, 2) + "\n");
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === fs.realpathSync(process.argv[1]);
+const isMain =
+  process.argv[1] && fileURLToPath(import.meta.url) === fs.realpathSync(process.argv[1]);
 
 if (isMain) {
   main().catch((error) => {

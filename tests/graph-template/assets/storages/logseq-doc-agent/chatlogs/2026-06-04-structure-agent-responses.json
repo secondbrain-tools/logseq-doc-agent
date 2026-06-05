@@ -1,0 +1,24 @@
+{
+  "id": "2026-06-04-structure-agent-responses",
+  "title": "Structured Response Demo",
+  "model": "gpt-5-mini",
+  "provider": "openai",
+  "messages": [
+    {
+      "id": "user-1",
+      "role": "user",
+      "content": "Please show a structured response with a tool call."
+    },
+    {
+      "id": "assistant-1",
+      "role": "assistant",
+      "content": "",
+      "parts": [
+        {
+          "type": "content",
+          "text": "Intro text.\n\n# Overview\nOverview body.\n\n## Details\nDetails body.\n\n# Summary\nSummary body.\n"
+        }
+      ]
+    }
+  ]
+}

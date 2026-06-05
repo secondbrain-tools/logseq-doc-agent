@@ -28,7 +28,7 @@ const GRAPH_OPEN_SELECTORS = [
   'label:has-text("Select directory")',
   'label:has-text("Ordner auswählen")',
   'strong:has-text("Ordner auswählen")',
-  'text=Ordner auswählen',
+  "text=Ordner auswählen",
 ];
 
 export const DEFAULT_LOGSEQ_LAUNCH_ARGS = [
@@ -67,7 +67,11 @@ async function setInputFilesWithFallback(input: any, graphDir: string): Promise<
   }
 }
 
-async function clickTriggerAndSelectGraph(page: Page, selector: string, graphDir: string): Promise<boolean> {
+async function clickTriggerAndSelectGraph(
+  page: Page,
+  selector: string,
+  graphDir: string,
+): Promise<boolean> {
   const trigger = page.locator(selector).first();
   if ((await trigger.count()) === 0) {
     return false;
@@ -103,7 +107,6 @@ export async function ensureGraphOpen(page: Page, graphDir: string): Promise<boo
     return false;
   }
 
-
   for (const selector of GRAPH_OPEN_SELECTORS) {
     const opened = await clickTriggerAndSelectGraph(page, selector, graphDir);
     if (opened) {
@@ -119,8 +122,13 @@ export async function ensureGraphOpen(page: Page, graphDir: string): Promise<boo
     return true;
   }
 
-  const htmlSnippet = await page.locator("body").innerHTML().catch(() => "<body unavailable>");
-  throw new Error(`Detected ${ADD_GRAPH_SELECTOR} but could not find a graph chooser for ${graphDir}. Input count=${await inputs.count()}. HTML snippet: ${htmlSnippet.slice(0, 2000)}`);
+  const htmlSnippet = await page
+    .locator("body")
+    .innerHTML()
+    .catch(() => "<body unavailable>");
+  throw new Error(
+    `Detected ${ADD_GRAPH_SELECTOR} but could not find a graph chooser for ${graphDir}. Input count=${await inputs.count()}. HTML snippet: ${htmlSnippet.slice(0, 2000)}`,
+  );
 }
 
 export async function primeGraphSelection(args: {
@@ -130,9 +138,8 @@ export async function primeGraphSelection(args: {
   xdgDir: string;
   launchArgs?: string[];
 }): Promise<void> {
-  const appDir = path.basename(args.executablePath) === "AppRun"
-    ? path.dirname(args.executablePath)
-    : undefined;
+  const appDir =
+    path.basename(args.executablePath) === "AppRun" ? path.dirname(args.executablePath) : undefined;
   const app = await electron.launch({
     executablePath: args.executablePath,
     args: args.launchArgs ?? [args.graphDir, ...DEFAULT_LOGSEQ_LAUNCH_ARGS],

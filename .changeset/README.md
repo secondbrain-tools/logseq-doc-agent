@@ -23,6 +23,7 @@ You should create a changeset for **every pull request** or **significant change
 ## Automated Release Process
 
 The project is configured with a local script and a GitHub Action:
+
 1.  **Local Release Script**: `npm run release` - Use this to version, tag, and push in one go.
 2.  **GitHub Release Action** (`release.yml`): Triggers automatically when you push stable tags starting with `v*`.
 

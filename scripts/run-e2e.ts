@@ -22,23 +22,23 @@ async function main() {
   const result = await ensureLogseq({
     channel,
     configPath: path.resolve(rootDir, "logseq-versions.jsonc"),
-    cacheDir: path.resolve(environmentsRoot, "app")
+    cacheDir: path.resolve(environmentsRoot, "app"),
   });
 
   const executablePath = result.executablePath;
   console.log(`[run-e2e] Resolved Logseq executable to: ${executablePath}`);
-  
+
   // Set environment variable for Playwright's global setup
   process.env.LOGSEQ_EXECUTABLE = executablePath;
   process.env.LOGSEQ_CHANNEL = channel;
 
   // Remaining arguments are passed to Playwright
   console.log(`[run-e2e] Launching Playwright with arguments: ${args.join(" ")}`);
-  
+
   const playwright = spawn("npx", ["playwright", "test", ...args], {
     stdio: "inherit",
     env: process.env,
-    cwd: rootDir
+    cwd: rootDir,
   });
 
   playwright.on("close", (code) => {

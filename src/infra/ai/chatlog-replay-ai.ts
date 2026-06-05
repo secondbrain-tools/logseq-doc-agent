@@ -90,8 +90,8 @@ export class ChatlogReplayAIService implements IAIService {
     }
 
     async generateText(): Promise<string> {
-        throw new Error('[ChatlogReplayAIService] generateText not implemented for e2e replay mode.');
-    }
+            return '[Replay] Dummy title';
+        }
 
     async generateObject<T>(): Promise<T> {
         throw new Error('[ChatlogReplayAIService] generateObject not implemented for e2e replay mode.');

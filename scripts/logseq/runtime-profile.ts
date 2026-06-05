@@ -13,9 +13,10 @@ export function getRuntimePaths(rootDir: string, mode: RuntimeMode, channel: Cha
   const runtimeDir = path.join(getLogseqEnvironmentsRoot(rootDir), mode, channel);
   const homeDir = path.join(runtimeDir, "home");
   const xdgDir = path.join(runtimeDir, "xdg");
-  const graphDir = channel === "db"
-    ? path.join(homeDir, "logseq", "graphs", "Demo")
-    : path.join(runtimeDir, "graph");
+  const graphDir =
+    channel === "db"
+      ? path.join(homeDir, "logseq", "graphs", "Demo")
+      : path.join(runtimeDir, "graph");
   const runtimeInfoPath = path.join(runtimeDir, "runtime.json");
   return { runtimeDir, homeDir, xdgDir, graphDir, runtimeInfoPath };
 }
@@ -28,7 +29,7 @@ export function getGraphTransitPath(homeDir: string, graphDir: string) {
 export function isRuntimeGraphInitialized(
   homeDir: string,
   graphDir: string,
-  channel?: ChannelName
+  channel?: ChannelName,
 ) {
   if (channel === "db") {
     return fs.existsSync(path.join(graphDir, "db.sqlite"));

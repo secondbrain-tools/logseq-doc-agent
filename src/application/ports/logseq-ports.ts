@@ -17,15 +17,22 @@ export interface IAsyncStorage {
 }
 
 export interface LogseqApi {
-  readonly mode: 'legacy' | 'db';
+  readonly mode: "legacy" | "db";
   getCurrentGraph(): Promise<any>;
   getCurrentPage(): Promise<any>;
   getCurrentBlock(): Promise<BlockEntity | null>;
   getAllPages(): Promise<any[]>;
   appendBlockInPage(pageId: string, content: string): Promise<any>;
-  insertBlock(srcBlock: string, content: string, options?: { sibling?: boolean; before?: boolean }): Promise<BlockEntity | null>;
+  insertBlock(
+    srcBlock: string,
+    content: string,
+    options?: { sibling?: boolean; before?: boolean },
+  ): Promise<BlockEntity | null>;
   getPage(name: string): Promise<any>;
-  getBlock(uuid: string | number, options?: { includeChildren?: boolean }): Promise<BlockEntity | null>;
+  getBlock(
+    uuid: string | number,
+    options?: { includeChildren?: boolean },
+  ): Promise<BlockEntity | null>;
   createPage(name: string, properties?: any, options?: any): Promise<any>;
   renamePage(oldName: string, newName: string, options?: { silent?: boolean }): Promise<any>;
   deletePage(name: string): Promise<void>;

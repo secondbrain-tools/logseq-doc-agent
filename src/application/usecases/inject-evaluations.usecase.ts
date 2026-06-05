@@ -1,15 +1,15 @@
-import type { ComponentInjector, LogseqApi, StyleInjector } from '../ports';
-import { InjectionPosition } from '../../domain/logseq';
-import { parseEvaluation, type BlockEvaluation } from '../../domain/evaluation/entity';
-import { LDA_EVALUATION_PROPERTY } from '../../domain/logseq/properties';
-import BlockEvaluationComponent from '../../ui/components/evaluation/BlockEvaluation.svelte';
-import PageEvaluationToolbar from '../../ui/components/evaluation/PageEvaluationToolbar.svelte';
-import cssContent from '../../ui/styles/evaluation-components.css?raw';
-import { BaseBlockInjector, type InjectionConfig } from '../services/base-injector';
-import { mount, unmount } from 'svelte';
-import { EvaluationState } from './evaluation-state.svelte';
+import type { ComponentInjector, LogseqApi, StyleInjector } from "../ports";
+import { InjectionPosition } from "../../domain/logseq";
+import { parseEvaluation, type BlockEvaluation } from "../../domain/evaluation/entity";
+import { LDA_EVALUATION_PROPERTY } from "../../domain/logseq/properties";
+import BlockEvaluationComponent from "../../ui/components/evaluation/BlockEvaluation.svelte";
+import PageEvaluationToolbar from "../../ui/components/evaluation/PageEvaluationToolbar.svelte";
+import cssContent from "../../ui/styles/evaluation-components.css?raw";
+import { BaseBlockInjector, type InjectionConfig } from "../services/base-injector";
+import { mount, unmount } from "svelte";
+import { EvaluationState } from "./evaluation-state.svelte";
 
-const TOOLBAR_CONTAINER_ID = 'lda-eval-toolbar-slot';
+const TOOLBAR_CONTAINER_ID = "lda-eval-toolbar-slot";
 
 /**
  * Specific use case for injecting BlockEvaluation components into elements with 'logseq-doc-agent.evaluation' property
@@ -22,9 +22,9 @@ export class InjectEvaluationsUseCase extends BaseBlockInjector<BlockEvaluation>
   constructor(
     componentInjector: ComponentInjector,
     private styleInjector: StyleInjector,
-    logseqApi: LogseqApi
+    logseqApi: LogseqApi,
   ) {
-    super(componentInjector, logseqApi, 'InjectEvaluations');
+    super(componentInjector, logseqApi, "InjectEvaluations");
   }
 
   /**
@@ -33,8 +33,8 @@ export class InjectEvaluationsUseCase extends BaseBlockInjector<BlockEvaluation>
   public registerPagebarItem() {
     if (this.pageToolbarRegistered) return;
 
-    this.logseqApi.registerUIItem('toolbar', {
-      key: 'lda-eval-toolbar',
+    this.logseqApi.registerUIItem("toolbar", {
+      key: "lda-eval-toolbar",
       template: `<div id="${TOOLBAR_CONTAINER_ID}" style="display: inline-flex; align-items: center;"></div>`,
     });
 
@@ -42,18 +42,18 @@ export class InjectEvaluationsUseCase extends BaseBlockInjector<BlockEvaluation>
   }
 
   public override async execute() {
-    console.log('[InjectEvaluationsUseCase] Executing...');
+    console.log("[InjectEvaluationsUseCase] Executing...");
 
     // Inject styles
-    this.styleInjector.removeStyles('block-evaluation-styles');
-    this.styleInjector.injectStyles(cssContent, 'block-evaluation-styles');
+    this.styleInjector.removeStyles("block-evaluation-styles");
+    this.styleInjector.injectStyles(cssContent, "block-evaluation-styles");
 
     // Execute base injection logic
     await super.execute();
   }
 
   protected override onDispose() {
-    this.styleInjector.removeStyles('block-evaluation-styles');
+    this.styleInjector.removeStyles("block-evaluation-styles");
     this.hidePageToolbar();
   }
 
@@ -79,12 +79,12 @@ export class InjectEvaluationsUseCase extends BaseBlockInjector<BlockEvaluation>
     const container = this.getToolbarContainer();
 
     if (!container) {
-      console.warn('[InjectEvaluations] Toolbar container not found, will retry...');
+      console.warn("[InjectEvaluations] Toolbar container not found, will retry...");
       setTimeout(() => this.showPageToolbar(count, uuids), 200);
       return;
     }
 
-    container.style.display = 'block';
+    container.style.display = "block";
 
     if (!this.pageToolbarApp) {
       this.evaluationState = new EvaluationState(count, uuids);
@@ -92,8 +92,8 @@ export class InjectEvaluationsUseCase extends BaseBlockInjector<BlockEvaluation>
       this.pageToolbarApp = mount(PageEvaluationToolbar, {
         target: container,
         props: {
-          evaluationState: this.evaluationState
-        }
+          evaluationState: this.evaluationState,
+        },
       });
     } else {
       if (this.evaluationState) {
@@ -112,15 +112,15 @@ export class InjectEvaluationsUseCase extends BaseBlockInjector<BlockEvaluation>
     }
 
     if (container) {
-      container.style.display = 'none';
-      container.innerHTML = '';
+      container.style.display = "none";
+      container.innerHTML = "";
     }
   }
 
   protected getInjectionConfig(): InjectionConfig {
     return {
       position: InjectionPosition.LastChild,
-      containerClass: 'block-evaluation-container'
+      containerClass: "block-evaluation-container",
     };
   }
 
@@ -133,7 +133,7 @@ export class InjectEvaluationsUseCase extends BaseBlockInjector<BlockEvaluation>
   }
 
   protected getComponentSelector(): string {
-    return '.block-evaluation-container';
+    return ".block-evaluation-container";
   }
 
   protected getQuery(currentPage: any): string {
@@ -149,13 +149,15 @@ export class InjectEvaluationsUseCase extends BaseBlockInjector<BlockEvaluation>
     }
   }
 
-  protected override fetchBlockContent(): boolean { return true; }
+  protected override fetchBlockContent(): boolean {
+    return true;
+  }
 
   protected getComponentProps(blockId: string, data: BlockEvaluation, blockContent?: string): any {
     return {
       evaluationData: data,
       blockId: blockId,
-      blockText: blockContent
+      blockText: blockContent,
     };
   }
 }

@@ -1,6 +1,6 @@
-import { mount, unmount } from 'svelte';
-import type { ComponentInjector } from '../../application/ports';
-import { InjectionPosition } from '../../domain/logseq';
+import { mount, unmount } from "svelte";
+import type { ComponentInjector } from "../../application/ports";
+import { InjectionPosition } from "../../domain/logseq";
 
 /**
  * Concrete implementation of ComponentInjector for frontend applications
@@ -29,7 +29,7 @@ export class FrontendComponentInjector implements ComponentInjector {
         // Remove the container from DOM
         container.remove();
       } catch (e) {
-        console.warn('Error removing component container:', e);
+        console.warn("Error removing component container:", e);
       }
     });
     this.injectedComponents.clear();
@@ -43,28 +43,28 @@ export class FrontendComponentInjector implements ComponentInjector {
     target: HTMLElement,
     component: any,
     position: InjectionPosition = InjectionPosition.NextSibling,
-    props?: any
+    props?: any,
   ): HTMLElement {
     if (!target) {
-      throw new Error('Target element is required for component injection');
+      throw new Error("Target element is required for component injection");
     }
 
     // Make sure the positioning context is correct
     if (position === InjectionPosition.FirstChild || position === InjectionPosition.LastChild) {
-      target.style.position = 'relative';
+      target.style.position = "relative";
     } else if (target.parentNode) {
-      (target.parentNode as HTMLElement).style.position = 'relative';
+      (target.parentNode as HTMLElement).style.position = "relative";
     }
 
     // Create a container for our component
-    const container = document.createElement('div');
-    container.className = 'feedback-rating-container';
-    container.style.position = 'absolute';
-    container.style.top = '0';
-    container.style.left = '100%';
-    container.style.marginLeft = '10px';
-    container.style.zIndex = '1'; // visible above block bg
-    container.style.width = 'max-content'; // Allow to fit content
+    const container = document.createElement("div");
+    container.className = "feedback-rating-container";
+    container.style.position = "absolute";
+    container.style.top = "0";
+    container.style.left = "100%";
+    container.style.marginLeft = "10px";
+    container.style.zIndex = "1"; // visible above block bg
+    container.style.width = "max-content"; // Allow to fit content
 
     // Insert the container based on the specified position
     this.insertContainerAtPosition(container, target, position);
@@ -72,7 +72,7 @@ export class FrontendComponentInjector implements ComponentInjector {
     // Mount the component
     const app = mount(component, {
       target: container,
-      props: props || {}
+      props: props || {},
     });
 
     this.injectedComponents.set(container, app);
@@ -82,7 +82,7 @@ export class FrontendComponentInjector implements ComponentInjector {
   private insertContainerAtPosition(
     container: HTMLElement,
     target: HTMLElement,
-    position: InjectionPosition
+    position: InjectionPosition,
   ): void {
     switch (position) {
       case InjectionPosition.NextSibling:
@@ -121,23 +121,23 @@ export class FrontendComponentInjector implements ComponentInjector {
   }
 
   findInjectionTargets(): HTMLElement[] {
-    return this.findBlockElementsWithProperty('feedback');
+    return this.findBlockElementsWithProperty("feedback");
   }
 
   findBlockElementsWithProperty(property: string): HTMLElement[] {
     const mainDocument = this.getMainDocument();
 
     if (!mainDocument) {
-      console.error('FrontendComponentInjector: Cannot access document');
+      console.error("FrontendComponentInjector: Cannot access document");
       return [];
     }
 
     // Note: This relies on Logseq's internal data-refs-self attribute
-    const allElements = mainDocument.querySelectorAll('div[data-refs-self]');
+    const allElements = mainDocument.querySelectorAll("div[data-refs-self]");
     const matchingElements: HTMLElement[] = [];
 
     allElements.forEach((element) => {
-      const dataRefs = element.getAttribute('data-refs-self');
+      const dataRefs = element.getAttribute("data-refs-self");
       if (dataRefs) {
         try {
           // Parse the JSON array from data-refs attribute
@@ -157,13 +157,13 @@ export class FrontendComponentInjector implements ComponentInjector {
   findBlockElements(uuids: string[]): HTMLElement[] {
     const mainDocument = this.getMainDocument();
     if (!mainDocument) {
-      console.error('FrontendComponentInjector: Cannot access document');
+      console.error("FrontendComponentInjector: Cannot access document");
       return [];
     }
 
     const elements: HTMLElement[] = [];
 
-    uuids.forEach(uuid => {
+    uuids.forEach((uuid) => {
       // Logseq's DOM uses blockid attribute on divs
       const el = mainDocument.querySelector(`div[blockid="${uuid}"]`);
       if (el) {
@@ -176,6 +176,6 @@ export class FrontendComponentInjector implements ComponentInjector {
 
   getBlockIdFromElement(element: HTMLElement): string | null {
     if (!element) return null;
-    return element.getAttribute('blockid');
+    return element.getAttribute("blockid");
   }
 }

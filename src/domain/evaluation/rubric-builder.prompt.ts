@@ -1,4 +1,4 @@
-import type { BuiltInPromptConfig } from '../prompt/built-in-prompts';
+import type { BuiltInPromptConfig } from "../prompt/types";
 
 /**
  * Meta-prompt: Evaluation Rubric Builder
@@ -18,10 +18,9 @@ import type { BuiltInPromptConfig } from '../prompt/built-in-prompts';
  *  * Rubric:           The complete matrix of Categories → Criteria → Level Descriptors
  */
 
-
 export const RUBRIC_BUILDER_PROMPT_CONFIG: BuiltInPromptConfig = {
   version: 1,
-  name: 'Meta: Evaluation Rubric Builder',
+  name: "Meta: Evaluation Rubric Builder",
   text: `\
 Please write me aneEvaluation rubric that uses the submitBlockEvaluation.
 Write this prompt as a block tree into this page.
@@ -68,6 +67,5 @@ Create the Block Tree as a proposal in the page - not in the chat:
 
 Discuss your suggestion with me and always rework it in the page.
 Here is my intend for the evaluation:
-`
-
+`,
 };

@@ -3,152 +3,154 @@
 /* Legacy modal styles removed (replaced by common/Modal.svelte) */
 
 .lda-history-search {
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--ls-border-color);
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--ls-border-color);
 }
 
 .lda-history-search-input {
-    width: 100%;
-    padding: 8px 12px;
-    border: 1px solid var(--ls-border-color);
-    border-radius: 6px;
-    background: var(--ls-secondary-background-color);
-    color: var(--ls-primary-text-color);
-    font-size: 14px;
-    outline: none;
-    transition: border-color 0.15s;
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--ls-border-color);
+  border-radius: 6px;
+  background: var(--ls-secondary-background-color);
+  color: var(--ls-primary-text-color);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s;
 }
 
 .lda-history-search-input:focus {
-    border-color: var(--ls-link-text-color);
+  border-color: var(--ls-link-text-color);
 }
 
 .lda-history-search-input::placeholder {
-    color: var(--ls-secondary-text-color);
+  color: var(--ls-secondary-text-color);
 }
 
 .lda-history-list {
-    flex: 1;
-    overflow-y: auto;
-    padding: 8px;
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
 }
 
 .lda-history-loading,
 .lda-history-empty {
-    padding: 24px;
-    text-align: center;
-    color: var(--ls-secondary-text-color);
-    font-size: 14px;
+  padding: 24px;
+  text-align: center;
+  color: var(--ls-secondary-text-color);
+  font-size: 14px;
 }
 
-
 .lda-history-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 6px 8px;
-    margin-bottom: 0px;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: background 0.15s;
-    border: 1px solid transparent;
-    /* Reserve space for border */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  margin-bottom: 0px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+  border: 1px solid transparent;
+  /* Reserve space for border */
 }
 
 .lda-history-item:hover {
-    background: var(--ls-secondary-background-color);
-    border-color: var(--ls-border-color);
+  background: var(--ls-secondary-background-color);
+  border-color: var(--ls-border-color);
 }
 
 .lda-history-item-content {
-    flex: 1;
-    min-width: 0;
-    margin-right: 12px;
-    /* Add spacing between content and delete button */
+  flex: 1;
+  min-width: 0;
+  margin-right: 12px;
+  /* Add spacing between content and delete button */
 }
 
 .lda-history-item-title {
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--ls-primary-text-color);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ls-primary-text-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .lda-history-item-meta {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px;
-    margin-top: 0;
-    font-size: 11px;
-    color: var(--ls-secondary-text-color);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 0;
+  font-size: 11px;
+  color: var(--ls-secondary-text-color);
 }
 
 .lda-history-item-delete {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    padding: 0;
-    border: none;
-    border-radius: 4px;
-    background: transparent;
-    color: var(--ls-secondary-text-color);
-    cursor: pointer;
-    opacity: 0;
-    transition: opacity 0.15s, background 0.15s, color 0.15s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ls-secondary-text-color);
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity 0.15s,
+    background 0.15s,
+    color 0.15s;
 }
 
 .lda-history-item:hover .lda-history-item-delete {
-    opacity: 1;
+  opacity: 1;
 }
 
 .lda-history-item-delete:hover {
-    background: var(--ls-tertiary-background-color);
-    color: var(--ls-error-text-color, #e74c3c);
+  background: var(--ls-tertiary-background-color);
+  color: var(--ls-error-text-color, #e74c3c);
 }
 
 .lda-history-item-delete.confirm {
-    opacity: 1;
-    background: var(--ls-error-text-color, #e74c3c);
-    color: white;
+  opacity: 1;
+  background: var(--ls-error-text-color, #e74c3c);
+  color: white;
 }
 
 /* Grouping Styles */
 .lda-history-group {
-    margin-bottom: 8px;
+  margin-bottom: 8px;
 }
 
 .lda-history-group-header {
-    padding: 4px 10px;
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    color: var(--ls-secondary-text-color);
-    letter-spacing: 0.05em;
-    position: sticky;
-    top: 0;
-    background: var(--ls-primary-background-color);
-    z-index: 10;
-    border-bottom: 1px solid var(--ls-border-color);
-    text-align: center;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--ls-secondary-text-color);
+  letter-spacing: 0.05em;
+  position: sticky;
+  top: 0;
+  background: var(--ls-primary-background-color);
+  z-index: 10;
+  border-bottom: 1px solid var(--ls-border-color);
+  text-align: center;
 }
 
 .lda-history-group-items {
-    padding-top: 4px;
+  padding-top: 4px;
 }
 
 .lda-history-model-badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 2px 6px;
-    background: var(--ls-tertiary-background-color);
-    border-radius: 4px;
-    font-size: 10px;
-    font-weight: 500;
-    color: var(--ls-primary-text-color);
-    border: 1px solid var(--ls-border-color);
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  background: var(--ls-tertiary-background-color);
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--ls-primary-text-color);
+  border: 1px solid var(--ls-border-color);
 }

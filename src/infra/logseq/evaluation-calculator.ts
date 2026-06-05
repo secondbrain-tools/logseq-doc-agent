@@ -1,11 +1,10 @@
-import type { EvaluationCalculator } from '../../application/ports/evaluation-ports';
-import type { BlockEvaluation, CriterionResult } from '../../domain/evaluation/entity';
+import type { EvaluationCalculator } from "../../application/ports/evaluation-ports";
+import type { BlockEvaluation, CriterionResult } from "../../domain/evaluation/entity";
 
 /**
  * Concrete implementation of EvaluationCalculator for Logseq plugins
  */
 export class LogseqEvaluationCalculator implements EvaluationCalculator {
-
   calculateOverallScore(evaluation: BlockEvaluation): number {
     if (evaluation.summary?.overall_score != null) {
       return evaluation.summary.overall_score;

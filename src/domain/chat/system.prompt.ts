@@ -1,4 +1,4 @@
-import type { BuiltInPromptConfig } from '../prompt/built-in-prompts';
+import type { BuiltInPromptConfig } from "../prompt/types";
 
 /**
  * The system prompt text.
@@ -49,6 +49,5 @@ Logseq is a block-based outliner.
   - Edit only the current document.
   - Structural edits are allowed.
   - Use other pages or blocks only as reference.
-`
-
+`,
 };

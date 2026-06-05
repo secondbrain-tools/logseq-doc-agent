@@ -1,5 +1,5 @@
-import type { LogseqApi } from '../../application/ports/logseq-ports';
-import { LegacyLogseqApi } from './logseq-runtime';
+import type { LogseqApi } from "../../application/ports/logseq-ports";
+import { LegacyLogseqApi } from "./logseq-runtime";
 
 let currentLogseqApi: LogseqApi | null = null;
 
@@ -13,7 +13,7 @@ export function getCurrentLogseqApi(): LogseqApi {
   }
 
   if (!currentLogseqApi) {
-    throw new Error('Logseq API runtime not initialized');
+    throw new Error("Logseq API runtime not initialized");
   }
   return currentLogseqApi;
 }

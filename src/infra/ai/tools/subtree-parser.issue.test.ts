@@ -1,9 +1,9 @@
-import { describe, it, expect } from 'vitest';
-import { parseSubtree } from './subtree-parser';
+import { describe, it, expect } from "vitest";
+import { parseSubtree } from "./subtree-parser";
 
-describe('parseSubtree issue', () => {
-    it('should parse multi-line text and lists correctly', () => {
-        const input = `---
+describe("parseSubtree issue", () => {
+  it("should parse multi-line text and lists correctly", () => {
+    const input = `---
 Please write me aneEvaluation rubric that uses the submitBlockEvaluation.
 Write this prompt as a block tree into this page.
 
@@ -28,7 +28,7 @@ Create the Block Tree as a proposal in the page - not in the chat:
 
 ---`;
 
-        const result = parseSubtree(input);
-        console.log(JSON.stringify(result, null, 2));
-    });
+    const result = parseSubtree(input);
+    console.log(JSON.stringify(result, null, 2));
+  });
 });

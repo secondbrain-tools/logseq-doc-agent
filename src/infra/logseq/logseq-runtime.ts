@@ -1,8 +1,8 @@
-import type { LogseqApi } from '../../application/ports/logseq-ports';
-import type { BlockEntity } from '@logseq/libs/dist/LSPlugin.user';
-import '@logseq/libs';
+import type { LogseqApi } from "../../application/ports/logseq-ports";
+import type { BlockEntity } from "@logseq/libs/dist/LSPlugin.user";
+import "@logseq/libs";
 
-export type LogseqRuntimeMode = 'legacy' | 'db';
+export type LogseqRuntimeMode = "legacy" | "db";
 
 export interface LogseqRuntimeInfo {
   mode: LogseqRuntimeMode;
@@ -22,11 +22,11 @@ function getLogseq(): any {
 
 function looksLikeDbGraph(graph: any): { path: boolean; name: boolean; reasons: string[] } {
   const reasons: string[] = [];
-  const path = String(graph?.path || graph?.url || '').toLowerCase();
-  const name = String(graph?.name || '').toLowerCase();
+  const path = String(graph?.path || graph?.url || "").toLowerCase();
+  const name = String(graph?.name || "").toLowerCase();
 
   const pathMatch = /\/graphs\/|\\graphs\\/.test(path);
-  const nameMatch = name === 'demo' || name.includes('db');
+  const nameMatch = name === "demo" || name.includes("db");
 
   if (pathMatch) reasons.push(`graph path matched DB heuristic: ${path}`);
   if (nameMatch) reasons.push(`graph name matched DB heuristic: ${name}`);
@@ -48,8 +48,8 @@ export async function detectLogseqRuntime(): Promise<LogseqRuntimeInfo> {
 
   const capabilities = {
     db: Boolean(api?.DB),
-    datascriptQuery: typeof api?.DB?.datascriptQuery === 'function',
-    transact: typeof api?.DB?.transact === 'function',
+    datascriptQuery: typeof api?.DB?.datascriptQuery === "function",
+    transact: typeof api?.DB?.transact === "function",
     graphPathLooksDb: graphHints.path,
     graphNameLooksDb: graphHints.name,
   };
@@ -60,7 +60,7 @@ export async function detectLogseqRuntime(): Promise<LogseqRuntimeInfo> {
     capabilities.datascriptQuery && capabilities.transact,
   ].filter(Boolean).length;
 
-  const mode: LogseqRuntimeMode = positiveDbSignals >= 2 ? 'db' : 'legacy';
+  const mode: LogseqRuntimeMode = positiveDbSignals >= 2 ? "db" : "legacy";
   reasons.push(`selected mode=${mode} from ${positiveDbSignals} positive DB signals`);
 
   return { mode, reasons, capabilities };
@@ -81,7 +81,7 @@ class BaseLogseqApi implements LogseqApi {
     try {
       return this.api.FileStorage ?? null;
     } catch (e) {
-      console.error('[LogseqApi] Error accessing FileStorage:', e);
+      console.error("[LogseqApi] Error accessing FileStorage:", e);
       return null;
     }
   }
@@ -90,7 +90,7 @@ class BaseLogseqApi implements LogseqApi {
     try {
       return this.api.Assets?.makeSandboxStorage?.() ?? this.getPluginStorage();
     } catch (e) {
-      console.error('[LogseqApi] Error accessing graph storage:', e);
+      console.error("[LogseqApi] Error accessing graph storage:", e);
       return null;
     }
   }
@@ -108,14 +108,18 @@ class BaseLogseqApi implements LogseqApi {
   }
 
   async getAllPages(): Promise<any[]> {
-    return await this.api.Editor.getAllPages?.() ?? [];
+    return (await this.api.Editor.getAllPages?.()) ?? [];
   }
 
   appendBlockInPage(pageId: string, content: string): Promise<any> {
     return this.api.Editor.appendBlockInPage(pageId, content);
   }
 
-  insertBlock(srcBlock: string, content: string, options?: { sibling?: boolean; before?: boolean }): Promise<BlockEntity | null> {
+  insertBlock(
+    srcBlock: string,
+    content: string,
+    options?: { sibling?: boolean; before?: boolean },
+  ): Promise<BlockEntity | null> {
     return this.api.Editor.insertBlock(srcBlock, content, options);
   }
 
@@ -123,7 +127,10 @@ class BaseLogseqApi implements LogseqApi {
     return this.api.Editor.getPage(name);
   }
 
-  async getBlock(uuid: BlockId, options?: { includeChildren?: boolean }): Promise<BlockEntity | null> {
+  async getBlock(
+    uuid: BlockId,
+    options?: { includeChildren?: boolean },
+  ): Promise<BlockEntity | null> {
     if (options === undefined) {
       return this.api.Editor.getBlock(uuid);
     }
@@ -139,14 +146,16 @@ class BaseLogseqApi implements LogseqApi {
       try {
         const page = await this.getPage(oldName);
         if (page && this.api.DB?.transact) {
-          return await this.api.DB.transact([{
-            'db/id': page.id,
-            'block/name': newName.toLowerCase(),
-            'block/original-name': newName
-          }]);
+          return await this.api.DB.transact([
+            {
+              "db/id": page.id,
+              "block/name": newName.toLowerCase(),
+              "block/original-name": newName,
+            },
+          ]);
         }
       } catch (e) {
-        console.error('[LogseqApi] Error in silent rename:', e);
+        console.error("[LogseqApi] Error in silent rename:", e);
       }
     }
     return this.api.Editor.renamePage(oldName, newName);
@@ -181,33 +190,37 @@ class BaseLogseqApi implements LogseqApi {
     return this.api.Editor.removeBlockProperty(uuid, key);
   }
 
-  async moveBlock(uuid: string, targetUuid: string, options?: Record<string, unknown>): Promise<void> {
+  async moveBlock(
+    uuid: string,
+    targetUuid: string,
+    options?: Record<string, unknown>,
+  ): Promise<void> {
     return this.api.Editor.moveBlock(uuid, targetUuid, options);
   }
 
   async getPageBlocksTree(pageName: string): Promise<BlockEntity[]> {
     try {
-      return await this.api.Editor.getPageBlocksTree(pageName) || [];
+      return (await this.api.Editor.getPageBlocksTree(pageName)) || [];
     } catch (error) {
-      console.error('[LogseqApi] Error getting page blocks tree:', error);
+      console.error("[LogseqApi] Error getting page blocks tree:", error);
       return [];
     }
   }
 
   async datascriptQuery(query: string): Promise<any[]> {
     try {
-      return await this.api.DB?.datascriptQuery?.(query) || [];
+      return (await this.api.DB?.datascriptQuery?.(query)) || [];
     } catch (error) {
-      console.error('[LogseqApi] Error executing datascript query:', error);
+      console.error("[LogseqApi] Error executing datascript query:", error);
       return [];
     }
   }
 
   async q(query: string): Promise<any[]> {
     try {
-      return await this.api.DB?.q?.(query) || [];
+      return (await this.api.DB?.q?.(query)) || [];
     } catch (error) {
-      console.error('[LogseqApi] Error executing simple query:', error);
+      console.error("[LogseqApi] Error executing simple query:", error);
       return [];
     }
   }
@@ -229,7 +242,7 @@ class BaseLogseqApi implements LogseqApi {
   }
 
   async queryBlocks(query: string): Promise<BlockEntity[]> {
-    return await this.q(query) as BlockEntity[];
+    return (await this.q(query)) as BlockEntity[];
   }
 
   onRouteChanged(callback: (event?: any) => void): () => void {
@@ -243,7 +256,7 @@ class BaseLogseqApi implements LogseqApi {
   UI = {
     showMsg: async (message: string, type?: string): Promise<any> => {
       return this.api.UI.showMsg(message, type as any);
-    }
+    },
   };
 
   Editor = {
@@ -256,7 +269,7 @@ class BaseLogseqApi implements LogseqApi {
       if (!block) return null;
       if (block.properties && block.properties[propertyName]) {
         const val = block.properties[propertyName];
-        return typeof val === 'string' ? val : JSON.stringify(val);
+        return typeof val === "string" ? val : JSON.stringify(val);
       }
       if (!block.content) return null;
       const propertyPattern = new RegExp(`${propertyName}:: \\s*(.+)`);
@@ -266,14 +279,14 @@ class BaseLogseqApi implements LogseqApi {
 
     getBlockText: async (uuid: string): Promise<string> => {
       const block = await this.api.Editor.getBlock(uuid, { includeChildren: false });
-      if (!block?.content) return '';
+      if (!block?.content) return "";
       return block.content
-        .split('\n')
+        .split("\n")
         .filter((line: string) => {
           const trimmedLine = line.trim();
-          return trimmedLine !== '' && !/^[^:]+::\s*.+$/.test(trimmedLine);
+          return trimmedLine !== "" && !/^[^:]+::\s*.+$/.test(trimmedLine);
         })
-        .join('\n');
+        .join("\n");
     },
 
     updateBlock: async (uuid: string, content: string): Promise<BlockEntity | null> => {
@@ -282,19 +295,19 @@ class BaseLogseqApi implements LogseqApi {
 
     onBlockSelected: (callback: (block: BlockEntity | null) => void): (() => void) => {
       return this.api.Editor.onBlockSelected?.(callback) ?? (() => {});
-    }
+    },
   };
 }
 
 export class LegacyLogseqApi extends BaseLogseqApi {
   constructor() {
-    super('legacy');
+    super("legacy");
   }
 }
 
 export class DbLogseqApi extends BaseLogseqApi {
   constructor() {
-    super('db');
+    super("db");
   }
 
   override async getPageBlocksTree(pageName: string): Promise<BlockEntity[]> {
@@ -319,6 +332,6 @@ export class DbLogseqApi extends BaseLogseqApi {
 
 export async function createLogseqApi(): Promise<{ api: LogseqApi; runtime: LogseqRuntimeInfo }> {
   const runtime = await detectLogseqRuntime();
-  const api = runtime.mode === 'db' ? new DbLogseqApi() : new LegacyLogseqApi();
+  const api = runtime.mode === "db" ? new DbLogseqApi() : new LegacyLogseqApi();
   return { api, runtime };
 }

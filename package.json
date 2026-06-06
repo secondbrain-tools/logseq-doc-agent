@@ -22,6 +22,8 @@
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
+    "test:arch": "vitest run tests/architecture/architecture.test.ts",
+    "test:arch:reports": "vitest run tests/architecture/architecture-reports.test.ts",
     "release": "changeset version && git add . && git commit -m \"chore: release v$(node -p \"require('./package.json').version\")\" && git tag v$(node -p \"require('./package.json').version\") && git push origin master --tags",
     "test:e2e": "playwright test",
     "test:e2e:debug": "PWDEBUG=1 playwright test",
@@ -51,6 +53,7 @@
     "@types/node": "^24.10.1",
     "@types/textarea-caret": "^3.0.4",
     "@vitest/coverage-v8": "^4.1.8",
+    "archunit": "^2.3.0",
     "concurrently": "^9.2.1",
     "cspell": "^10.0.1",
     "extract-zip": "^2.0.1",
@@ -58,7 +61,7 @@
     "jsdom": "^27.4.0",
     "madge": "^8.0.0",
     "oxlint": "^1.68.0",
-    "svelte": "5.53.7",
+    "svelte": "5.56.2",
     "svelte-check": "^4.3.4",
     "ts-prune": "^0.10.3",
     "tsx": "^4.21.0",
@@ -90,7 +93,11 @@
     "diff": "^8.0.3",
     "electron-playwright-mcp": "^1.0.1",
     "marked": "^17.0.1",
-    "ollama-ai-provider": "^1.2.0",
     "textarea-caret": "^3.1.0"
+  },
+  "overrides": {
+    "dompurify": "3.4.8",
+    "lodash-es": "4.18.1",
+    "@modelcontextprotocol/sdk": "1.29.0"
   }
 }

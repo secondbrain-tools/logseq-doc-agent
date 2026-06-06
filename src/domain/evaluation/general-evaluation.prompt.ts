@@ -22,7 +22,7 @@ export const GENERAL_EVALUATION_PROMPT_CONFIG: BuiltInPromptConfig = {
   version: 1,
   name: "General Content Evaluation",
   text: `  
-Please evaluate the current page using submitBlockEvaluation tool. Please submit the categories for the critera. 
+Please evaluate the current page using submitBlockEvaluation tool. Please submit the categories for the criteria. 
 Evaluate each top-level block. If a top-level block mainly serves as an umbrella/“chapter” (i.e., it groups multiple child sections) and either (a) two or more of its child sections each contain more than 5 sentences, or (b) the total content would reach or exceed one page of text, then evaluate those child sections instead of the top-level block. Otherwise, evaluate the top-level block itself. Only evaluate at most one level below the top-level block.
 Avoid duplicate findings across categories. If a point could fit multiple categories, report it only once under the single best-fitting category
 Do not edit the page. Here are the necessary information:

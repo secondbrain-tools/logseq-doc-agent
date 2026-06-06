@@ -60,7 +60,7 @@ describe("text-highlight-matcher", () => {
     });
 
     it("should handle diacritics differences", () => {
-      const text = "I like Cafe alot.";
+      const text = "I like Cafe a lot.";
       const selector: TextQuoteSelector = {
         type: "TextQuoteSelector",
         exact: "Càfé",

@@ -33,7 +33,7 @@ export class FrontendToolbarInjector implements ToolbarInjector {
     }
 
     // 2. Simulator Environment
-    // If we are in sim, we might need to mount our own Toolbar component if it doesnt exist
+    // If we are in sim, we might need to mount our own Toolbar component if it doesn't exist
     // or add to it.
     // For simplicity in Svelte 5 with this setup, let's maintain a list of items and pass them to a reactive Toolbar component.
 

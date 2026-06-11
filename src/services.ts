@@ -19,10 +19,41 @@ import { PromptTemplateService } from "./application/services/prompt-template.se
 import { EvidenceHighlightService } from "./application/services/evidence-highlight.service";
 import { textHighlighter } from "./infra/frontend/text-highlighter";
 // Globals from previous implementation
-// We use 'parent.document' because the plugin runs in an iframe
-export const doc = parent.document;
-export const root = doc.documentElement;
-export const body = doc.body;
+// We use 'parent.document' because the plugin runs in an iframe.
+// Keep these helpers lazy so the module can still be imported in tests.
+export function getHostDocument(): Document {
+  const parentDoc = (globalThis as any).parent?.document;
+  if (parentDoc) return parentDoc;
+  if (typeof document !== "undefined") return document;
+  throw new Error("[Services] No document available in current runtime.");
+}
+
+export function getHostRoot(): HTMLElement {
+  return getHostDocument().documentElement;
+}
+
+export function getHostBody(): HTMLElement {
+  return getHostDocument().body;
+}
+
+export const doc =
+  typeof document !== "undefined" || (globalThis as any).parent?.document
+    ? getHostDocument()
+    : (null as unknown as Document);
+export const root = doc?.documentElement as HTMLElement;
+export const body = doc?.body as HTMLElement;
+
+function exposeTestLogseqApi(logseqApi: LogseqApi): void {
+  if (typeof window !== "undefined") {
+    (window as any).__LDA_TEST_LOGSEQ_API__ = logseqApi;
+  }
+}
+
+function clearExposedTestLogseqApi(): void {
+  if (typeof window !== "undefined") {
+    delete (window as any).__LDA_TEST_LOGSEQ_API__;
+  }
+}
 
 export class Services {
   private static _instance: Services;
@@ -53,6 +84,7 @@ export class Services {
     // Initialize Core Services
     this.logseqApi = logseqApi;
     setCurrentLogseqApi(logseqApi);
+    exposeTestLogseqApi(logseqApi);
     this.sidebarInjector = new FrontendSidebarInjector();
     this.toolbarInjector = new FrontendToolbarInjector();
     const settingsAdapter = new LogseqSettingsAdapter();
@@ -133,6 +165,18 @@ export class Services {
     return Services._instance;
   }
 
+  public static initializeWithApi(logseqApi: LogseqApi): Services {
+    if (!Services._instance) {
+      Services._instance = new Services(logseqApi);
+    }
+    return Services._instance;
+  }
+
+  public static resetForTests(): void {
+    Services._instance = undefined as unknown as Services;
+    clearExposedTestLogseqApi();
+  }
+
   /**
    * Initialize agent repository, ensuring default agent exists
    */
@@ -168,5 +212,6 @@ export class Services {
     this.injectMergesUseCase.dispose();
     this.chatUseCase.dispose();
     this.aiAdapter.dispose();
+    clearExposedTestLogseqApi();
   }
 }

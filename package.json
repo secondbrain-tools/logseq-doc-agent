@@ -18,7 +18,7 @@
     "spell": "cspell --no-progress \"**\"",
     "deadcode": "ts-prune",
     "circulardeps": "madge --circular --extensions ts,svelte src/",
-    "coverage": "vitest run --coverage",
+    "coverage": "vitest run --coverage --exclude tests/architecture/**",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",

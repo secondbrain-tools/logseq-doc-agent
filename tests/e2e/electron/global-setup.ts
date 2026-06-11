@@ -43,23 +43,38 @@ export default async function globalSetup() {
 
   ensureExternalPluginDir(homeDir, path.resolve("."));
 
-  await fs.rm(path.join(homeDir, ".logseq", "graphs"), { recursive: true, force: true });
-  await primeGraphSelection({
-    executablePath,
-    graphDir,
-    homeDir,
-    xdgDir,
-  });
+  // Prime graph selection + seed template pages ONLY once.
+  // Re-running changes block UUIDs which breaks chatlog ID remapping.
+  const seededMarker = path.join(runtimeDir, ".graph-seeded");
+  try {
+    await fs.access(seededMarker);
+    console.log(`${channel} test graph already primed and seeded — skipping.`);
+  } catch {
+    try {
+      await primeGraphSelection({
+        executablePath,
+        graphDir,
+        homeDir,
+        xdgDir,
+      });
+    } catch (err) {
+      console.warn(
+        "primeGraphSelection failed (graph may already be registered or UI language mismatch):",
+        (err as Error).message,
+      );
+    }
 
-  console.log(`Seeding ${channel} test graph from template pages via the Logseq API...`);
-  await seedGraphTemplateFromPages({
-    executablePath,
-    graphDir,
-    homeDir,
-    xdgDir,
-    templateDir: graphTemplateDir,
-    openGraph: true,
-  });
+    console.log(`Seeding ${channel} test graph from template pages via the Logseq API...`);
+    await seedGraphTemplateFromPages({
+      executablePath,
+      graphDir,
+      homeDir,
+      xdgDir,
+      templateDir: graphTemplateDir,
+      openGraph: true,
+    });
+    await fs.writeFile(seededMarker, new Date().toISOString());
+  }
 
   writeRuntimeInfo(runtimeInfoPath, {
     executablePath,

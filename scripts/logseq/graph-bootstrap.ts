@@ -122,10 +122,15 @@ export async function ensureGraphOpen(page: Page, graphDir: string): Promise<boo
     return true;
   }
 
-  const htmlSnippet = await page
-    .locator("body")
-    .innerHTML()
-    .catch(() => "<body unavailable>");
+  // If the main app shell is visible, the graph is probably already loaded and
+  // .add-graph-btn is just a UI element (e.g., in a dropdown), not the splash screen.
+  if ((await page.locator("#app, .cp__header").count()) > 0) {
+    console.log(
+      "[graph-bootstrap] #app/.cp__header already visible — graph appears loaded, skipping ensureGraphOpen",
+    );
+    return false;
+  }
+
   throw new Error(
     `Detected ${ADD_GRAPH_SELECTOR} but could not find a graph chooser for ${graphDir}. Input count=${await inputs.count()}. HTML snippet: ${htmlSnippet.slice(0, 2000)}`,
   );

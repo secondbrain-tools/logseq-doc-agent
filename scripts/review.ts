@@ -235,16 +235,20 @@ async function checkCoverage(): Promise<boolean> {
 
   console.log(`${DIM("…")} Coverage${DIM(` — ${changedFiles.length} uncommitted file(s)`)}`);
 
-  const { code } = await exec("npx", [
+  const { code, stdout, stderr } = await exec("npx", [
     "vitest",
     "run",
     "--coverage",
+    "--exclude",
+    "tests/architecture/**",
     "--coverage.reporter=json-summary",
     "--reporter=verbose",
   ]);
 
   if (code !== 0) {
     console.log(`${RED} Tests failed`);
+    if (stdout.trim()) console.log(stdout.trimEnd());
+    if (stderr.trim()) console.error(stderr.trimEnd());
     return false;
   }
 

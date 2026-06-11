@@ -88,7 +88,11 @@
     "Càfé",
     "Blockinjector",
     "ACMR",
-    "sitten"
+    "sitten",
+    "archunit",
+    "ARCHUNIT",
+    "startuml",
+    "enduml"
   ],
   "ignorePaths": [
     "node_modules",

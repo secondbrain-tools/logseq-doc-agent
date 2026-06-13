@@ -1,72 +1,79 @@
 # E2E Testing with Playwright
 
-End-to-end tests follow a two-tier strategy using [Playwright](https://playwright.dev/):
+End-to-end tests currently target a real Logseq Electron app through [Playwright](https://playwright.dev/). The repo supports two runtime channels:
 
-1.  **Tier 1 (Sim)**: Fast browser-based tests against `logseq-sim.html`. Focuses on UI components and plugin loading logic.
-2.  **Tier 2 (Electron)**: Integration tests inside a real Logseq Electron application. Focuses on full API integration and graph lifecycle.
+1. `legacy` for the file-based Logseq runtime
+2. `db` for the DB/beta runtime
+
+The Playwright suite is shared across both channels. The channel-specific wrapper script prepares the correct binary and runtime profile, then launches the same Electron specs.
 
 ## Architecture Overview
 
 ```mermaid
 graph TD
-    subgraph "Tier 1: Browser (Fast)"
-        SimTest[tests/e2e/sim/*.spec.ts] --> SimPage[tests/logseq-sim.html]
-        SimPage --> MockAPI[tests/logseq-mock-api.js]
-        SimPage --> Plugin[dist/index.js]
-    end
-
-    subgraph "Tier 2: Electron (Integration)"
-        ElectronTest[tests/e2e/electron/*.spec.ts] --> LogseqBinary[logseq-environments/app/...]
-        LogseqBinary --> PluginDist[dist/index.js]
-    end
-
-    Config[playwright.config.ts] --> SimTest
-    Config --> ElectronTest
+    Validate[validate.ts / npm scripts] --> Runner[scripts/run-e2e.ts]
+    Runner --> Binary[logseq-environments/app/...]
+    Runner --> Setup[tests/e2e/electron/global-setup.ts]
+    Setup --> Runtime[logseq-environments/e2e/<channel>/runtime.json]
+    Setup --> Graph[Seeded test graph]
+    Runtime --> Specs[tests/e2e/electron/*.spec.ts]
 ```
 
 ### Key Components
 
-| File                       | Purpose                                                |
-| -------------------------- | ------------------------------------------------------ |
-| `playwright.config.ts`     | Configures `sim` and `electron` projects + `webServer` |
-| `tests/e2e/sim/`           | Browser-based tests against the Logseq simulator       |
-| `tests/e2e/electron/`      | Tests that launch Logseq via Electron                  |
-| `tests/logseq-sim.html`    | Entry point for simulation-based UI testing            |
-| `tests/logseq-mock-api.js` | Mock implementation of the Logseq SDK                  |
-| `scripts/run-e2e.ts`       | Orchestrator for full Electron test runs               |
-
----
+| File                                | Purpose                                                  |
+| ----------------------------------- | -------------------------------------------------------- |
+| `playwright.config.ts`              | Configures the Electron test project                     |
+| `scripts/run-e2e.ts`                | Resolves the requested Logseq channel and launches tests |
+| `tests/e2e/electron/global-setup.ts`| Validates/init-checks runtime and seeds the test graph   |
+| `tests/e2e/electron/`               | Electron integration tests                               |
+| `tests/e2e/electron/runtime.ts`     | Loads the generated runtime configuration for each test  |
 
 ## NPM Scripts
 
-| Script             | Command                         | Description                                     |
-| ------------------ | ------------------------------- | ----------------------------------------------- |
-| **`test:e2e:sim`** | `playwright test --project=sim` | Run fast sim tests (auto-starts dev server)     |
-| `test:e2e:auto`    | `tsx scripts/run-e2e.ts`        | Full Electron run: setup binary + run tests     |
-| `test:e2e:ui`      | `playwright test --ui`          | Interactive UI mode for both projects           |
-| `test:e2e`         | `playwright test`               | Run ALL projects (requires `LOGSEQ_EXECUTABLE`) |
+| Script             | Command                               | Description                                              |
+| ------------------ | ------------------------------------- | -------------------------------------------------------- |
+| `test:e2e`         | `tsx scripts/run-e2e.ts legacy`       | Default E2E run on the `legacy` channel                  |
+| `test:e2e:legacy`  | `tsx scripts/run-e2e.ts legacy`       | Explicit `legacy` channel run                            |
+| `test:e2e:db`      | `tsx scripts/run-e2e.ts db`           | Explicit `db` channel run                                |
+| `test:e2e:debug`   | `PWDEBUG=1 tsx scripts/run-e2e.ts legacy` | Debug the `legacy` channel in headed Playwright mode |
+| `test:e2e:ui`      | `tsx scripts/run-e2e.ts legacy --ui`  | Open Playwright UI for the `legacy` channel              |
 
----
+Use `legacy` for the normal local workflow. Run `db` when you need channel coverage or when you are changing code that can diverge across Logseq storage backends.
 
-## Tier 1: logic-sim Testing
+## Channel Setup
 
-Simulation tests target `http://localhost:9000/tests/logseq-sim.html`. This environment mocks the Logseq API, allowing for instant feedback without Electron overhead.
+Each channel needs a one-time init step before tests can run.
 
-### Visibility & Debugging
-
-Use UI mode to see the simulator in action during tests:
+### Legacy
 
 ```bash
-npm run test:e2e:ui -- --project=sim
+npm run start:e2e:init:legacy
+npm run test:e2e:legacy
 ```
 
----
+During init, select:
 
-## Tier 2: Electron Integration
+```text
+logseq-environments/e2e/legacy/graph
+```
+
+### DB
+
+```bash
+npm run start:e2e:init:db
+npm run test:e2e:db
+```
+
+The DB channel uses:
+
+```text
+logseq-environments/e2e/db/home/logseq/graphs/Demo
+```
+
+## How Tests Launch Logseq
 
 Tests use Playwright's `_electron` API to launch a real Logseq instance.
-
-### How Tests Launch Logseq
 
 ```ts
 import { _electron as electron } from "@playwright/test";
@@ -78,17 +85,17 @@ const app = await electron.launch({
 });
 ```
 
-The `runtime.json` (generated by `tests/e2e/electron/global-setup.ts`) provides paths.
+The `runtime.json` generated by `tests/e2e/electron/global-setup.ts` provides paths.
 
 For the `db` channel, the managed test graph is seeded via the Logseq API into `logseq-environments/e2e/db/home/logseq/graphs/Demo` rather than a sibling `graph/` directory.
 
-The Logseq binary source is configured in `logseq-versions.jsonc`. The setup script:
+The Logseq binary source is configured in `logseq-versions.jsonc`. The runner script:
 
 1. Reads the config for the requested channel (`legacy` or `db`)
 2. Detects the current platform/arch
 3. Resolves either a tagged GitHub release or a configured local binary directory
 4. Extracts and caches it in `logseq-environments/app/...`
-5. Outputs `{ executablePath, ... }` as JSON
+5. Exposes the resolved executable path to Playwright setup through environment variables
 
 ---
 
@@ -96,7 +103,7 @@ The Logseq binary source is configured in `logseq-versions.jsonc`. The setup scr
 
 ### File Location
 
-Place test files in `tests/e2e/` with the `.spec.ts` extension.
+Place new specs in `tests/e2e/electron/` with the `.spec.ts` extension.
 
 ### Template
 
@@ -169,17 +176,17 @@ Both directories are `.gitignore`'d.
 
 | Problem                        | Solution                                                                                |
 | ------------------------------ | --------------------------------------------------------------------------------------- |
-| `LOGSEQ_EXECUTABLE is not set` | Run `npm run test:e2e:auto` or export the var manually                                  |
+| `LOGSEQ_EXECUTABLE is not set` | Run tests through `npm run test:e2e:legacy` or `npm run test:e2e:db`, not raw Playwright |
 | `Runtime config not found`     | Global setup failed — check `logseq-environments/e2e/<channel>/runtime.json` exists     |
 | Tests hang on Electron launch  | Increase `timeout` in config; ensure no other Logseq instance is running                |
-| `test:e2e:ui` shows no tests   | Make sure specs are in `tests/e2e/` and end with `.spec.ts`                             |
+| `test:e2e:ui` shows no tests   | Make sure specs are in `tests/e2e/electron/` and end with `.spec.ts`                    |
 | Trace not recorded             | Traces are only captured on first retry; set `trace: "on"` temporarily to always record |
 
 ---
 
 ## MCP Integration (AI-Assisted Testing)
 
-You can allow AI assistants (like Claude, Copilot, or Antigravity) to directly interact with the `logseq-sim` environment to write Playwright E2E tests for you using the Model Context Protocol (MCP).
+You can allow AI assistants to interact with the `logseq-sim` environment to help write UI-oriented Playwright tests or inspect plugin behavior before translating the findings into Electron E2E coverage.
 
 ### 1. Requirements
 
@@ -209,13 +216,13 @@ For example, if your AI assistant supports a `.vscode/mcp.json` or a global conf
 }
 ```
 
-_Note: The command `npm run test:mcp` launches the `@playwright/mcp` command-line tool, automatically pointing it to the local logseq-sim url (`http://localhost:9000/tests/logseq-sim.html`)._
+_Note: `npm run test:mcp` launches the `@playwright/mcp` command-line tool against `http://localhost:9000/tests/logseq-sim.html`._
 
 ### 3. Usage
 
 Once configured, simply talk to your AI agent:
 
 - _"Please explore the Logseq simulation and write a Playwright test that verifies the merge functionality."_
-- _"Can you navigate to the Logseq Simulator and generate an E2E test for the chat sidebar?"_
+- _"Can you navigate to the Logseq Simulator and generate an Electron E2E test outline for the chat sidebar?"_
 
-The AI will output Playwright code which you can directly drop into the `tests/e2e/sim/` suite!
+The AI can then produce Playwright code or locator guidance that you adapt into the `tests/e2e/electron/` suite.

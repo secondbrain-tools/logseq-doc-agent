@@ -16,8 +16,13 @@ export function shouldAutoScrollOnMessageChange(params: {
   lastTailMessageSignature: string;
   isNearBottom: boolean;
 }): boolean {
-  const { currentCount, lastMessageCount, currentTailSignature, lastTailMessageSignature, isNearBottom } =
-    params;
+  const {
+    currentCount,
+    lastMessageCount,
+    currentTailSignature,
+    lastTailMessageSignature,
+    isNearBottom,
+  } = params;
 
   if (currentCount > lastMessageCount) {
     return true;

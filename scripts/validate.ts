@@ -1,24 +1,27 @@
 #!/usr/bin/env tsx
 
 /**
- * review.ts — Pre-commit / CI review pipeline.
+ * validate.ts — Pre-commit / CI validation pipeline.
  *
  * Fixes are always applied where possible (format, lint).
  *
  * Two-phase execution:
  *   Phase 1 — Quick steps (always run, stop at first failure):
- *     Format → Lint → Spell → Dead code → Circular deps → ArchUnit → Type check → Audit
+ *     Format → Lint → Spell → Dead code → Circular deps → ArchUnit → Type check
  *   Phase 2 — Slow steps (run one at a time after phase 1 passes):
  *     Build → Coverage → E2E (legacy) → E2E (db)
+ * Optional:
+ *     Audit
  *
  * Usage:
- *   npx tsx scripts/review.ts              # both phases
- *   npx tsx scripts/review.ts --quick      # phase 1 only
- *   npx tsx scripts/review.ts --skip-e2e   # skip both e2e steps
- *   npx tsx scripts/review.ts --only=Lint  # run a single step (with fix)
+ *   npx tsx scripts/validate.ts                  # both phases, no audit
+ *   npx tsx scripts/validate.ts --quick          # phase 1 only, no audit
+ *   npx tsx scripts/validate.ts --with-audit     # include dependency audit
+ *   npx tsx scripts/validate.ts --skip-e2e       # skip both e2e steps
+ *   npx tsx scripts/validate.ts --only=Lint      # run a single step (with fix)
  */
 
-import { execSync, spawn, type SpawnOptions } from "node:child_process";
+import { execSync, spawn } from "node:child_process";
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { styleText } from "node:util";
@@ -28,14 +31,13 @@ import { styleText } from "node:util";
 interface Step {
   name: string;
   command: string;
-  args: string[]; // check args (unused since fix is always on)
-  fixArgs: string[]; // always used — fixes applied by default
-  slow?: boolean;
+  commandArgs: string[];
 }
 
 interface ReviewOptions {
   quick: boolean;
   skipE2e: boolean;
+  withAudit: boolean;
   skipUnit: boolean;
   only?: string;
 }
@@ -55,20 +57,17 @@ const QUICK_STEPS: Step[] = [
   {
     name: "Format",
     command: "npx",
-    args: ["biome", "format", "."],
-    fixArgs: ["biome", "format", "--write", "."],
+    commandArgs: ["biome", "format", "--write", "."],
   },
   {
     name: "Lint",
     command: "npx",
-    args: ["oxlint", "."],
-    fixArgs: ["oxlint", "--fix", "."],
+    commandArgs: ["oxlint", "--fix", "."],
   },
   {
     name: "Spell",
     command: "npx",
-    args: ["cspell", "--no-progress", "--no-summary", "src/**", "scripts/**", "tests/**", "*.md"],
-    fixArgs: [
+    commandArgs: [
       "cspell",
       "--no-progress",
       "--no-summary",
@@ -81,32 +80,30 @@ const QUICK_STEPS: Step[] = [
   {
     name: "Dead code",
     command: "npx",
-    args: ["ts-prune"],
-    fixArgs: ["ts-prune"],
+    commandArgs: ["ts-prune"],
   },
   {
     name: "Circular deps",
     command: "npx",
-    args: ["madge", "--circular", "--extensions", "ts,svelte", "src/"],
-    fixArgs: ["madge", "--circular", "--extensions", "ts,svelte", "src/"],
+    commandArgs: ["madge", "--circular", "--extensions", "ts,svelte", "src/"],
   },
   {
     name: "ArchUnit",
     command: "npm",
-    args: ["run", "test:arch"],
-    fixArgs: ["run", "test:arch"],
+    commandArgs: ["run", "test:arch"],
   },
   {
     name: "Type check",
     command: "npm",
-    args: ["run", "check"],
-    fixArgs: ["run", "check"],
+    commandArgs: ["run", "check"],
   },
+];
+
+const OPTIONAL_QUICK_STEPS: Step[] = [
   {
     name: "Audit",
     command: "npm",
-    args: ["audit", "--audit-level", AUDIT_LEVEL],
-    fixArgs: ["audit", "--audit-level", AUDIT_LEVEL],
+    commandArgs: ["audit", "--audit-level", AUDIT_LEVEL],
   },
 ];
 
@@ -114,34 +111,26 @@ const SLOW_STEPS: Step[] = [
   {
     name: "Build",
     command: "npm",
-    args: ["run", "build"],
-    fixArgs: ["run", "build"],
-    slow: true,
+    commandArgs: ["run", "build"],
   },
   {
     name: "Coverage",
     command: "npx",
-    args: ["vitest", "run", "--coverage"],
-    fixArgs: ["vitest", "run", "--coverage"],
-    slow: true,
+    commandArgs: ["vitest", "run", "--coverage"],
   },
   {
     name: "E2E (legacy)",
     command: "npm",
-    args: ["run", "test:e2e:legacy", "--", "--reporter=line"],
-    fixArgs: ["run", "test:e2e:legacy", "--", "--reporter=line"],
-    slow: true,
+    commandArgs: ["run", "test:e2e:legacy"],
   },
   {
     name: "E2E (db)",
     command: "npm",
-    args: ["run", "test:e2e:db", "--", "--reporter=line"],
-    fixArgs: ["run", "test:e2e:db", "--", "--reporter=line"],
-    slow: true,
+    commandArgs: ["run", "test:e2e:db"],
   },
 ];
 
-const ALL_STEPS = [...QUICK_STEPS, ...SLOW_STEPS];
+const ALL_STEPS = [...QUICK_STEPS, ...OPTIONAL_QUICK_STEPS, ...SLOW_STEPS];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -150,6 +139,7 @@ function parseArgs(): ReviewOptions {
   return {
     quick: raw.includes("--quick"),
     skipE2e: raw.includes("--skip-e2e"),
+    withAudit: raw.includes("--with-audit"),
     skipUnit: raw.includes("--skip-unit"),
     only: raw.find((a) => a.startsWith("--only="))?.split("=")[1],
   };
@@ -157,7 +147,7 @@ function parseArgs(): ReviewOptions {
 
 async function runStep(step: Step): Promise<number> {
   process.stdout.write(`${DIM("…")} ${step.name.padEnd(28)} `);
-  const { code, stdout, stderr } = await exec(step.command, step.fixArgs);
+  const { code, stdout, stderr } = await exec(step.command, step.commandArgs);
 
   if (code === 0) {
     console.log(GREEN);
@@ -302,7 +292,7 @@ async function checkTools(): Promise<void> {
 }
 
 function fail(msg: string): never {
-  console.log(`\n${RED} ${BOLD("Review failed")} at "${msg}". Fix the issue and re-run.\n`);
+  console.log(`\n${RED} ${BOLD("Validation failed")} at "${msg}". Fix the issue and re-run.\n`);
   process.exit(1);
 }
 
@@ -320,7 +310,7 @@ async function main() {
       );
       process.exit(1);
     }
-    console.log(`\n${BOLD("▶ review")}  ${DIM(`--only=${found.name}`)}\n`);
+    console.log(`\n${BOLD("▶ validate")}  ${DIM(`--only=${found.name}`)}\n`);
     await checkTools();
 
     if (found.name === "Coverage") {
@@ -338,6 +328,9 @@ async function main() {
   let quick = [...QUICK_STEPS];
   let slow = [...SLOW_STEPS];
 
+  if (opts.withAudit) {
+    quick = [...quick, ...OPTIONAL_QUICK_STEPS];
+  }
   if (opts.skipUnit) {
     slow = slow.filter((s) => s.name !== "Coverage");
   }
@@ -346,7 +339,7 @@ async function main() {
   }
 
   const modeLabel = opts.quick ? "quick" : "full";
-  console.log(`\n${BOLD("▶ review")}  ${DIM(modeLabel)}\n`);
+  console.log(`\n${BOLD("▶ validate")}  ${DIM(modeLabel)}\n`);
 
   if (slow.length < SLOW_STEPS.length) {
     const skipped = SLOW_STEPS.filter((s) => !slow.includes(s));
@@ -366,7 +359,7 @@ async function main() {
 
   if (opts.quick) {
     const elapsed = ((performance.now() - start) / 1000).toFixed(1);
-    console.log(`\n${GREEN} ${BOLD("Quick review passed")}  ${DIM(`(${elapsed}s)`)}\n`);
+    console.log(`\n${GREEN} ${BOLD("Quick validation passed")}  ${DIM(`(${elapsed}s)`)}\n`);
     return;
   }
 

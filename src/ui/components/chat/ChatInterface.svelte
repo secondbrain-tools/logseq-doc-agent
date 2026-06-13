@@ -15,6 +15,7 @@ import ChatHistoryModal from "./ChatHistoryModal.svelte";
 import ContextMenu from "./ContextMenu.svelte";
 import MessageBubble from "./MessageBubble.svelte";
 import ChatInputArea from "./ChatInputArea.svelte";
+import { isNearBottom, shouldAutoScrollOnMessageChange } from "./chat-scroll";
 
 // --- Types ---
 import type { Message, MessagePart } from "../../../domain/chat/types";
@@ -633,22 +634,28 @@ $effect(() => {
   const currentCount = msgs.length;
   const lastMsg = msgs[msgs.length - 1];
   const currentTailSignature = getMessageSignature(lastMsg);
+  const nearBottom = messageContainer
+    ? isNearBottom(
+        messageContainer.scrollTop,
+        messageContainer.clientHeight,
+        messageContainer.scrollHeight,
+      )
+    : false;
 
-  // Check if we should scroll
-  const shouldScroll =
-    currentCount > lastMessageCount || // New message added
-    (currentCount === lastMessageCount && currentTailSignature !== lastTailMessageSignature); // Content updated (streaming or tool result)
+  const shouldScroll = shouldAutoScrollOnMessageChange({
+    currentCount,
+    lastMessageCount,
+    currentTailSignature,
+    lastTailMessageSignature,
+    isNearBottom: nearBottom,
+  });
 
   if (shouldScroll && messageContainer) {
-    // Update trackers
     lastMessageCount = currentCount;
     lastTailMessageSignature = currentTailSignature;
 
-    // Use setTimeout to allow DOM update
     setTimeout(() => scrollToBottom(), 0);
-  } else if (currentCount < lastMessageCount) {
-    // Handle deletion or reset - just update trackers without scrolling or maybe scroll if needed?
-    // Usually on delete we don't need to force scroll to bottom, but we should update trackers.
+  } else {
     lastMessageCount = currentCount;
     lastTailMessageSignature = currentTailSignature;
   }

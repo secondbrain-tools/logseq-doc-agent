@@ -8,16 +8,13 @@ beforeEach(() => {
 });
 
 describe("tool-list-generator", () => {
-  // Helper: the ## title is treated as a header list item by parseSubtree, so
-  // parsed.children[0] is the root block (title + version property as content).
   function getRootNode(version?: number) {
     const parsed = parseSubtree(generateToolListString(version));
-    const root = parsed.children[0];
-    expect(root).toBeDefined();
-    return root;
+    expect(parsed).toBeDefined();
+    return parsed;
   }
 
-  it("should return a string parseable by parseSubtree with title as first child", () => {
+  it("should return a string parseable by parseSubtree with title as root content", () => {
     const root = getRootNode();
 
     expect(root.content).toContain("## Available Tool List");
@@ -76,9 +73,7 @@ describe("tool-list-generator", () => {
   it("should use only the first line of multi-line descriptions", () => {
     const result = generateToolListString();
 
-    // No line in the output should contain markdown fences or subtree examples
     expect(result).not.toContain("```");
-    // Each description sub-block should have no nested children
     const root = getRootNode();
     for (const category of root.children) {
       for (const toolBlock of category.children) {

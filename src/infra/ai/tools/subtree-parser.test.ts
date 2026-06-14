@@ -20,11 +20,36 @@ describe("subtree-parser", () => {
       expect(result.children).toHaveLength(0);
     });
 
+    it("should not split blocks on empty lines without list markers", () => {
+      const input = "Line one\n\nLine two\n\n\nLine three";
+      const result = parseSubtree(input);
+
+      expect(result.content).toBe("Line one\n\nLine two\n\n\nLine three");
+      expect(result.children).toHaveLength(0);
+    });
+
+    it("should treat a heading on the very first line as block content, not a child block", () => {
+      const input = "## Heading\n\nParagraph text";
+      const result = parseSubtree(input);
+
+      expect(result.content).toBe("## Heading\n\nParagraph text");
+      expect(result.children).toHaveLength(0);
+    });
+
+    it("should split on a heading if it is not the first line of the block", () => {
+      const input = "Intro text\n## Heading\nParagraph text";
+      const result = parseSubtree(input);
+
+      expect(result.content).toBe("Intro text");
+      expect(result.children).toHaveLength(1);
+      expect(result.children[0].content).toBe("## Heading\nParagraph text");
+    });
+
     it("should parse single-level list", () => {
       const input = "- Item 1\n- Item 2\n- Item 3";
       const result = parseSubtree(input);
 
-      expect(result.content).toBe(""); // No preamble
+      expect(result.content).toBe("");
       expect(result.children).toHaveLength(3);
       expect(result.children[0].content).toBe("Item 1");
       expect(result.children[1].content).toBe("Item 2");
@@ -281,11 +306,8 @@ describe("subtree-parser", () => {
       };
 
       const result = formatResultTree(node);
-      // Root at indentation 0
       expect(result).toContain("id:1");
-      // Child at indentation 1 (2 spaces + -)
       expect(result).toContain("- id:2");
-      // Grandchild at indentation 2 (4 spaces + -)
       expect(result).toContain("  - id:3");
     });
 
@@ -309,7 +331,6 @@ describe("subtree-parser", () => {
       };
 
       const result = formatResultTree(node);
-      // Content should be padded to 10 chars
       expect(result).toBe('id:1 "Hi        ..."');
     });
 
@@ -321,7 +342,6 @@ describe("subtree-parser", () => {
       };
 
       const result = formatResultTree(node);
-      // Newlines should be replaced with spaces in preview
       expect(result).toContain("Line1 Line");
     });
   });

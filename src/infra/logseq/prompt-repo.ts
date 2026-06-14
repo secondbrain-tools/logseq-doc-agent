@@ -5,6 +5,7 @@ import type { LogseqApi } from "../../application/ports/logseq-ports";
 import {
   LDA_PROMPT_NAME_PROPERTY,
   LDA_PROMPT_NAME_PROPERTY_CAMEL,
+  LOGSEQ_PROPERTY_REGEX,
 } from "../../domain/logseq/properties";
 
 export class LogseqPromptRepository implements PromptRepository {
@@ -25,7 +26,6 @@ export class LogseqPromptRepository implements PromptRepository {
   }
 
   async getChatPrompts(): Promise<ChatPrompt[]> {
-    // Query for blocks with either logseq-doc-agent.prompt or logseqDocAgent.prompt
     const blocks = await this.logseqApi.q(`(property ${LDA_PROMPT_NAME_PROPERTY})`);
 
     if (!blocks || !Array.isArray(blocks)) {
@@ -39,10 +39,8 @@ export class LogseqPromptRepository implements PromptRepository {
         const uuid = block.uuid || block.id;
         if (!uuid) continue;
 
-        // Call getBlock to include children
         const fullBlock = (await this.logseqApi.getBlock(uuid, { includeChildren: true })) || block;
 
-        // Extract name
         let name = "";
         if (fullBlock.properties) {
           name =
@@ -58,10 +56,7 @@ export class LogseqPromptRepository implements PromptRepository {
 
         if (!name) continue;
 
-        // Extract content (filter out properties, include children)
         const content = await this.extractPrompt(fullBlock);
-
-        // Page Name
         const page = block.page || {};
         const pageName = page.name || page["original-name"] || "";
 
@@ -83,7 +78,6 @@ export class LogseqPromptRepository implements PromptRepository {
   private async extractPrompt(block: any): Promise<string> {
     let prompt = this.filterPropertyLines(block.content || "");
 
-    // Add children content if present
     if (block.children && Array.isArray(block.children)) {
       const childTexts = await this.collectChildrenText(block.children);
       if (childTexts) {
@@ -97,10 +91,6 @@ export class LogseqPromptRepository implements PromptRepository {
     return prompt;
   }
 
-  /**
-   * Collect children as markdown list lines so chat markdown rendering shows bullets and nesting.
-   * Each level is indented with 2 spaces; list marker "- " is added so marked parses lists correctly.
-   */
   private async collectChildrenText(children: any[], depth = 0): Promise<string> {
     const lines: string[] = [];
     const indent = "  ".repeat(depth);
@@ -127,10 +117,8 @@ export class LogseqPromptRepository implements PromptRepository {
     const lines = content.split("\n");
     const filtered = lines.filter((line) => {
       const trimmed = line.trim();
-      // Strip markdown heading lines used as block title (e.g. ## Prompt Name)
       if (/^#+\s/.test(trimmed)) return false;
-      // Strip all logseq-doc-agent.* and logseqDocAgent.* property lines
-      const propMatch = trimmed.match(/^([^:]+)::\s*.+$/);
+      const propMatch = trimmed.match(LOGSEQ_PROPERTY_REGEX);
       if (propMatch) {
         const key = propMatch[1].trim();
         if (key.startsWith("logseq-doc-agent.") || key.startsWith("logseqDocAgent.")) {

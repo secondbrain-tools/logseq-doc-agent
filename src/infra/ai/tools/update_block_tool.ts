@@ -11,12 +11,10 @@ import {
   extractExistingMergeData,
   splitContentAttributes,
   LDA_MERGE_PROPERTY,
+  LOGSEQ_PROPERTY_START_REGEX,
 } from "../../../domain/logseq/properties";
 import { getCurrentLogseqApi } from "../../logseq";
 
-/**
- * Creates the updateBlock tool with injected context.
- */
 export const createUpdateBlockTool = (context: { merge: boolean }) =>
   tool({
     description: `Update a Logseq block with new content.
@@ -65,7 +63,6 @@ Returns the updated block and its full subtree in markdown tree format.`,
       try {
         const logseq = getCurrentLogseqApi();
 
-        // Sanitize ID
         const cleanId = sanitizeBlockId(id);
         const block = await logseq.getBlock(cleanId);
 
@@ -74,9 +71,6 @@ Returns the updated block and its full subtree in markdown tree format.`,
         }
         const uuid = block.uuid;
 
-        // 1. Update the Parent Block Content
-
-        // If parsing subtrees, the first part of content is the parent's content
         let parentContent = content;
         let childrenNodes: any[] = [];
 
@@ -85,19 +79,11 @@ Returns the updated block and its full subtree in markdown tree format.`,
           parentContent = parsed.content;
           childrenNodes = parsed.children;
         } else {
-          // Legacy behavior: sanitize whole content
           parentContent = sanitizeContent(content);
         }
 
-        // Apply Merge Logic to Parent Content
         if (context.merge) {
           const currentContent = block.content || "";
-
-          // Reuse existing logic logic
-          const lines = currentContent.split("\n");
-          const bodyLines = lines.filter((l: string) => !l.match(/^.+::/));
-
-          // Let's use the explicit logic from before to be safe
           const { body: currentBody, properties: existingPropsStr } =
             splitContentAttributes(currentContent);
 
@@ -106,7 +92,7 @@ Returns the updated block and its full subtree in markdown tree format.`,
 
           const mergeData: MergeEntity = {
             type: "update",
-            base: base,
+            base,
           };
 
           let newBlockContent = "";
@@ -119,49 +105,38 @@ Returns the updated block and its full subtree in markdown tree format.`,
           await logseq.updateBlock(uuid, newBlockContent);
           await logseq.upsertBlockProperty(uuid, LDA_MERGE_PROPERTY, JSON.stringify(mergeData));
         } else {
-          // Overwrite
           await logseq.updateBlock(uuid, parentContent);
         }
 
-        // Handle ordered list mode change
         if (ordered === true) {
           await logseq.upsertBlockProperty(uuid, "logseq.order-list-type", "number");
         } else if (ordered === false) {
           await logseq.removeBlockProperty(uuid, "logseq.order-list-type");
         }
 
-        // 2. Handle Children (Subtrees)
         if (parse_subtrees && childrenNodes.length > 0) {
-          // Insert new children (append only)
           for (const childNode of childrenNodes) {
             await insertSubtreeRecursive(uuid, childNode, {}, context.merge);
           }
         }
 
-        // 3. Return the full subtree
-        // Fetch updated block with children
         const rawBlock = await logseq.getBlock(uuid, { includeChildren: true });
         if (!rawBlock) {
           return `Successfully updated block ${id}, but failed to retrieve it for display.`;
         }
 
-        // FORCE CLEAN JSON to avoid Transit/Bean issues
         const updatedBlock = JSON.parse(JSON.stringify(rawBlock));
-
-        // Format as tree
         let blocks: LogseqBlock[] = [updatedBlock];
 
-        // Apply merge logic for display (if merge is enabled generally)
         if (context.merge) {
           blocks = applyMergeLogicToTree(blocks, {
             ...context,
             mergeDefault: context.merge,
             mergeBoth: false,
-          }); // Assuming context.merge maps to mergeDefault
+          });
         }
 
-        const treeOutput = formatBlockTree(blocks);
-        return treeOutput;
+        return formatBlockTree(blocks);
       } catch (e) {
         console.error("[UpdateBlockTool] Error:", e);
         return `Error updating block: ${e}`;
@@ -169,17 +144,14 @@ Returns the updated block and its full subtree in markdown tree format.`,
     },
   } as any);
 
-// --- Helpers ---
-
 function extractProperties(content: string): string[] {
-  // simplified extraction
   const lines = content.split("\n");
   const props = [];
   for (const line of lines) {
-    if (/^.+::/.test(line) && !line.startsWith(`${LDA_MERGE_PROPERTY}::`)) {
+    if (LOGSEQ_PROPERTY_START_REGEX.test(line) && !line.startsWith(`${LDA_MERGE_PROPERTY}::`)) {
       props.push(line);
     } else {
-      break; // Standard Logseq properties are at the top
+      break;
     }
   }
   return props;

@@ -9,6 +9,7 @@ import {
 import {
   filterPropertyLinesFromContent,
   LOGSEQ_INTERNAL_CONTENT_PROPERTIES,
+  LOGSEQ_PROPERTY_REGEX,
 } from "../../../domain/logseq/properties";
 import { getCurrentLogseqApi } from "../../logseq";
 
@@ -24,11 +25,9 @@ async function resolvePage(document?: string | number | null): Promise<LogseqPag
     return logseq.getCurrentPage();
   }
 
-  // Try direct getPage first (works for name and uuid in Logseq)
   let page = await logseq.getPage(raw);
   if (page) return page;
 
-  // If input looks like an integer id, try to find page by id via getAllPages
   if (isIntegerId(raw)) {
     const id = Number(raw);
     const allPages = await logseq.getAllPages();
@@ -76,7 +75,6 @@ export const createGetLogseqDocumentTool = (context: {
         blocks = (await logseq.getPageBlocksTree(pageRef)) || [];
       }
 
-      // Apply Merge Logic locally if enabled (recursive walk needed if blocks are a tree)
       if (context.mergeDefault || context.mergeBoth) {
         blocks = applyMergeLogicToTree(blocks, context);
       }
@@ -85,17 +83,13 @@ export const createGetLogseqDocumentTool = (context: {
     },
   } as any);
 
-/**
- * recursively applies merge logic to a tree of blocks
- */
 export function applyMergeLogicToTree(
   blocks: LogseqBlock[],
   context: { mergeDefault: boolean; mergeBoth: boolean },
 ): LogseqBlock[] {
   return blocks.map((block) => {
-    let newBlock = { ...block };
+    const newBlock = { ...block };
 
-    // Process current block content
     const content = newBlock.content || "";
     const match = content.match(/logseq-doc-agent\.merge::\s*(.+)/);
     if (match && match[1]) {
@@ -110,12 +104,9 @@ export function applyMergeLogicToTree(
             newBlock.content = cleanedBody;
           }
         }
-      } catch (e) {
-        // Ignore parse errors
-      }
+      } catch (e) {}
     }
 
-    // Recursively process children
     if (newBlock.children && newBlock.children.length > 0) {
       newBlock.children = applyMergeLogicToTree(newBlock.children, context);
     }
@@ -142,7 +133,7 @@ export function describeSelection(selection: LogseqSelection) {
       selection.id !== undefined ? `id:${selection.id}` : selection.uuid || "unknown-block";
     const preview = cleanBlockContent(selection.content) || "(empty block)";
     return [
-      `Selection Type: block`,
+      "Selection Type: block",
       `Page: ${pageLabel}`,
       `Active Block ID: ${blockLabel}`,
       `Active Block Preview: ${preview}`,
@@ -162,7 +153,7 @@ export function describeSelection(selection: LogseqSelection) {
     pageLabel += ` (id:${selection.id})`;
   }
 
-  return [`Selection Type: page`, `Page: ${pageLabel}`];
+  return ["Selection Type: page", `Page: ${pageLabel}`];
 }
 
 export function extractPageLabel(selection: LogseqBlock) {
@@ -187,13 +178,8 @@ export function extractPageLabel(selection: LogseqBlock) {
   return "Unknown Page";
 }
 
-/**
- * Formats a list of root blocks into a markdown tree string.
- * This function handles recursive children locally.
- */
 export function formatBlockTree(blocks: LogseqBlock[], depth: number = 0): string {
   if (!blocks || blocks.length === 0) return "";
-
   return blocks.map((block, idx) => formatSingleBlock(block, depth, idx + 1)).join("\n");
 }
 
@@ -205,9 +191,6 @@ function formatSingleBlock(block: LogseqBlock, depth: number, siblingNumber: num
   const idLabel =
     block.id !== undefined ? `id:${block.id}` : block.uuid ? `uuid:${block.uuid}` : "block";
 
-  // Logseq normalises the raw key "logseq.order-list-type" by camelCasing each
-  // dot-separated segment, producing "logseq.orderListType".
-  // We keep the other variants as fallbacks for mocks and edge cases.
   const isOrdered =
     block.properties?.["logseq.orderListType"] === "number" ||
     block.properties?.logseqOrderListType === "number" ||
@@ -216,7 +199,6 @@ function formatSingleBlock(block: LogseqBlock, depth: number, siblingNumber: num
 
   let result = `${indent}${bullet}${idLabel} ${lines[0]}`;
 
-  // Additional lines of content, indented relative to the bullet
   if (lines.length > 1) {
     const contentIndent = indent + "  ";
     const remainingLines = lines
@@ -226,7 +208,6 @@ function formatSingleBlock(block: LogseqBlock, depth: number, siblingNumber: num
     result += "\n" + remainingLines;
   }
 
-  // Children
   if (block.children && block.children.length > 0) {
     const childrenStr = formatBlockTree(block.children, depth + 1);
     if (childrenStr) {
@@ -241,18 +222,18 @@ export function cleanBlockContent(content?: string | null) {
   if (!content) {
     return "";
   }
-  // First pass: strip LDA operational properties (respects code blocks)
+
   const afterLda = filterPropertyLinesFromContent(content);
-  // Second pass: strip Logseq internal content properties (e.g. logseq.order-list-type)
   const filtered = afterLda
     .split("\n")
     .filter((line) => {
       const trimmed = line.trim();
-      const propMatch = trimmed.match(/^([^:]+)::\s*.+$/);
+      const propMatch = trimmed.match(LOGSEQ_PROPERTY_REGEX);
       if (!propMatch) return true;
       const key = propMatch[1].trim();
       return !(LOGSEQ_INTERNAL_CONTENT_PROPERTIES as readonly string[]).includes(key);
     })
     .map((line) => line.trimEnd());
+
   return filtered.join("\n").trim();
 }

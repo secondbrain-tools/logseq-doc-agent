@@ -13,6 +13,18 @@ export const LDA_MERGE_PROPERTY_CAMEL = "logseqDocAgent.merge";
 export const LDA_EVALUATION_PROPERTY = "logseq-doc-agent.evaluation";
 export const LDA_EVALUATION_PROPERTY_CAMEL = "logseqDocAgent.evaluation";
 
+/**
+ * Regular expression to match any valid Logseq property line.
+ * A logseq property key cannot contain spaces or colons.
+ * Group 1 is the key, Group 2 is the value.
+ */
+export const LOGSEQ_PROPERTY_REGEX = /^\s*([^\s:]+)::\s*(.*)$/;
+
+/**
+ * Regular expression to check if a line starts with a property key.
+ */
+export const LOGSEQ_PROPERTY_START_REGEX = /^\s*[^\s:]+::/;
+
 export function filterProperties(content: string, patterns: string[]): [string, string] {
   if (!content || patterns.length === 0) return [content, ""];
 
@@ -20,10 +32,8 @@ export function filterProperties(content: string, patterns: string[]): [string, 
   const headerLines: string[] = [];
   const bodyLines: string[] = [];
 
-  // Simple regex for property check: many-keys:: value
-  const propRegex = /^([^:]+)::\s*(.*)$/;
+  const propRegex = LOGSEQ_PROPERTY_REGEX;
 
-  // Helper for glob matching
   const matchPattern = (key: string, pattern: string) => {
     const regexString = pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*");
     return new RegExp(`^${regexString}$`).test(key);
@@ -34,7 +44,7 @@ export function filterProperties(content: string, patterns: string[]): [string, 
     const match = trimmed.match(propRegex);
 
     if (match) {
-      const key = match[1].trim(); // CRITICAL: Trim key to handle indentation
+      const key = match[1].trim();
       const isMatch = patterns.some((p) => matchPattern(key, p.trim()));
       if (isMatch) {
         headerLines.push(line);
@@ -49,7 +59,7 @@ export function filterProperties(content: string, patterns: string[]): [string, 
 
 /**
  * LDA properties that are stripped from block text content before passing
- * to the AI or rendering as prompt text.  Only operational metadata that
+ * to the AI or rendering as prompt text. Only operational metadata that
  * has no instructional value should appear here.
  */
 export const LDA_PROPERTIES_FILTERED_FROM_CONTENT = [
@@ -82,31 +92,27 @@ export function filterPropertyLinesFromContent(content: string): string {
   for (const line of lines) {
     const trimmed = line.trim();
 
-    // Toggle fenced code block tracking
     if (trimmed.startsWith("```")) {
       insideFencedBlock = !insideFencedBlock;
       result.push(line);
       continue;
     }
 
-    // Never filter lines inside fenced blocks
     if (insideFencedBlock) {
       result.push(line);
       continue;
     }
 
-    // Never filter lines that are entirely inline code (start AND end with backtick)
     if (trimmed.startsWith("`") && trimmed.endsWith("`") && trimmed.length >= 2) {
       result.push(line);
       continue;
     }
 
-    // Strip lines that are a filtered LDA property
-    const propMatch = trimmed.match(/^([^:]+)::\s*.+$/);
+    const propMatch = trimmed.match(LOGSEQ_PROPERTY_REGEX);
     if (propMatch) {
       const key = propMatch[1].trim();
       if ((LDA_PROPERTIES_FILTERED_FROM_CONTENT as readonly string[]).includes(key)) {
-        continue; // drop this line
+        continue;
       }
     }
 
@@ -124,7 +130,7 @@ export function parseProperties(header: string): Record<string, string> {
   if (!header) return props;
 
   const lines = header.split("\n");
-  const propRegex = /^([^:]+)::\s*(.*)$/;
+  const propRegex = LOGSEQ_PROPERTY_REGEX;
 
   for (const line of lines) {
     const stripped = line.trim();
@@ -154,13 +160,11 @@ export function splitContentAttributes(content: string) {
   const body: string[] = [];
   let inProps = true;
 
-  // Regex for property key:: value
-  const propRegex = /^.+::/;
+  const propRegex = LOGSEQ_PROPERTY_START_REGEX;
 
   for (const line of lines) {
     if (inProps) {
       if (propRegex.test(line)) {
-        // Check if it's our merge prop - skip it for base content calculation?
         if (!line.startsWith(`${LDA_MERGE_PROPERTY}::`)) {
           properties.push(line);
         }

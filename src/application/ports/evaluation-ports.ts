@@ -2,7 +2,7 @@
  * Ports for evaluation-related operations
  */
 
-import type { BlockEvaluation, CriterionResult } from '../../domain/evaluation/entity';
+import type { BlockEvaluation, CriterionResult } from "../../domain/evaluation/entity";
 
 export interface EvaluationRepository {
   saveEvaluation(evaluation: BlockEvaluation): Promise<BlockEvaluation>;

@@ -1,0 +1,22 @@
+' Target layer architecture for logseq-doc-agent
+' Note: root-level src/*.ts files are intentionally outside the src/(**)/ slice mapping.
+@startuml
+
+title logseq-doc-agent target layer architecture
+
+component [domain]
+component [application]
+component [infra]
+component [ui]
+component [plugin]
+
+[application] --> [domain]
+[infra] --> [application]
+[infra] --> [domain]
+[ui] --> [application]
+[ui] --> [domain]
+[plugin] --> [application]
+[plugin] --> [infra]
+[plugin] --> [domain]
+
+@enduml

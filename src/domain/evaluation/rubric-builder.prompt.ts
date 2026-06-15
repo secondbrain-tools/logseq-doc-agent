@@ -1,4 +1,4 @@
-import type { BuiltInPromptConfig } from '../prompt/built-in-prompts';
+import type { BuiltInPromptConfig } from "../prompt/types";
 
 /**
  * Meta-prompt: Evaluation Rubric Builder
@@ -18,18 +18,17 @@ import type { BuiltInPromptConfig } from '../prompt/built-in-prompts';
  *  * Rubric:           The complete matrix of Categories → Criteria → Level Descriptors
  */
 
-
 export const RUBRIC_BUILDER_PROMPT_CONFIG: BuiltInPromptConfig = {
   version: 1,
-  name: 'Meta: Evaluation Rubric Builder',
+  name: "Meta: Evaluation Rubric Builder",
   text: `\
-Please write me aneEvaluation rubric that uses the submitBlockEvaluation.
+Please write me an Evaluation rubric that uses the submitBlockEvaluation.
 Write this prompt as a block tree into this page.
 
 The tree structure should be like this:
 
 - Identify Categories
-- Identify Criteria for each Categories
+- Identify Criteria for each Category
 - Define 5 Level Descriptors (Scoring Rubric) for each Criteria
   Use the following Anchoring (Level: Anchor)
   1:  Failing / Fundamentally inadequate 
@@ -40,8 +39,8 @@ The tree structure should be like this:
 
 If context is missing, ask the user for further information.
 
-If you identify less then 5 criteria, omit the Cagegories and remove the submission request in the prompt block.
-Otherwise ensure that there are at least two Criera in each Category.
+If you identify less than 5 criteria, omit the Categories and remove the submission request in the prompt block.
+Otherwise ensure that there are at least two Criteria in each Category.
 
 Create the Block Tree as a proposal in the page - not in the chat:
 
@@ -50,7 +49,7 @@ Create the Block Tree as a proposal in the page - not in the chat:
 [single block:]
 ## [Prompt Name]
 \`logseq- doc - agent.prompt:: [Prompt Name]\` [Remove the backticks to make it a valid property]
-  Please evaluate the current page using submitBlockEvaluation tool. Please submit the categories for the critera.
+  Please evaluate the current page using submitBlockEvaluation tool. Please submit the categories for the criteria.
   Evaluate each top-level block. If a top-level block mainly serves as an umbrella/“chapter” (i.e., it groups multiple child sections) and either (a) two or more of its child sections each contain more than 5 sentences, or (b) the total content would reach or exceed one page of text, then evaluate those child sections instead of the top-level block. Otherwise, evaluate the top-level block itself. Only evaluate at most one level below the top-level block.
   Avoid duplicate findings across categories. If a point could fit multiple categories, report it only once under the single best-fitting category
   Do not edit the page. Here are the necessary information:
@@ -67,7 +66,6 @@ Create the Block Tree as a proposal in the page - not in the chat:
       ---
 
 Discuss your suggestion with me and always rework it in the page.
-Here is my intend for the evaluation:
-`
-
+Here is my intent for the evaluation:
+`,
 };

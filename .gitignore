@@ -9,10 +9,23 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+reports
 *.local
+coverage
 
-# create a symlink to the AGENTS.md file
+## playwrite (e2e and mcp)
+logseq-environments
+blob-report
+playwright-report
+test-results
+
+
+
+
+# create a symlink to the AGENTS.md file / other agent configs
 GEMINI.md
+.agent/
+.pi
 
 # Editor directories and files
 .vscode/*
@@ -25,9 +38,7 @@ GEMINI.md
 *.sln
 *.sw?
 
-.tmp
-.cache
-blog-report
-playwright-report
-test-results
-blob-report
+
+
+## test graph
+tests/graph

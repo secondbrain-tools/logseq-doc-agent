@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "logseq_legacy": {
+      "command": "env",
+      "args": ["-u", "NODE_OPTIONS", "npm", "run", "start:mcp:legacy"]
+    },
+    "logseq_db": {
+      "command": "env",
+      "args": ["-u", "NODE_OPTIONS", "npm", "run", "start:mcp:db"]
+    }
+  }
+}

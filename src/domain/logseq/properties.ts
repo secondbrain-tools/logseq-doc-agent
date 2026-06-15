@@ -1,17 +1,17 @@
-import type { MergeEntity } from '../merge/entity';
+import type { MergeEntity } from "../merge/entity";
 
 /**
  * Helper to filter properties based on glob patterns
  * Returns [cleanContent, headerString]
  */
-export const LDA_NAMESPACE = 'logseq-doc-agent';
-export const LDA_PROMPT_NAME_PROPERTY = 'logseq-doc-agent.prompt';
-export const LDA_PROMPT_NAME_PROPERTY_CAMEL = 'logseqDocAgent.prompt';
+export const LDA_NAMESPACE = "logseq-doc-agent";
+export const LDA_PROMPT_NAME_PROPERTY = "logseq-doc-agent.prompt";
+export const LDA_PROMPT_NAME_PROPERTY_CAMEL = "logseqDocAgent.prompt";
 
-export const LDA_MERGE_PROPERTY = 'logseq-doc-agent.merge';
-export const LDA_MERGE_PROPERTY_CAMEL = 'logseqDocAgent.merge';
-export const LDA_EVALUATION_PROPERTY = 'logseq-doc-agent.evaluation';
-export const LDA_EVALUATION_PROPERTY_CAMEL = 'logseqDocAgent.evaluation';
+export const LDA_MERGE_PROPERTY = "logseq-doc-agent.merge";
+export const LDA_MERGE_PROPERTY_CAMEL = "logseqDocAgent.merge";
+export const LDA_EVALUATION_PROPERTY = "logseq-doc-agent.evaluation";
+export const LDA_EVALUATION_PROPERTY_CAMEL = "logseqDocAgent.evaluation";
 
 /**
  * Regular expression to match any valid Logseq property line.
@@ -25,55 +25,46 @@ export const LOGSEQ_PROPERTY_REGEX = /^\s*([^\s:]+)::\s*(.*)$/;
  */
 export const LOGSEQ_PROPERTY_START_REGEX = /^\s*[^\s:]+::/;
 
-export function filterProperties(
-    content: string,
-    patterns: string[],
-): [string, string] {
-    if (!content || patterns.length === 0) return [content, ""];
+export function filterProperties(content: string, patterns: string[]): [string, string] {
+  if (!content || patterns.length === 0) return [content, ""];
 
-    const lines = content.split("\n");
-    const headerLines: string[] = [];
-    const bodyLines: string[] = [];
+  const lines = content.split("\n");
+  const headerLines: string[] = [];
+  const bodyLines: string[] = [];
 
-    // Simple regex for property check: many-keys:: value
-    const propRegex = LOGSEQ_PROPERTY_REGEX;
+  const propRegex = LOGSEQ_PROPERTY_REGEX;
 
-    // Helper for glob matching
-    const matchPattern = (key: string, pattern: string) => {
-        const regexString = pattern
-            .replace(/[.+^${}()|[\]\\]/g, "\\$&")
-            .replace(/\*/g, ".*");
-        return new RegExp(`^${regexString}$`).test(key);
-    };
+  const matchPattern = (key: string, pattern: string) => {
+    const regexString = pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*");
+    return new RegExp(`^${regexString}$`).test(key);
+  };
 
-    for (const line of lines) {
-        const trimmed = line.trim();
-        const match = trimmed.match(propRegex);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    const match = trimmed.match(propRegex);
 
-        if (match) {
-            const key = match[1].trim(); // CRITICAL: Trim key to handle indentation
-            const isMatch = patterns.some((p) =>
-                matchPattern(key, p.trim()),
-            );
-            if (isMatch) {
-                headerLines.push(line);
-                continue;
-            }
-        }
-        bodyLines.push(line);
+    if (match) {
+      const key = match[1].trim();
+      const isMatch = patterns.some((p) => matchPattern(key, p.trim()));
+      if (isMatch) {
+        headerLines.push(line);
+        continue;
+      }
     }
+    bodyLines.push(line);
+  }
 
-    return [bodyLines.join("\n"), headerLines.join("\n")];
+  return [bodyLines.join("\n"), headerLines.join("\n")];
 }
 
 /**
  * LDA properties that are stripped from block text content before passing
- * to the AI or rendering as prompt text.  Only operational metadata that
+ * to the AI or rendering as prompt text. Only operational metadata that
  * has no instructional value should appear here.
  */
 export const LDA_PROPERTIES_FILTERED_FROM_CONTENT = [
-    LDA_EVALUATION_PROPERTY,
-    LDA_MERGE_PROPERTY,
+  LDA_EVALUATION_PROPERTY,
+  LDA_MERGE_PROPERTY,
 ] as const;
 
 /**
@@ -81,9 +72,7 @@ export const LDA_PROPERTIES_FILTERED_FROM_CONTENT = [
  * (Logseq stores them as text but also parses them into `block.properties`).
  * These should be stripped from the agent's view of a document to reduce noise.
  */
-export const LOGSEQ_INTERNAL_CONTENT_PROPERTIES = [
-    'logseq.order-list-type',
-] as const;
+export const LOGSEQ_INTERNAL_CONTENT_PROPERTIES = ["logseq.order-list-type"] as const;
 
 /**
  * Strips only the LDA properties listed in LDA_PROPERTIES_FILTERED_FROM_CONTENT
@@ -94,108 +83,102 @@ export const LOGSEQ_INTERNAL_CONTENT_PROPERTIES = [
  * whether they contain a property-like pattern.
  */
 export function filterPropertyLinesFromContent(content: string): string {
-    if (!content) return '';
+  if (!content) return "";
 
-    const lines = content.split('\n');
-    const result: string[] = [];
-    let insideFencedBlock = false;
+  const lines = content.split("\n");
+  const result: string[] = [];
+  let insideFencedBlock = false;
 
-    for (const line of lines) {
-        const trimmed = line.trim();
+  for (const line of lines) {
+    const trimmed = line.trim();
 
-        // Toggle fenced code block tracking
-        if (trimmed.startsWith('```')) {
-            insideFencedBlock = !insideFencedBlock;
-            result.push(line);
-            continue;
-        }
-
-        // Never filter lines inside fenced blocks
-        if (insideFencedBlock) {
-            result.push(line);
-            continue;
-        }
-
-        // Never filter lines that are entirely inline code (start AND end with backtick)
-        if (trimmed.startsWith('`') && trimmed.endsWith('`') && trimmed.length >= 2) {
-            result.push(line);
-            continue;
-        }
-
-        // Strip lines that are a filtered LDA property
-        const propMatch = trimmed.match(LOGSEQ_PROPERTY_REGEX);
-        if (propMatch) {
-            const key = propMatch[1].trim();
-            if ((LDA_PROPERTIES_FILTERED_FROM_CONTENT as readonly string[]).includes(key)) {
-                continue; // drop this line
-            }
-        }
-
-        result.push(line);
+    if (trimmed.startsWith("```")) {
+      insideFencedBlock = !insideFencedBlock;
+      result.push(line);
+      continue;
     }
 
-    return result.join('\n');
+    if (insideFencedBlock) {
+      result.push(line);
+      continue;
+    }
+
+    if (trimmed.startsWith("`") && trimmed.endsWith("`") && trimmed.length >= 2) {
+      result.push(line);
+      continue;
+    }
+
+    const propMatch = trimmed.match(LOGSEQ_PROPERTY_REGEX);
+    if (propMatch) {
+      const key = propMatch[1].trim();
+      if ((LDA_PROPERTIES_FILTERED_FROM_CONTENT as readonly string[]).includes(key)) {
+        continue;
+      }
+    }
+
+    result.push(line);
+  }
+
+  return result.join("\n");
 }
 
 /**
  * Helper to parse header string back to properties object
  */
 export function parseProperties(header: string): Record<string, string> {
-    const props: Record<string, string> = {};
-    if (!header) return props;
+  const props: Record<string, string> = {};
+  if (!header) return props;
 
-    const lines = header.split('\n');
-    const propRegex = LOGSEQ_PROPERTY_REGEX;
+  const lines = header.split("\n");
+  const propRegex = LOGSEQ_PROPERTY_REGEX;
 
-    for (const line of lines) {
-        const stripped = line.trim();
-        const match = stripped.match(propRegex);
-        if (match) {
-            const key = match[1].trim();
-            const value = match[2].trim();
-            props[key] = value;
-        }
+  for (const line of lines) {
+    const stripped = line.trim();
+    const match = stripped.match(propRegex);
+    if (match) {
+      const key = match[1].trim();
+      const value = match[2].trim();
+      props[key] = value;
     }
-    return props;
+  }
+  return props;
 }
 
 export function extractExistingMergeData(content: string): MergeEntity | null {
-    const match = content.match(new RegExp(`${LDA_MERGE_PROPERTY}::\\s*(.+)`));
-    if (match && match[1]) {
-        try {
-            return JSON.parse(match[1]);
-        } catch (e) { }
-    }
-    return null;
+  const match = content.match(new RegExp(`${LDA_MERGE_PROPERTY}::\\s*(.+)`));
+  if (match && match[1]) {
+    try {
+      return JSON.parse(match[1]);
+    } catch (e) {}
+  }
+  return null;
 }
 
 export function splitContentAttributes(content: string) {
-    const lines = content.split('\n');
-    const properties: string[] = [];
-    const body: string[] = [];
-    let inProps = true;
+  const lines = content.split("\n");
+  const properties: string[] = [];
+  const body: string[] = [];
+  let inProps = true;
 
-    // Regex for property key:: value
-    const propRegex = LOGSEQ_PROPERTY_START_REGEX;
+  const propRegex = LOGSEQ_PROPERTY_START_REGEX;
 
-    for (const line of lines) {
-        if (inProps) {
-            if (propRegex.test(line)) {
-                // Check if it's our merge prop - skip it for base content calculation?
-                if (!line.startsWith(`${LDA_MERGE_PROPERTY}::`)) {
-                    properties.push(line);
-                }
-            } else {
-                inProps = false;
-                body.push(line);
-            }
-        } else {
-            body.push(line);
+  for (const line of lines) {
+    if (inProps) {
+      if (propRegex.test(line)) {
+        if (!line.startsWith(`${LDA_MERGE_PROPERTY}::`)) {
+          properties.push(line);
         }
+      } else {
+        inProps = false;
+        body.push(line);
+      }
+    } else {
+      body.push(line);
     }
+  }
 
-    return {
-        body: body.join('\n'),
-        properties: properties.join('\n')
-    };
+  return {
+    body: body.join("\n"),
+    properties: properties.join("\n"),
+  };
 }

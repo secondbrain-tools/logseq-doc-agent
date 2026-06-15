@@ -1,11 +1,9 @@
-import type { BuiltInPromptConfig } from '../prompt/built-in-prompts';
-
-
+import type { BuiltInPromptConfig } from "../prompt/types";
 
 export const BASIC_SUMMARY_PROMPT_CONFIG: BuiltInPromptConfig = {
-    name: 'Structured Summary',
-    version: 1,
-    text: `Read the text carefully and produce a concise but complete summary.
+  name: "Structured Summary",
+  version: 1,
+  text: `Read the text carefully and produce a concise but complete summary.
            If no Text is provided, read the current Document.
            If not requested otherwise, answer in the users language.
 Steps:
@@ -16,5 +14,4 @@ Steps:
 5. Make a final Conclusion.
 6. Rewrite the information clearly and logically.
 `,
-
 };

@@ -95,13 +95,11 @@
   color: var(--ls-primary-text-color);
 }
 
-
 /* Popover content */
 .lda-popover-content {
   padding: 4px 16px 12px;
   max-height: 400px;
   overflow-y: auto;
-
 }
 
 /* Popover: flatten accordion items — no cards, no separators between collapsed rows */
@@ -218,7 +216,6 @@
 .lda-criterion-item:first-child {
   border-top: none;
 }
-
 
 .lda-flat-list-container {
   display: flex;
@@ -544,7 +541,9 @@
   cursor: pointer;
   color: inherit;
   opacity: 0.6;
-  transition: opacity 0.2s, background-color 0.2s;
+  transition:
+    opacity 0.2s,
+    background-color 0.2s;
 }
 
 .lda-action-btn-icon:hover {
@@ -587,7 +586,6 @@
 .lda-criterion-row {
   margin-top: 20px;
   padding: 0px 0px;
-
 }
 
 .lda-criterion-row:first-child {
@@ -635,7 +633,6 @@
 }
 
 .lda-feedback-full {
-
   padding-top: 10px;
 
   font-size: 12px;
@@ -650,10 +647,17 @@
 }
 
 .lda-action-btn {
-
   .lda-feedback-item--ai {
-    background-color: color-mix(in srgb, var(--ls-link-text-color, #3b82f6) 10%, transparent) !important;
-    border-color: color-mix(in srgb, var(--ls-link-text-color, #3b82f6) 30%, transparent) !important;
+    background-color: color-mix(
+      in srgb,
+      var(--ls-link-text-color, #3b82f6) 10%,
+      transparent
+    ) !important;
+    border-color: color-mix(
+      in srgb,
+      var(--ls-link-text-color, #3b82f6) 30%,
+      transparent
+    ) !important;
   }
 
   .lda-feedback-item--ai .font-semibold {
@@ -777,7 +781,11 @@
 }
 
 .lda-issue-done {
-  background-color: color-mix(in srgb, var(--ls-primary-background-color, var(--ls-secondary-background-color, #f9fafb)) 85%, #22c55e) !important;
+  background-color: color-mix(
+    in srgb,
+    var(--ls-primary-background-color, var(--ls-secondary-background-color, #f9fafb)) 85%,
+    #22c55e
+  ) !important;
   border-color: color-mix(in srgb, var(--ls-border-color, #e5e7eb) 70%, #22c55e) !important;
   opacity: 0.9;
 }

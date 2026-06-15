@@ -1,18 +1,18 @@
-import type { StyleInjector } from '../../application/ports';
+import type { StyleInjector } from "../../application/ports";
 
 /**
  * Concrete implementation of StyleInjector for frontend applications
  */
 export class FrontendStyleInjector implements StyleInjector {
- private getMainDocument(): Document | null {
+  private getMainDocument(): Document | null {
     return window.parent?.document || window.top?.document;
   }
 
   injectStyles(cssContent: string, styleId: string): void {
     const mainDocument = this.getMainDocument();
-    
+
     if (!mainDocument) {
-      console.error('Cannot access main Logseq document for style injection');
+      console.error("Cannot access main Logseq document for style injection");
       return;
     }
 
@@ -22,7 +22,7 @@ export class FrontendStyleInjector implements StyleInjector {
     }
 
     // Create style element with the CSS content
-    const styleElement = mainDocument.createElement('style');
+    const styleElement = mainDocument.createElement("style");
     styleElement.id = styleId;
     styleElement.textContent = cssContent;
 

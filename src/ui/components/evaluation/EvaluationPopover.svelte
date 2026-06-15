@@ -1,181 +1,161 @@
 <script lang="ts">
-  import { createEventDispatcher } from "svelte";
-  import { slide } from "svelte/transition";
-  import type {
-    BlockEvaluation,
-    CriterionResult,
-    Issue,
-  } from "../../../domain/evaluation/entity";
-  import { AddToSidebarUseCase } from "../../../application/usecases/add-to-sidebar.usecase";
-  import { Services } from "../../../services";
-  import { FrontendEvaluationCalculator } from "../../../infra/frontend/evaluation-calculator";
-  import EvaluationScore from "./EvaluationScore.svelte";
-  import EvaluationCriterionBlock from "./EvaluationCriterionBlock.svelte";
-  import EvaluationIssueBlock from "./EvaluationIssueBlock.svelte";
-  import { groupByCategory, genericClick } from "./evaluation-review-logic";
-  import { ICONS } from "../../icons";
-  import { onDestroy } from "svelte";
+import { createEventDispatcher } from "svelte";
+import { slide } from "svelte/transition";
+import type { BlockEvaluation, CriterionResult, Issue } from "../../../domain/evaluation/entity";
+import { AddToSidebarUseCase } from "../../../application/usecases/add-to-sidebar.usecase";
+import { Services } from "../../../services";
+import { FrontendEvaluationCalculator } from "../../../infra/frontend/evaluation-calculator";
+import EvaluationScore from "./EvaluationScore.svelte";
+import EvaluationCriterionBlock from "./EvaluationCriterionBlock.svelte";
+import EvaluationIssueBlock from "./EvaluationIssueBlock.svelte";
+import { groupByCategory, genericClick } from "./evaluation-review-logic";
+import { ICONS } from "../../icons";
+import { onDestroy } from "svelte";
 
-  let {
-    evaluationData,
-    blockId,
-    blockText,
-    showPopover = false,
-    onDataUpdate,
-  }: {
-    evaluationData: BlockEvaluation;
-    blockId?: string;
-    blockText?: string;
-    showPopover?: boolean;
-    onDataUpdate?: (updated: BlockEvaluation) => void;
-  } = $props();
+let {
+  evaluationData,
+  blockId,
+  blockText,
+  showPopover = false,
+  onDataUpdate,
+}: {
+  evaluationData: BlockEvaluation;
+  blockId?: string;
+  blockText?: string;
+  showPopover?: boolean;
+  onDataUpdate?: (updated: BlockEvaluation) => void;
+} = $props();
 
-  function cloneEvaluationData(source: BlockEvaluation): BlockEvaluation {
-    return JSON.parse(
-      JSON.stringify($state.snapshot(source)),
-    ) as BlockEvaluation;
+function cloneEvaluationData(source: BlockEvaluation): BlockEvaluation {
+  return JSON.parse(JSON.stringify($state.snapshot(source))) as BlockEvaluation;
+}
+
+// Svelte 5 requires cloning props into local state if we want to mutate them optimistically
+let localEvaluationData = $state<BlockEvaluation>({} as BlockEvaluation);
+const dispatch = createEventDispatcher();
+const calculator = new FrontendEvaluationCalculator();
+
+let preCommitmentEnabled = $state<boolean>(false);
+
+onDestroy(() => {
+  Services.instance.evidenceHighlightService.clearFocus();
+});
+
+$effect(() => {
+  if (typeof window !== "undefined" && (window as any).logseq) {
+    preCommitmentEnabled = !!(window as any).logseq.settings?.[
+      "cognitiveForcing_preCommitmentPrompt"
+    ];
   }
+});
 
-  // Svelte 5 requires cloning props into local state if we want to mutate them optimistically
-  let localEvaluationData = $state<BlockEvaluation>({} as BlockEvaluation);
-  const dispatch = createEventDispatcher();
-  const calculator = new FrontendEvaluationCalculator();
+$effect(() => {
+  localEvaluationData = cloneEvaluationData(evaluationData);
+});
 
-  let preCommitmentEnabled = $state<boolean>(false);
+let expandedCategories = $state<Record<string, boolean>>({});
+// NEW: State for the currently expanded criterion across all categories
+let expandedCriterionId = $state<string | null>(null);
 
-  onDestroy(() => {
-    Services.instance.evidenceHighlightService.clearFocus();
-  });
+// --- Focused issue state ---
+let focusedIssue = $state<{
+  criterion: CriterionResult;
+  criterionIdx: number;
+  issue: Issue;
+  issueIdx: number;
+} | null>(null);
 
-  $effect(() => {
-    if (typeof window !== "undefined" && (window as any).logseq) {
-      preCommitmentEnabled = !!(window as any).logseq.settings?.[
-        "cognitiveForcing_preCommitmentPrompt"
-      ];
-    }
-  });
+function handleIssueSelect(
+  criterion: CriterionResult,
+  criterionIdx: number,
+  issue: Issue,
+  issueIdx: number,
+) {
+  focusedIssue = { criterion, criterionIdx, issue, issueIdx };
+}
 
-  $effect(() => {
-    localEvaluationData = cloneEvaluationData(evaluationData);
-  });
+function closeFocusedIssue() {
+  focusedIssue = null;
+}
 
-  let expandedCategories = $state<Record<string, boolean>>({});
-  // NEW: State for the currently expanded criterion across all categories
-  let expandedCriterionId = $state<string | null>(null);
+function toggleCategory(categoryName: string) {
+  // Accordion mode: collapse others
+  const wasExpanded = expandedCategories[categoryName];
+  expandedCategories = wasExpanded ? {} : { [categoryName]: true };
+  // Also reset criterion accordion when changing categories
+  expandedCriterionId = null;
+}
 
-  // --- Focused issue state ---
-  let focusedIssue = $state<{
-    criterion: CriterionResult;
-    criterionIdx: number;
-    issue: Issue;
-    issueIdx: number;
-  } | null>(null);
-
-  function handleIssueSelect(
-    criterion: CriterionResult,
-    criterionIdx: number,
-    issue: Issue,
-    issueIdx: number,
-  ) {
-    focusedIssue = { criterion, criterionIdx, issue, issueIdx };
+function handleCriterionExpand(criterion_id: string) {
+  if (expandedCriterionId === criterion_id) {
+    expandedCriterionId = null; // toggle off
+  } else {
+    expandedCriterionId = criterion_id;
   }
+}
 
-  function closeFocusedIssue() {
-    focusedIssue = null;
-  }
-
-  function toggleCategory(categoryName: string) {
-    // Accordion mode: collapse others
-    const wasExpanded = expandedCategories[categoryName];
-    expandedCategories = wasExpanded ? {} : { [categoryName]: true };
-    // Also reset criterion accordion when changing categories
-    expandedCriterionId = null;
-  }
-
-  function handleCriterionExpand(criterion_id: string) {
-    if (expandedCriterionId === criterion_id) {
-      expandedCriterionId = null; // toggle off
-    } else {
-      expandedCriterionId = criterion_id;
-    }
-  }
-
-  function handleDataUpdate(updated: BlockEvaluation) {
-    localEvaluationData = updated;
-    onDataUpdate?.(updated);
-    // If we're focused on an issue, update the focused reference too
-    if (focusedIssue) {
-      for (const res of updated.results) {
-        if (
-          res.criterion_id === focusedIssue.criterion.criterion_id &&
-          res.issues?.[focusedIssue.issueIdx]
-        ) {
-          focusedIssue = {
-            ...focusedIssue,
-            criterion: res,
-            issue: res.issues[focusedIssue.issueIdx],
-          };
-          break;
-        }
+function handleDataUpdate(updated: BlockEvaluation) {
+  localEvaluationData = updated;
+  onDataUpdate?.(updated);
+  // If we're focused on an issue, update the focused reference too
+  if (focusedIssue) {
+    for (const res of updated.results) {
+      if (
+        res.criterion_id === focusedIssue.criterion.criterion_id &&
+        res.issues?.[focusedIssue.issueIdx]
+      ) {
+        focusedIssue = {
+          ...focusedIssue,
+          criterion: res,
+          issue: res.issues[focusedIssue.issueIdx],
+        };
+        break;
       }
     }
   }
+}
 
-  // Reactively track issue data and update DOM highlights via the application service
-  $effect(() => {
-    if (focusedIssue && blockId) {
-      console.log(
-        "[EvaluationPopover] focusedIssue changed, delegating to EvidenceHighlightService",
-      );
-      Services.instance.evidenceHighlightService.focusIssue(
-        blockId,
-        focusedIssue.issue,
-      );
-    } else {
-      console.log(
-        "[EvaluationPopover] Clearing focus via EvidenceHighlightService",
-      );
-      Services.instance.evidenceHighlightService.clearFocus();
-    }
-  });
-
-  const categories = $derived(() => {
-    const groups = groupByCategory(localEvaluationData?.results ?? []);
-    return Object.entries(groups).map(([cat, res]) => {
-      // Align criteria sorting with sidebar: lowest scores first, 0 (unrated) at the bottom
-      const sortedCriteria = [...res].sort((a, b) => {
-        const aVal = typeof a.score !== "number" ? 99 : a.score;
-        const bVal = typeof b.score !== "number" ? 99 : b.score;
-        return aVal - bVal;
-      });
-
-      return {
-        category: cat,
-        overallRating: calculator.calculateCategoryScore(sortedCriteria),
-        criteriaRatings: sortedCriteria,
-      };
-    });
-  });
-
-  const overallRating = $derived(
-    calculator.calculateOverallScore(localEvaluationData ?? evaluationData),
-  );
-
-  function openInSidebar(e?: MouseEvent) {
-    if (e) e.stopPropagation();
-    if (localEvaluationData) {
-      const useCase = new AddToSidebarUseCase(
-        Services.instance.sidebarInjector,
-      );
-      useCase.showAnalysisSidebar(
-        localEvaluationData,
-        blockId,
-        undefined,
-        blockText,
-      );
-      dispatch("close");
-    }
+// Reactively track issue data and update DOM highlights via the application service
+$effect(() => {
+  if (focusedIssue && blockId) {
+    console.log("[EvaluationPopover] focusedIssue changed, delegating to EvidenceHighlightService");
+    Services.instance.evidenceHighlightService.focusIssue(blockId, focusedIssue.issue);
+  } else {
+    console.log("[EvaluationPopover] Clearing focus via EvidenceHighlightService");
+    Services.instance.evidenceHighlightService.clearFocus();
   }
+});
+
+const categories = $derived(() => {
+  const groups = groupByCategory(localEvaluationData?.results ?? []);
+  return Object.entries(groups).map(([cat, res]) => {
+    // Align criteria sorting with sidebar: lowest scores first, 0 (unrated) at the bottom
+    const sortedCriteria = [...res].sort((a, b) => {
+      const aVal = typeof a.score !== "number" ? 99 : a.score;
+      const bVal = typeof b.score !== "number" ? 99 : b.score;
+      return aVal - bVal;
+    });
+
+    return {
+      category: cat,
+      overallRating: calculator.calculateCategoryScore(sortedCriteria),
+      criteriaRatings: sortedCriteria,
+    };
+  });
+});
+
+const overallRating = $derived(
+  calculator.calculateOverallScore(localEvaluationData ?? evaluationData),
+);
+
+function openInSidebar(e?: MouseEvent) {
+  if (e) e.stopPropagation();
+  if (localEvaluationData) {
+    const useCase = new AddToSidebarUseCase(Services.instance.sidebarInjector);
+    useCase.showAnalysisSidebar(localEvaluationData, blockId, undefined, blockText);
+    dispatch("close");
+  }
+}
 </script>
 
 <div class="lda-rating-popover">
@@ -192,20 +172,14 @@
           {@html ICONS.chevronRight}
         </button>
         <h4 class="lda-popover-title" style="flex: 1;">
-          <span class="lda-focus-breadcrumb"
-            >{focusedIssue.criterion.criterion_id}</span
-          >
+          <span class="lda-focus-breadcrumb">{focusedIssue.criterion.criterion_id}</span>
         </h4>
       {:else}
         <h4 id="lda-popover-title" class="lda-popover-title">
           Detailed Evaluation
           {#if localEvaluationData}
             <div style="display: inline-block; margin-left: 8px;">
-              <EvaluationScore
-                rating={overallRating}
-                showValue={true}
-                size="sm"
-              />
+              <EvaluationScore rating={overallRating} showValue={true} size="sm" />
             </div>
           {/if}
         </h4>
@@ -225,8 +199,7 @@
           stroke="currentColor"
           stroke-width="2"
           stroke-linecap="round"
-          stroke-linejoin="round"
-          ><path d="M15 3h6v18h-6M10 17l5-5-5-5M3 12h12" /></svg
+          stroke-linejoin="round"><path d="M15 3h6v18h-6M10 17l5-5-5-5M3 12h12" /></svg
         >
       </button>
     </div>
@@ -261,8 +234,7 @@
               categoryName={categories()[0].category}
               categoryIdx={0}
               accordionMode={true}
-              isExpandedInAccordion={expandedCriterionId ===
-                criterion.criterion_id}
+              isExpandedInAccordion={expandedCriterionId === criterion.criterion_id}
               onExpandToggle={handleCriterionExpand}
               compactIssueList={true}
               onIssueSelect={handleIssueSelect}
@@ -288,11 +260,7 @@
                     : ICONS.chevronRight}
                 </span>
                 <span class="lda-category-name">{category.category}</span>
-                <EvaluationScore
-                  rating={category.overallRating}
-                  showValue={true}
-                  size="sm"
-                />
+                <EvaluationScore rating={category.overallRating} showValue={true} size="sm" />
               </div>
             </button>
 
@@ -306,8 +274,7 @@
                       categoryName={category.category}
                       categoryIdx={catIdx}
                       accordionMode={true}
-                      isExpandedInAccordion={expandedCriterionId ===
-                        criterion.criterion_id}
+                      isExpandedInAccordion={expandedCriterionId === criterion.criterion_id}
                       onExpandToggle={handleCriterionExpand}
                       compactIssueList={true}
                       onIssueSelect={handleIssueSelect}

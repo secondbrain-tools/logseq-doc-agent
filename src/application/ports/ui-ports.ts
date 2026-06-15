@@ -21,7 +21,7 @@ export interface ComponentInjector {
   injectComponentWithPosition(
     target: HTMLElement,
     component: any,
-    position?: import('../../domain/logseq').InjectionPosition,
-    props?: any
+    position?: import("../../domain/logseq").InjectionPosition,
+    props?: any,
   ): HTMLElement;
 }

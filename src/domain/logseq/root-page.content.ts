@@ -17,5 +17,5 @@ This page and its subpages store all the data for the plugin.
 
 - ⚠️ **Notice**
   - Do not manually change the structure of these pages unless you know what you are doing.
-`
+`,
 };

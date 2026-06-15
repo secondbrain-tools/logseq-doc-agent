@@ -1,14 +1,17 @@
 # Injection Mechanism & BaseBlockInjector
 
 ## Overview
-The Logseq Doc Agent uses a robust injection mechanism to embed custom UI components into Logseq's virtualized DOM. 
+
+The Logseq Doc Agent uses a robust injection mechanism to embed custom UI components into Logseq's virtualized DOM.
 
 ## The Challenge
+
 1. **Virtualization**: Blocks are created/destroyed on scroll.
 2. **Reactivity**: Blocks change state (expand/collapse).
 3. **Scoping**: Must distinguish between parent and child blocks to avoid double-injection.
 
 ## Solution: `BaseBlockInjector`
+
 Located in `src/application/services/base-injector.ts`, this abstract class provides a unified strategy:
 
 1. **DB-First Discovery**: Queries Datascript for relevant blocks using `getQuery()`.
@@ -24,10 +27,10 @@ To create a new injection feature (e.g., Ratings), extend `BaseBlockInjector<TDa
 class MyInjector extends BaseBlockInjector<MyData> {
     // 1. Define where to inject (e.g. LastChild of block)
     protected getInjectionConfig(): InjectionConfig {
-        return { 
+        return {
             position: InjectionPosition.LastChild,
             containerClass: 'my-container-class'
-        }; 
+        };
     }
 
     // 2. Return your Svelte component class
@@ -53,5 +56,6 @@ class MyInjector extends BaseBlockInjector<MyData> {
 ```
 
 ## Current Usage
+
 - **Ratings**: Uses `BaseBlockInjector` (`InjectRatingsUseCase`).
 - **Merges**: Uses a **custom implementation** (`InjectMergesUseCase`) due to complex requirements (Page Toolbar, Selection Listeners), though it shares the same core principles.
